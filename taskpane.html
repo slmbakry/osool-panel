@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة أصول</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+:root{
+  --bg:#f6f5f1; --card:#ffffff; --ink:#1d2422; --muted:#6b736f; --line:#e4e2db;
+  --brand:#0f5c55; --brand-ink:#ffffff; --brand-soft:#e3efec;
+  --warn:#9a5b00; --warn-bg:#fff4e0; --err:#a3261b; --err-bg:#fdecea; --ok:#1f7a45; --ok-bg:#e6f4ea;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 "IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.top{position:sticky;top:0;z-index:5;background:var(--brand);color:var(--brand-ink);padding:10px 14px 0}
+.brandrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{font-weight:700;font-size:16px;letter-spacing:.2px}
+.stat{font-size:12px;opacity:.85}
+.iconbtn{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;display:grid;place-items:center}
+.iconbtn:hover{background:rgba(255,255,255,.24)}
+.tabs{display:flex;gap:2px;margin-top:8px;overflow-x:auto}
+.tab{background:transparent;border:0;color:rgba(255,255,255,.75);padding:8px 10px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;font-weight:500}
+.tab.on{color:#fff;border-bottom-color:#fff}
+.tab[disabled]{opacity:.45;cursor:default}
+.tab small{font-size:10px;margin-inline-start:3px}
+main{padding:12px 12px 90px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:10px}
+.card h3{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:6px}
+.card h3 .n{background:var(--brand-soft);color:var(--brand);border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:11px;font-weight:700}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+label .req{color:var(--err)}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+textarea{min-height:56px;resize:vertical}
+.ltr{direction:ltr;text-align:right}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-radius:9px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:7px;padding:7px;cursor:pointer;font-weight:500;color:var(--muted)}
+.seg button.on{background:#fff;color:var(--brand);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.chip{display:inline-block;background:var(--brand-soft);color:var(--brand);border-radius:20px;padding:2px 10px;font-size:12px;margin-top:8px}
+.results{border:1px solid var(--line);border-radius:8px;margin-top:6px;max-height:260px;overflow:auto;background:#fff}
+.results button{display:block;width:100%;text-align:right;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 10px;cursor:pointer}
+.results button:last-child{border-bottom:0}
+.results button:hover,.results button:focus{background:var(--brand-soft);outline:none}
+.r1{font-weight:600}.r2{font-size:12px;color:var(--muted)}
+.unit{border:1px solid var(--brand);background:var(--brand-soft);border-radius:9px;padding:10px}
+.unit .head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.unit .t{font-weight:700}
+.link{background:none;border:0;color:var(--brand);cursor:pointer;font-weight:600;padding:0;text-decoration:underline;font-size:12px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin-top:8px;font-size:12.5px}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.code{display:flex;align-items:center;justify-content:space-between;margin-top:10px;background:#fff;border-radius:8px;padding:7px 10px}
+.code b{font-family:Consolas,monospace;font-size:15px;direction:ltr}
+table.sch{width:100%;border-collapse:collapse;font-size:13px}
+table.sch td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+table.sch td.m{width:42%}
+table.sch input{padding:5px 7px}
+table.sch .note{font-size:11px;color:var(--muted)}
+.total{display:flex;justify-content:space-between;font-weight:700;margin-top:8px}
+.empty{color:var(--muted);font-size:12.5px}
+.msgs{margin-bottom:10px}
+.msg{border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:6px}
+.msg.err{background:var(--err-bg);color:var(--err)}
+.msg.warn{background:var(--warn-bg);color:var(--warn)}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}
+.bar{position:fixed;bottom:0;inset-inline:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;z-index:6}
+.btn{flex:1;border:0;border-radius:9px;padding:10px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--brand);color:#fff}
+.btn.primary:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:var(--bg);color:var(--ink);flex:0 0 auto;padding:10px 14px}
+.overlay{position:fixed;inset:0;background:rgba(20,28,26,.45);display:none;align-items:flex-end;z-index:20}
+.overlay.on{display:flex}
+.sheet{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px 14px 14px}
+.sheet h2{margin:0 0 10px;font-size:16px}
+.loading{padding:40px 16px;text-align:center;color:var(--muted)}
+.spin{width:26px;height:26px;border:3px solid var(--brand-soft);border-top-color:var(--brand);border-radius:50%;margin:0 auto 10px;animation:s 0.8s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+.rcard{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px}
+.rcard .top2{display:flex;justify-content:space-between;gap:8px}
+.badge{font-size:11px;border-radius:20px;padding:1px 8px;white-space:nowrap;height:fit-content}
+.badge.live{background:var(--ok-bg);color:var(--ok)}.badge.book{background:var(--warn-bg);color:var(--warn)}.badge.done{background:var(--bg);color:var(--muted)}
+.done{text-align:center;padding:26px 10px}
+.done .big{font-size:40px;color:var(--ok)}
+.hide{display:none!important}
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.sum .box{background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 10px}
+.sum .v{font-size:17px;font-weight:700}.sum .k{font-size:11.5px;color:var(--muted)}
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+.amt{font-weight:700;font-size:15px;white-space:nowrap}
+.late{color:var(--err)}.okc{color:var(--ok)}
+.pill{display:inline-block;background:var(--bg);border-radius:20px;padding:1px 8px;font-size:11px;color:var(--muted)}
+.rcard.click{cursor:pointer}.rcard.click:hover{border-color:var(--brand)}
+table.mt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.mt th{font-weight:500;color:var(--muted);text-align:right;padding:4px 0;border-bottom:1px solid var(--line)}
+table.mt td{padding:4px 0;border-bottom:1px solid var(--line)}
+table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
+.strike{text-decoration:line-through;color:var(--muted)}
+.back{background:none;border:0;color:var(--brand);font-weight:600;cursor:pointer;padding:0 0 10px}
+.radio{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer}
+.radio input,.chk input{width:auto}
+.chk{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+.chks{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brandrow">
+    <div><div class="brand">لوحة أصول</div><div class="stat" id="stat">بيحمّل…</div></div>
+    <div style="display:flex;gap:6px">
+    <button class="iconbtn" id="gear" title="إعداد الملف" aria-label="إعداد الملف">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button class="iconbtn" id="reload" title="تحديث البيانات" aria-label="تحديث البيانات">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+    </button>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab on" data-tab="new">عقد جديد</button>
+    <button class="tab" data-tab="search">بحث</button>
+    <button class="tab" data-tab="coll">التحصيلات</button>
+    <button class="tab" disabled>المراجعة<small>قريباً</small></button>
+  </nav>
+</div>
+
+<main>
+  <div id="loading" class="loading"><div class="spin"></div>بيقرا جداول الملاك والمستأجرين…</div>
+  <div id="fatal" class="msg err hide"></div>
+
+  <!-- عقد جديد -->
+  <section id="tab-new" class="hide">
+    <div id="form">
+      <div class="card">
+        <h3><span class="n">1</span>الوحدة</h3>
+        <div id="unitPick">
+          <input id="unitQ" placeholder="ابحث بالكود أو العمارة أو الشقة أو اسم المالك" autocomplete="off">
+          <div id="unitRes" class="results hide"></div>
+        </div>
+        <div id="unitCard" class="hide"></div>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">2</span>الفترة</h3>
+        <div class="seg" id="typeSeg">
+          <button data-type="nightly">بالليلة</button>
+          <button data-type="monthly" class="on">شهري</button>
+        </div>
+        <div class="grid2">
+          <div><label>بداية العقد <span class="req">*</span></label><input type="date" id="start"></div>
+          <div><label>نهاية العقد <span class="req">*</span></label><input type="date" id="end"></div>
+        </div>
+        <div id="dur" class="chip hide"></div>
+        <label>تاريخ تبليغ القسم</label><input type="date" id="notifyDate">
+      </div>
+
+      <div class="card">
+        <h3><span class="n">3</span>المستأجر</h3>
+        <label>الاسم <span class="req">*</span></label><input id="name" autocomplete="off">
+        <div class="grid2">
+          <div><label>الجنسية</label><input id="nationality" list="dlNat" autocomplete="off"></div>
+          <div><label>التليفون</label><input id="phone" class="ltr" inputmode="tel" autocomplete="off"></div>
+        </div>
+        <label>رقم البطاقة أو الباسبور</label><input id="idNo" class="ltr" autocomplete="off">
+      </div>
+
+      <div class="card">
+        <h3><span class="n">4</span>الفلوس</h3>
+        <div id="rateBox"><label>سعر الليلة <span class="req">*</span></label><input id="rate" inputmode="decimal" class="ltr num"></div>
+        <div id="rentBox"><label>الإيجار الشهري <span class="req">*</span></label><input id="rent" inputmode="decimal" class="ltr num"></div>
+        <div class="grid2">
+          <div><label>التأمين</label><input id="deposit" class="ltr"></div>
+          <div><label>الاستهلاكات</label><input id="utilities" list="dlUtil"></div>
+        </div>
+        <label>تحصيل كل</label><input id="collectEvery" placeholder="مثلاً: 3 شهور">
+      </div>
+
+      <div class="card">
+        <h3><span class="n">5</span>التشغيل</h3>
+        <div class="grid2">
+          <div><label>نوع العميل</label><input id="special" list="dlSpecial" autocomplete="off"></div>
+          <div><label>مسؤول التشغيل</label><input id="operation" list="dlOp" autocomplete="off"></div>
+        </div>
+        <div id="specialRateBox" class="hide"><label>المعدل اليومي لأبو آدم</label><input id="specialRate" class="ltr"></div>
+        <div class="grid2">
+          <div><label>البروكر</label><input id="broker" list="dlBroker" autocomplete="off"></div>
+          <div><label>عمولة البروكر</label><input id="brokerFee" inputmode="decimal" class="ltr num"></div>
+        </div>
+        <label>موقف الاستلام</label>
+        <select id="receipt"><option value="">—</option><option>تحت الاستلام</option><option>تم الاستلام</option><option>تم الاستلام و المراجعة</option></select>
+        <label>ملاحظات</label><textarea id="notes"></textarea>
+      </div>
+
+      <div class="card">
+        <h3><span class="n">6</span>الاستحقاق الشهري</h3>
+        <div id="shiftBox" class="hide" style="margin-bottom:10px">
+          <label style="margin-top:0">أول شهر استحقاق</label>
+          <div class="seg" id="shiftSeg"><button data-shift="0">شهر البداية</button><button data-shift="1">الشهر اللي بعده</button></div>
+        </div>
+        <div id="sched"><div class="empty">هيظهر هنا بعد ما تحدد التواريخ والمبلغ.</div></div>
+      </div>
+
+      <div id="msgs" class="msgs"></div>
+    </div>
+
+    <div id="doneView" class="hide"></div>
+  </section>
+
+  <section id="tab-coll" class="hide"></section>
+  <section id="tab-transfer" class="hide"></section>
+
+  <!-- بحث -->
+  <section id="tab-search" class="hide">
+    <div class="card">
+      <input id="sQ" placeholder="اسم، كود مستأجر، كود وحدة، تليفون، أو رقم بطاقة" autocomplete="off">
+    </div>
+    <div id="sRes"></div>
+  </section>
+</main>
+
+<div class="bar" id="bar">
+  <button class="btn ghost" id="clear">تفريغ</button>
+  <button class="btn primary" id="review">مراجعة وحفظ</button>
+</div>
+
+<div class="overlay" id="ov"><div class="sheet" id="sheet"></div></div>
+
+<datalist id="dlNat"></datalist><datalist id="dlOp"></datalist><datalist id="dlBroker"></datalist>
+<datalist id="dlSpecial"><option>ابو ادم</option><option>Airbnb</option><option>ويستن</option><option>شركات</option></datalist>
+<datalist id="dlUtil"><option>شامل</option><option>غير شامل</option><option>على العميل</option></datalist>
+
+<script src="logic.js"></script>
+<script src="followup.js"></script>
+<script src="excel.js"></script>
+<script>
+(function(){
+'use strict';
+var L = window.OsoolLogic;
+var A = window.OsoolMockAdapter || window.OsoolExcel;
+var $ = function(id){ return document.getElementById(id); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
+var money = function(n){ return (Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:2}); };
+var digits = function(s){ return String(s||'').replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/[٫]/g,'.').replace(/[,،\s]/g,''); };
+
+var S = { units:[], renters:[], monthHeaders:[], unit:null, type:'monthly', typeTouched:false, schedule:[], saving:false };
+
+// ---------- تحميل ----------
+function load(){
+  $('loading').classList.remove('hide'); $('fatal').classList.add('hide');
+  ['tab-new','tab-search','tab-coll','tab-transfer'].forEach(function(id){ $(id).classList.add('hide'); });
+  return A.loadAll().then(function(d){
+    S.units = L.buildUnits(d.owner);
+    S.renters = L.buildRenters(d.renter);
+    S.monthHeaders = d.monthHeaders;
+    S.months = d.renter.months || {}; S.cash = d.cash || []; S.treasury = null; S.ledger = null;
+    $('stat').textContent = S.units.length + ' وحدة · ' + S.renters.length + ' عقد';
+    fill('dlNat', L.topValues(S.renters,'nationality',30));
+    fill('dlOp', L.topValues(S.renters,'operation',20));
+    fill('dlBroker', L.topValues(S.renters,'broker',20));
+    $('loading').classList.add('hide');
+    showTab(S.tab==='transfer' ? 'search' : (S.tab||'new'));
+    if (S.unit) selectUnit(S.unit.code);
+  }).catch(function(e){
+    $('loading').classList.add('hide');
+    $('fatal').textContent = 'مقدرتش أقرا الملف: ' + e.message;
+    $('fatal').classList.remove('hide');
+  });
+}
+function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option value="'+esc(v)+'">'; }).join(''); }
+
+// ---------- تبويبات ----------
+function showTab(t){
+  S.tab = t;
+  document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.classList.toggle('on', b.dataset.tab===t); });
+  ['new','search','coll','transfer'].forEach(function(x){ $('tab-'+x).classList.toggle('hide', t!==x); });
+  $('bar').classList.toggle('hide', t!=='new' || !$('doneView').classList.contains('hide'));
+  if (t==='search') $('sQ').focus();
+  if (window.OsoolScreens && OsoolScreens.onTab) OsoolScreens.onTab(t);
+}
+document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.addEventListener('click', function(){ showTab(b.dataset.tab); }); });
+$('reload').addEventListener('click', load);
+
+// ---------- الوحدة ----------
+function unitTitle(u){ return [u.project, u.block && ('بلوك '+u.block), u.building && ('عمارة '+u.building), u.apt && ('شقة '+u.apt)].filter(Boolean).join(' · '); }
+$('unitQ').addEventListener('input', function(){
+  var res = L.searchUnits(S.units, this.value), box = $('unitRes');
+  if (!this.value.trim()) { box.classList.add('hide'); return; }
+  box.classList.remove('hide');
+  box.innerHTML = res.length ? res.map(function(u){
+    return '<button data-code="'+esc(u.code)+'"><div class="r1">'+esc(unitTitle(u)||u.code)+'</div><div class="r2">كود '+esc(u.code)+' · '+esc(u.owner)+'</div></button>';
+  }).join('') : '<div class="r2" style="padding:10px">مفيش وحدة بالبيانات دي.</div>';
+});
+$('unitRes').addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) selectUnit(b.dataset.code); });
+
+function selectUnit(code){
+  var u = S.units.filter(function(x){ return x.code===String(code); })[0];
+  if (!u) return;
+  S.unit = u;
+  var st = L.unitStatus(u.code, S.renters);
+  var codes = S.renters.map(function(r){ return r.code; });
+  var cur = st.current ? esc(st.current.name)+' لحد '+L.fmt(st.current.end) : 'فاضية';
+  var up = st.upcoming.length ? st.upcoming.map(function(r){ return esc(r.name)+' ('+L.fmt(r.start)+' – '+L.fmt(r.end)+')'; }).join('<br>') : 'مفيش';
+  $('unitCard').innerHTML =
+    '<div class="unit"><div class="head"><div><div class="t">'+esc(unitTitle(u)||('وحدة '+u.code))+'</div><div class="r2">المالك: '+esc(u.owner||'—')+(u.bedrooms?' · '+esc(u.bedrooms)+' غرف':'')+'</div></div><button class="link" id="chg">تغيير</button></div>'+
+    '<dl class="kv"><dt>ساكن دلوقتي</dt><dd>'+cur+'</dd><dt>حجوزات جاية</dt><dd>'+up+'</dd><dt>نهاية عقد المالك</dt><dd>'+L.fmt(u.ownerEnd)+'</dd></dl>'+
+    '<div class="code"><span class="r2">كود المستأجر الجديد</span><b>'+esc(L.nextTenantCode(u.code, codes))+'</b></div></div>';
+  $('unitPick').classList.add('hide'); $('unitCard').classList.remove('hide');
+  $('chg').addEventListener('click', function(){ S.unit=null; $('unitCard').classList.add('hide'); $('unitPick').classList.remove('hide'); $('unitQ').value=''; $('unitRes').classList.add('hide'); $('unitQ').focus(); refresh(); });
+  refresh();
+}
+
+// ---------- النوع والتواريخ ----------
+function setType(t, byUser){
+  S.type = t; if (byUser) S.typeTouched = true;
+  document.querySelectorAll('#typeSeg button').forEach(function(b){ b.classList.toggle('on', b.dataset.type===t); });
+  $('rateBox').classList.toggle('hide', t!=='nightly');
+  $('rentBox').classList.toggle('hide', t!=='monthly');
+}
+document.querySelectorAll('#typeSeg button').forEach(function(b){ b.addEventListener('click', function(){ setType(b.dataset.type, true); refresh(); }); });
+['start','end'].forEach(function(id){ $(id).addEventListener('change', function(){
+  var s=L.parseISO($('start').value), e=L.parseISO($('end').value);
+  if (id==='start' && s && !$('end').value) { /* لا شيء */ }
+  if (s && e && !S.typeTouched) setType(L.daysBetween(s,e) < 30 ? 'nightly' : 'monthly');
+  refresh();
+}); });
+$('special').addEventListener('input', function(){ $('specialRateBox').classList.toggle('hide', this.value.trim()!=='ابو ادم'); refresh(); });
+document.querySelectorAll('.num').forEach(function(i){ i.addEventListener('blur', function(){ this.value = digits(this.value); }); });
+['rate','rent','name','phone'].forEach(function(id){ $(id).addEventListener('input', refresh); });
+
+// ---------- الحساب والعرض ----------
+function readForm(){
+  return {
+    unit:S.unit, type:S.type,
+    start:L.parseISO($('start').value), end:L.parseISO($('end').value), notifyDate:L.parseISO($('notifyDate').value),
+    name:$('name').value, nationality:$('nationality').value, phone:digits($('phone').value).replace(/^\+/,''), idNo:$('idNo').value.trim(),
+    rate:digits($('rate').value), rent:digits($('rent').value), deposit:$('deposit').value, utilities:$('utilities').value, collectEvery:$('collectEvery').value,
+    special:$('special').value.trim(), specialRate:$('specialRate').value, operation:$('operation').value, broker:$('broker').value, brokerFee:digits($('brokerFee').value),
+    receipt:$('receipt').value, notes:$('notes').value, schedule:S.schedule,
+    shift:(S.shift===null||S.shift===undefined) ? undefined : S.shift
+  };
+}
+function schedKey(f){ return [f.type,f.start&&+f.start,f.end&&+f.end,f.rate,f.rent,f.shift].join('|'); }
+document.querySelectorAll('#shiftSeg button').forEach(function(b){ b.addEventListener('click', function(){ S.shift = +b.dataset.shift; refresh(); }); });
+
+function refresh(){
+  var f = readForm();
+  var s=f.start, e=f.end;
+  var effShift = f.shift===undefined ? L.defaultShift(s) : f.shift;
+  $('shiftBox').classList.toggle('hide', f.type!=='monthly' || !s);
+  document.querySelectorAll('#shiftSeg button').forEach(function(b){ b.classList.toggle('on', +b.dataset.shift===effShift); });
+  if (s && e && e>s){ $('dur').textContent = L.durationText(s,e); $('dur').classList.remove('hide'); } else $('dur').classList.add('hide');
+  var k = schedKey(f);
+  if (k !== S.schedKey){ S.schedKey = k; S.schedule = L.buildSchedule(f); renderSchedule(); }
+  f.schedule = S.schedule;
+  renderMsgs(f);
+}
+function renderSchedule(){
+  var box = $('sched');
+  if (!S.schedule.length){ box.innerHTML = '<div class="empty">هيظهر هنا بعد ما تحدد التواريخ والمبلغ.</div>'; return; }
+  box.innerHTML = '<table class="sch">'+S.schedule.map(function(r,i){
+    var missing = S.monthHeaders.length && S.monthHeaders.indexOf(r.key)===-1;
+    return '<tr><td class="m">'+L.monthLabel(r.key)+(r.note?'<div class="note">'+esc(r.note)+'</div>':'')+(missing?'<div class="note" style="color:var(--err)">العمود مش موجود</div>':'')+'</td><td><input class="ltr" data-i="'+i+'" value="'+r.amount+'" inputmode="decimal"></td>'+
+      '<td style="width:26px;text-align:left"><button class="link" data-del="'+i+'" title="حذف الشهر" aria-label="حذف الشهر" style="text-decoration:none;color:var(--muted);font-size:16px">×</button></td></tr>';
+  }).join('')+'</table>'+
+  '<div style="display:flex;gap:14px;margin-top:8px"><button class="link" id="addFirst">+ شهر قبل الأول</button><button class="link" id="addLast">+ شهر بعد الأخير</button></div>'+
+  '<div class="total"><span>الإجمالي</span><span id="tot"></span></div>';
+  box.querySelectorAll('input').forEach(function(inp){ inp.addEventListener('input', function(){
+    S.schedule[+this.dataset.i].amount = Number(digits(this.value))||0; updateTotal(); renderMsgs(readForm());
+  }); });
+  box.querySelectorAll('button[data-del]').forEach(function(b){ b.addEventListener('click', function(){
+    S.schedule.splice(+b.dataset.del,1); renderSchedule(); renderMsgs(readForm());
+  }); });
+  function neighbour(key, k){ var p=key.split('-'); var d=new Date(Date.UTC(2000+ +p[1], ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(p[0]), 1)); return L.monthKey(L.addMonths(d,k)); }
+  $('addFirst').addEventListener('click', function(){ S.schedule.unshift({key:neighbour(S.schedule[0].key,-1), amount:0, note:'مضاف يدوي'}); renderSchedule(); renderMsgs(readForm()); });
+  $('addLast').addEventListener('click', function(){ S.schedule.push({key:neighbour(S.schedule[S.schedule.length-1].key,1), amount:0, note:'مضاف يدوي'}); renderSchedule(); renderMsgs(readForm()); });
+  updateTotal();
+}
+function updateTotal(){ var t=S.schedule.reduce(function(a,r){return a+(Number(r.amount)||0);},0); if($('tot')) $('tot').textContent = money(t); }
+
+function renderMsgs(f){
+  f.schedule = S.schedule; f.rate = f.special==='ابو ادم' ? f.specialRate : f.rate;
+  var v = L.validate(normalizeForSave(f), { renters:S.renters, monthHeaders:S.monthHeaders });
+  S.validation = v;
+  var touched = S.unit || f.start || f.name;
+  $('msgs').innerHTML = !touched ? '' : v.warnings.map(function(w){ return '<div class="msg warn">'+esc(w)+'</div>'; }).join('');
+}
+// خانة "Rate" في الشيت خاصة بأبو آدم؛ سعر الليلة بيروح في جدول الاستحقاق كمعادلة
+function normalizeForSave(f){
+  var o = {}; for (var k in f) o[k]=f[k];
+  o.rate = f.special==='ابو ادم' ? f.specialRate : '';
+  o.nightRate = f.type==='nightly' ? digits($('rate').value) : '';
+  return o;
+}
+
+// ---------- الحفظ ----------
+$('review').addEventListener('click', function(){
+  var f = normalizeForSave(readForm()); f.schedule = S.schedule;
+  var v = L.validate(f, { renters:S.renters, monthHeaders:S.monthHeaders });
+  if (v.errors.length){
+    $('msgs').innerHTML = v.errors.map(function(x){ return '<div class="msg err">'+esc(x)+'</div>'; }).join('') + v.warnings.map(function(w){ return '<div class="msg warn">'+esc(w)+'</div>'; }).join('');
+    $('msgs').scrollIntoView({behavior:'smooth',block:'center'}); return;
+  }
+  var codes = S.renters.map(function(r){ return r.code; });
+  var code = L.nextTenantCode(f.unit.code, codes);
+  $('sheet').innerHTML = '<h2>راجع قبل الحفظ</h2>'+
+    '<dl class="kv"><dt>الوحدة</dt><dd>'+esc(unitTitle(f.unit)||f.unit.code)+'</dd><dt>كود المستأجر</dt><dd><b class="ltr" style="direction:ltr;display:inline-block">'+esc(code)+'</b></dd><dt>المستأجر</dt><dd>'+esc(f.name)+'</dd>'+
+    '<dt>الفترة</dt><dd>'+L.fmt(f.start)+' ← '+L.fmt(f.end)+'<br><span class="r2">'+L.durationText(f.start,f.end)+'</span></dd>'+
+    '<dt>الاستحقاق</dt><dd>'+S.schedule.map(function(r){return L.monthLabel(r.key)+': '+money(r.amount);}).join('<br>')+'</dd><dt>الإجمالي</dt><dd><b>'+money(v.total)+'</b></dd></dl>'+
+    (v.warnings.length? '<div style="margin-top:10px">'+v.warnings.map(function(w){return '<div class="msg warn">'+esc(w)+'</div>';}).join('')+'</div>':'')+
+    '<p class="r2">هيتكتب في أول سطر فاضي بعد آخر عقد في شيت عقود المستأجرين.</p>'+
+    '<div style="display:flex;gap:8px"><button class="btn ghost" id="back">رجوع</button><button class="btn primary" id="go">تأكيد الحفظ</button></div>';
+  $('ov').classList.add('on');
+  $('back').addEventListener('click', function(){ $('ov').classList.remove('on'); });
+  $('go').addEventListener('click', function(){ save(f); });
+});
+$('ov').addEventListener('click', function(e){ if(e.target===this && !S.saving) this.classList.remove('on'); });
+
+function save(f){
+  if (S.saving) return; S.saving = true;
+  var go = $('go'); go.disabled = true; go.textContent = 'بيحفظ…';
+  A.writeContract(f).then(function(res){
+    S.saving = false; $('ov').classList.remove('on');
+    S.renters.push({ idx:res.idx, unit:f.unit.code, code:res.code, start:f.start, end:f.end, name:f.name.trim(), phone:f.phone, idNo:f.idNo, nationality:f.nationality, special:f.special, operation:f.operation, broker:f.broker });
+    $('stat').textContent = S.units.length + ' وحدة · ' + S.renters.length + ' عقد';
+    $('form').classList.add('hide'); $('bar').classList.add('hide');
+    $('doneView').classList.remove('hide');
+    $('doneView').innerHTML = '<div class="card done"><div class="big">✓</div><h2 style="margin:4px 0">اتسجل العقد</h2>'+
+      '<div class="r2">في السطر '+res.sheetRow+' بشيت عقود المستأجرين</div>'+
+      '<div class="code" style="margin:14px 0;border:1px solid var(--line)"><span class="r2">كود المستأجر</span><b>'+esc(res.code)+'</b></div>'+
+      (res.duplicate?'<div class="msg err">الكود ده ظهر مرتين في الجدول. غالباً حد تاني سجل في نفس اللحظة، راجع السطر.</div>':'')+
+      (res.skipped.length?'<div class="msg warn">خانات متكتبتش لأن عمودها مش موجود: '+esc(res.skipped.join('، '))+'</div>':'')+
+      '<div style="display:flex;gap:8px"><button class="btn ghost" id="copy">نسخ الكود</button><button class="btn primary" id="again">عقد جديد</button></div></div>';
+    $('copy').addEventListener('click', function(){ copyText(res.code, this); });
+    $('again').addEventListener('click', resetForm);
+  }).catch(function(e){
+    S.saving = false; go.disabled = false; go.textContent = 'تأكيد الحفظ';
+    var m = document.createElement('div'); m.className='msg err'; m.textContent = 'الحفظ موقف: ' + e.message;
+    $('sheet').insertBefore(m, $('sheet').children[1]);
+  });
+}
+function copyText(t, btn){
+  var ok = function(){ btn.textContent='اتنسخ'; setTimeout(function(){ btn.textContent='نسخ الكود'; },1500); };
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok, function(){ fallback(); }); else fallback();
+  function fallback(){ var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); ok(); }
+}
+function resetForm(){
+  document.querySelectorAll('#form input, #form textarea').forEach(function(i){ i.value=''; });
+  $('receipt').value=''; S.unit=null; S.typeTouched=false; S.schedKey=null; S.schedule=[]; S.shift=null; $('shiftBox').classList.add('hide');
+  $('unitCard').classList.add('hide'); $('unitPick').classList.remove('hide'); $('unitRes').classList.add('hide');
+  $('specialRateBox').classList.add('hide'); setType('monthly'); renderSchedule(); $('msgs').innerHTML=''; $('dur').classList.add('hide');
+  $('doneView').classList.add('hide'); $('form').classList.remove('hide'); $('bar').classList.remove('hide');
+  window.scrollTo(0,0);
+}
+$('clear').addEventListener('click', function(){ if (confirm('تفريغ كل الخانات؟')) resetForm(); });
+
+// ---------- البحث ----------
+$('sQ').addEventListener('input', function(){
+  var res = L.searchRenters(S.renters, this.value, 30), today = L.todayUTC();
+  var q = this.value.trim();
+  if (q.length < 2){ $('sRes').innerHTML=''; return; }
+  if (!res.length){ $('sRes').innerHTML='<div class="empty" style="padding:6px">مفيش نتايج.</div>'; return; }
+  $('sRes').innerHTML = res.map(function(r){
+    var u = S.units.filter(function(x){ return x.code===r.unit; })[0];
+    var b = !r.start||!r.end ? '' : r.start>today ? '<span class="badge book">محجوز</span>' : r.end>=today ? '<span class="badge live">ساري</span>' : '<span class="badge done">انتهى</span>';
+    return '<div class="rcard"><div class="top2"><div><div class="r1">'+esc(r.name||'—')+'</div><div class="r2" style="direction:ltr;text-align:right">'+esc(r.code)+'</div></div>'+b+'</div>'+
+      '<dl class="kv"><dt>الوحدة</dt><dd>'+esc(u?unitTitle(u):r.unit)+'</dd><dt>الفترة</dt><dd>'+L.fmt(r.start)+' ← '+L.fmt(r.end)+'</dd>'+
+      (r.phone?'<dt>التليفون</dt><dd class="ltr" style="direction:ltr;text-align:right">'+esc(r.phone)+'</dd>':'')+
+      (r.nationality?'<dt>الجنسية</dt><dd>'+esc(r.nationality)+'</dd>':'')+'</dl>'+
+      '<div style="display:flex;gap:16px;margin-top:6px">'+(r.idx>=0?'<button class="link" data-idx="'+r.idx+'">روح للسطر في الشيت</button>':'')+
+      (r.idx>=0 && r.end && r.end>today && r.start && r.start<r.end ? '<button class="link" data-transfer="'+r.idx+'">نقل لوحدة تانية</button>':'')+'</div></div>';
+  }).join('');
+});
+$('sRes').addEventListener('click', function(e){
+  var tb = e.target.closest('button[data-transfer]');
+  if (tb){ OsoolScreens.startTransfer(+tb.dataset.transfer); return; }
+  var b = e.target.closest('button[data-idx]'); if(!b) return;
+  A.goToRow(+b.dataset.idx).catch(function(err){ alert(err.message); });
+});
+
+// ---------- مشاركة مع باقي الشاشات ----------
+window.OsoolApp = { S:S, A:A, L:L, $:$, esc:esc, money:money, digits:digits, unitTitle:unitTitle, showTab:showTab, copyText:copyText,
+  openSheet:function(html){ $('sheet').innerHTML=html; $('ov').classList.add('on'); }, closeSheet:function(){ $('ov').classList.remove('on'); } };
+
+// ---------- البداية ----------
+setType('monthly');
+function start(){ load(); }
+if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); else start();
+})();
+</script>
+<script src="screens.js"></script>
+</body>
+</html>
