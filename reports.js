@@ -16,25 +16,25 @@
   var CSS = '<style>' +
     '.rp{box-sizing:border-box;direction:rtl;width:1080px;height:763px;position:relative;overflow:hidden;background:#fff;color:#1d2422;font:12px/1.45 "Segoe UI",Tahoma,Arial,"DejaVu Sans",sans-serif;padding:18px 20px 34px}' +
     '.rp .pfoot{position:absolute;left:20px;right:20px;bottom:10px;display:flex;justify-content:space-between;color:#8a918d;font-size:10px;border-top:1px solid #e4e2db;padding-top:5px}' +
-    '.rp .mini{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f5c55;padding-bottom:6px;margin-bottom:8px;color:#0f5c55;font-weight:700}' +
+    '.rp .mini{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #c9a24a;padding-bottom:6px;margin-bottom:8px;color:#6e531b;font-weight:700}' +
     '.rp *{box-sizing:border-box}' +
-    '.rp .band{display:flex;justify-content:space-between;align-items:center;background:#0f5c55;color:#fff;border-radius:10px;padding:12px 16px;margin-bottom:10px}' +
-    '.rp .band h1{margin:0;font-size:20px;font-weight:700}.rp .band .sub{font-size:12px;opacity:.85;margin-top:2px}' +
-    '.rp .brand{white-space:nowrap;font-weight:700;font-size:13px;background:rgba(255,255,255,.14);border-radius:6px;padding:4px 10px;direction:ltr}' +
+    '.rp .band{display:flex;justify-content:space-between;align-items:center;background:#1f1a14;color:#f3ead6;border-radius:10px;border-bottom:3px solid #c9a24a;padding:12px 16px;margin-bottom:10px}' +
+    '.rp .band h1{margin:0;font-size:20px;font-weight:700;color:#d8b25a}.rp .band .sub{font-size:12px;opacity:.85;margin-top:2px}' +
+    '.rp .brand{white-space:nowrap;font-weight:700;font-size:13px;background:#c9a24a;color:#1f1a14;border-radius:6px;padding:4px 10px;direction:ltr}' +
     '.rp .kpis{display:flex;gap:8px;margin-bottom:10px}' +
     '.rp .kpi{flex:1;border:1px solid #e4e2db;border-radius:9px;padding:8px 12px;background:#fbfaf7}' +
     '.rp .kpi .v{font-size:18px;font-weight:700}.rp .kpi .k{font-size:11px;color:#6b736f}' +
     '.rp .g{color:#1f7a45}.rp .r{color:#a3261b}.rp .a{color:#9a5b00}' +
     '.rp table{width:100%;border-collapse:collapse}' +
-    '.rp th{background:#e3efec;color:#0f5c55;font-weight:600;font-size:11px;padding:6px 5px;text-align:right;border-bottom:2px solid #0f5c55;white-space:nowrap}' +
+    '.rp th{background:#f5eedc;color:#6e531b;font-weight:600;font-size:11px;padding:6px 5px;text-align:right;border-bottom:2px solid #c9a24a;white-space:nowrap}' +
     '.rp td{padding:5px;border-bottom:1px solid #ecebe6;font-size:11px;vertical-align:top}' +
-    '.rp tbody tr:nth-child(even) td{background:#f8f7f3}' +
+    '.rp tbody tr:nth-child(even) td{background:#fbf8f1}' +
     '.rp td.n,.rp th.n{text-align:left;direction:ltr;white-space:nowrap}' +
     '.rp tfoot td{font-weight:700;background:#f1efe9;border-top:2px solid #cfcbbf}' +
     '.rp .chip{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;white-space:nowrap}' +
     '.rp .chip.ok{background:#e6f4ea;color:#1f7a45}.rp .chip.soon{background:#fff4e0;color:#9a5b00}.rp .chip.out{background:#eee;color:#6b736f}' +
     '.rp .two{display:flex;gap:12px;margin-bottom:10px;align-items:flex-start}.rp .two>div{flex:1}' +
-    '.rp h2{font-size:13px;margin:0 0 6px;color:#0f5c55}' +
+    '.rp h2{font-size:13px;margin:0 0 6px;color:#8c6b25}' +
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
     '.rp .foot{display:flex;justify-content:space-between;color:#8a918d;font-size:10px;margin-top:10px;border-top:1px solid #e4e2db;padding-top:6px}' +
     '.rp .muted{color:#8a918d}' +
@@ -79,7 +79,7 @@
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(u.project) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + esc(u.info && u.info !== '0' ? u.info : '') + '</td>' +
         '<td>' + esc(u.block) + '</td><td>' + esc(u.building) + '</td><td>' + esc(u.apt) + '</td><td>' + st + '</td>' +
         '<td>' + esc(c ? c.name : '') + '</td><td class="n">' + (n ? d(n.start) : '') + '</td><td class="n">' + (n ? d(n.end) : '') + '</td><td>' + esc(n ? n.name : '') + '</td>' +
-        '<td class="n">' + more + '</td><td>' + esc(c ? c.receipt : '') + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td><td>' + esc(u.settle) + '</td></tr>';
+        '<td class="n">' + more + '</td><td>' + esc(c ? c.receipt : '') + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;
     var sub = DAYS[today.getUTCDay()] + ' ' + L.fmt(today) + (filterText ? ' · ' + filterText : '');
@@ -90,7 +90,7 @@
       '<div class="kpi"><div class="v">' + checkOut + '</div><div class="k">Check Out النهارده</div></div>' +
       '<div class="kpi"><div class="v">' + list.length + '</div><div class="k">إجمالي الوحدات</div></div></div></div>' +
       '<div style="flex:0 0 330px"><table><thead><tr><th>Location</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">Total</th></tr></thead><tbody>' + matrix + '</tbody></table></div></div>' +
-      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Details</th><th>Building</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n">Max.</th><th>تسويات</th></tr></thead>', rows: rows, tfoot: '' };
+      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Details</th><th>Building</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n">Max.</th></tr></thead>', rows: rows, tfoot: '' };
   }
 
   // ---------- طباعة اليومية ----------

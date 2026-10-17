@@ -104,6 +104,8 @@
     return new Promise(function (ok, no) {
       try {
         Office.context.document.settings.set(SETTINGS_KEY, JSON.stringify(obj));
+        // البانل يفتح لوحده مع الملف (لكل اللي مركّبينه)
+        Office.context.document.settings.set('Office.AutoShowTaskpaneWithDocument', !!obj.autoOpen);
         Office.context.document.settings.saveAsync(function (r) { r.status === 'succeeded' ? ok() : no(new Error('مقدرتش أحفظ الإعداد في الملف.')); });
       } catch (e) { no(e); }
     });

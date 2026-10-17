@@ -10,22 +10,22 @@
 <style>
 :root{
   --bg:#f6f5f1; --card:#ffffff; --ink:#1d2422; --muted:#6b736f; --line:#e4e2db;
-  --brand:#0f5c55; --brand-ink:#ffffff; --brand-soft:#e3efec;
+  --brand:#8c6b25; --brand-ink:#ffffff; --brand-soft:#f5eedc; --gold:#c9a24a; --night:#1f1a14;
   --warn:#9a5b00; --warn-bg:#fff4e0; --err:#a3261b; --err-bg:#fdecea; --ok:#1f7a45; --ok-bg:#e6f4ea;
   --r:10px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 "IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
-.top{position:sticky;top:0;z-index:5;background:var(--brand);color:var(--brand-ink);padding:10px 14px 0}
+.top{position:sticky;top:0;z-index:5;background:var(--night);color:#f3ead6;padding:10px 14px 0;border-bottom:1px solid #3a3226}
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.brand{font-weight:700;font-size:16px;letter-spacing:.2px}
+.brand{font-weight:700;font-size:16px;letter-spacing:.2px;color:var(--gold)}
 .stat{font-size:12px;opacity:.85}
 .iconbtn{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;display:grid;place-items:center}
 .iconbtn:hover{background:rgba(255,255,255,.24)}
 .tabs{display:flex;gap:2px;margin-top:8px;overflow-x:auto}
 .tab{background:transparent;border:0;color:rgba(255,255,255,.75);padding:8px 10px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;font-weight:500}
-.tab.on{color:#fff;border-bottom-color:#fff}
+.tab.on{color:var(--gold);border-bottom-color:var(--gold)}
 .tab[disabled]{opacity:.45;cursor:default}
 .tab small{font-size:10px;margin-inline-start:3px}
 main{padding:12px 12px 90px}
@@ -87,7 +87,7 @@ table.sch .note{font-size:11px;color:var(--muted)}
 .done{text-align:center;padding:26px 10px}
 .done .big{font-size:40px;color:var(--ok)}
 .hide{display:none!important}
-.mbm{background:rgba(255,255,255,.18);border-radius:5px;padding:0 6px;margin-inline-end:2px;letter-spacing:.5px}
+.mbm{background:var(--gold);color:var(--night);border-radius:5px;padding:0 6px;margin-inline-end:2px;letter-spacing:.5px}
 .tgs{display:flex;flex-wrap:wrap;gap:6px}
 .tg{border:1px solid var(--line);background:#fff;border-radius:16px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
 .tg.on{background:var(--brand);border-color:var(--brand);color:#fff}

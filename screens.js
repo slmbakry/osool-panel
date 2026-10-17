@@ -44,13 +44,14 @@
         return '<label class="chk"><input type="checkbox" value="' + esc(p) + '"' + (on ? ' checked' : '') + '> ' + esc(p) + '</label>';
       }).join('') + '</div>' +
       '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
+      '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
       '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>');
     $('setBack').onclick = App.closeSheet;
     $('setSave').onclick = function () {
       var mode = document.querySelector('input[name=mode]:checked').value;
       var list = Array.prototype.slice.call(document.querySelectorAll('.chks input:checked')).map(function (i) { return i.value; });
       if (mode === 'only' && !list.length) { $('setMsg').innerHTML = '<div class="msg err">اختار مشروع واحد على الأقل.</div>'; return; }
-      var obj = { mode: mode, projects: list };
+      var obj = { mode: mode, projects: list, autoOpen: $('setAuto').checked };
       this.disabled = true;
       A.saveSettings(obj).then(function () {
         S.settings = obj; S.settingsLoaded = true; App.closeSheet();
