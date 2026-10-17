@@ -114,19 +114,66 @@
   }
 
   // المتوقع تحصيله خلال فترة: مش متأخر، والمدفوع بيخلص جوه الفترة، والعقد مكمل بعده.
-  // المبلغ = المستحق لحد شهر نهاية الفترة ناقص كل اللي اتحصّل لحد نفس الشهر.
+  // المبلغ = الأقساط اللي ميعادها جوه الفترة ولسه مش مدفوعة (نفس حساب رسالة الأوبريشن).
   function expectedIn(item, today, days) {
     today = today || L.todayUTC();
     var r = item.r, p = item.paidUntil;
     if (item.late || !p || !r.end) return null;
     var until = new Date(today.getTime() + days * DAY);
     if (p < today || p >= until || r.end <= p) return null;
-    var keys = keyRange(FOLLOW_FROM, L.monthKey(until)), due = 0, coll = 0;
-    keys.forEach(function (k) { due += item.dues[k] || 0; coll += item.ledger.byMonth[k] || 0; });
-    var amt = Math.round(due - coll);
+    var ins = installments(item, today, until), amt = ins.reduce(function (a, x) { return a + x.left; }, 0);
     if (amt <= 1) return null;
     var next = new Date(p.getTime() + DAY);
     return { amount: amt, date: next, inDays: L.daysBetween(today, next) };
+  }
+
+  // الأقساط اللي عليه لحد تاريخ معين (الأقدم الأول، والمدفوع بيتخصم من الأقدم)
+  function installments(item, today, until) {
+    today = today || L.todayUTC(); until = until || today;
+    var keys = Object.keys(item.dues).filter(function (k) { return cmpKey(k, FOLLOW_FROM) >= 0 && item.dues[k]; }).sort(cmpKey);
+    var pool = 0; Object.keys(item.ledger.byMonth).forEach(function (k) { if (cmpKey(k, FOLLOW_FROM) >= 0) pool += item.ledger.byMonth[k] || 0; });
+    var r = item.r, first = item.paidUntil ? new Date(item.paidUntil.getTime() + DAY) : (r.start || today), k0 = null, out = [];
+    keys.forEach(function (k) {
+      var due = item.dues[k], paid = Math.min(Math.max(pool, 0), due); pool -= due;
+      var left = Math.round(due - paid); if (left <= 1) return;
+      if (k0 === null) k0 = k;
+      var gap = (keyToDate(k).getUTCFullYear() - keyToDate(k0).getUTCFullYear()) * 12 + keyToDate(k).getUTCMonth() - keyToDate(k0).getUTCMonth();
+      var date = L.addMonths(first, gap);
+      if (date > until) return;
+      out.push({ key: k, date: date, amount: Math.round(due), paid: Math.round(paid), left: left });
+    });
+    return out;
+  }
+  function dmy(d) { return d ? L.fmt(d).replace(/\//g, '-') : '-'; }
+  function nf(n) { return Math.round(n).toLocaleString('en-US'); }
+  function shortDur(a, b) {
+    if (!a || !b) return '';
+    var md = L.monthsAndDays(a, b);
+    if (!md.months) return (L.daysBetween(a, b)) + 'n';
+    if (md.months % 12 === 0 && !md.days) return (md.months / 12) + 'y';
+    return md.months + 'm' + (md.days ? ' ' + md.days + 'd' : '');
+  }
+  // رسالة الأوبريشن لمستأجر واحد
+  function opsMessage(item, today, until) {
+    var r = item.r, u = item.unit || {}, ins = installments(item, today, until);
+    var unit = [u.project, u.building, u.apt].filter(function (x) { return str(x) && str(x) !== '0'; }).join(' - ');
+    var lines = ['Code: ' + r.code, 'Unit: ' + (unit || r.unit), 'Tenant: ' + (r.name || '-'), '',
+      'Contract: ' + dmy(r.start) + ' → ' + dmy(r.end) + '  (' + shortDur(r.start, r.end) + ')', '',
+      'Paid until: ' + (item.paidNote === 'مفيش تحصيل' ? 'nothing paid yet' : dmy(item.paidUntil)), ''];
+    var total = 0;
+    ins.forEach(function (x) {
+      total += x.left;
+      lines.push('Due ' + dmy(x.date) + '    ' + nf(x.amount) + ' EGP' + (x.paid ? '  (paid ' + nf(x.paid) + ' · left ' + nf(x.left) + ')' : ''));
+    });
+    if (!ins.length) lines.push('No installment due in this period');
+    lines.push('', 'Total due: ' + nf(total) + ' EGP');
+    return { text: lines.join('\n'), total: total, count: ins.length };
+  }
+  function opsBulk(items, today, untilOf, title) {
+    var parts = items.map(function (x) { return opsMessage(x, today, untilOf(x)); });
+    var total = parts.reduce(function (a, p) { return a + p.total; }, 0);
+    var head = (title ? title + '\n' : '') + items.length + ' tenants · Total due: ' + nf(total) + ' EGP';
+    return head + '\n\n' + parts.map(function (p) { return p.text; }).join('\n\n———————\n\n');
   }
 
   // تفاصيل الشهور: مستحق ومحصل ومتبقي متجمع
@@ -261,6 +308,34 @@
   }
 
   // ---------- المتاح (زي شيت Available) ----------
+  var RECEIVED = 'تم الاستلام', PENDING_DAYS = 30;
+  // الحجز الملغي ملوش خروج ولا استلام
+  function isReceived(r) { return str(r.receipt) === RECEIVED || /ملغ[يى]/.test(str(r.name)); }
+  // الخروج: النهارده وامبارح، واللي خرج قبل كده ولسه متستلمش (آخر ٣٠ يوم)
+  function exits(units, renters, settings, today) {
+    today = today || L.todayUTC();
+    var ub = {}; units.forEach(function (u) { ub[u.code] = u; });
+    var y = new Date(today.getTime() - DAY), by = {};
+    renters.forEach(function (r) { if (r.unit && r.start && r.end) (by[r.unit] = by[r.unit] || []).push(r); });
+    var out = { today: [], yesterday: [], older: [] };
+    renters.forEach(function (r) {
+      if (r.idx < 0 || !r.end || !r.start || r.end.getUTCFullYear() >= 2090) return;
+      var u = ub[r.unit]; if (!u || (settings !== 'all' && !inScope(u, settings))) return;
+      var mine = by[r.unit] || [];
+      var moved = mine.some(function (o) { return o !== r && o.start > r.end && o.start <= today; }); // حد تاني دخل بعده
+      var next = mine.filter(function (o) { return o.start > r.end; }).sort(function (a, b) { return a.start - b.start; })[0] || null;
+      var it = { r: r, unit: u, next: next, received: isReceived(r) || moved };
+      if (+r.end === +today) out.today.push(it);
+      else if (+r.end === +y) out.yesterday.push(it);
+      else if (r.end < y && !it.received && L.daysBetween(r.end, today) <= PENDING_DAYS) {
+        var later = mine.some(function (o) { return o !== r && o.end > r.end && o.start <= today; });
+        if (!later) out.older.push(it);
+      }
+    });
+    out.older.sort(function (a, b) { return a.r.end - b.r.end; });
+    return out;
+  }
+
   function availability(units, renters, settings, today) {
     today = today || L.todayUTC();
     var by = {};
@@ -275,9 +350,15 @@
         var md = L.monthsAndDays(today, u.ownerEnd);
         rem = (md.months >= 12 ? Math.floor(md.months / 12) + ' سنة ' : '') + (md.months % 12 ? (md.months % 12) + ' شهر' : '');
       } else if (u.ownerEnd) rem = 'منتهي';
-      var status = cur ? 'مشغولة' : next ? 'محجوزة' : 'فاضية';
+      // آخر عقد خلص ومتسجلش استلامه: الشقة لسه مش متاحة
+      var pending = null;
+      if (!cur) {
+        var last = mine.filter(function (r) { return r.end < today && r.end.getUTCFullYear() < 2090; }).sort(function (a, b) { return b.end - a.end; })[0];
+        if (last && !isReceived(last) && L.daysBetween(last.end, today) <= PENDING_DAYS) pending = last;
+      }
+      var status = cur ? 'مشغولة' : pending ? 'لم تستلم' : next ? 'محجوزة' : 'فاضية';
       var upcoming = mine.filter(function (r) { return r.start > today; }).length;
-      return { unit: u, current: cur, next: next, upcoming: upcoming, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
+      return { unit: u, current: cur, pending: pending, next: next, upcoming: upcoming, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
     }).sort(function (a, b) { return a.daysToFree - b.daysToFree || String(a.unit.project).localeCompare(String(b.unit.project)); });
   }
 
@@ -367,6 +448,7 @@
   function waLink(phone, text) {
     var d = str(phone).replace(/[^\d]/g, '');
     if (/^01\d{9}$/.test(d)) d = '2' + d;
+    if (phone === null) return 'https://web.whatsapp.com/send?text=' + encodeURIComponent(text); // من غير رقم: تختار الشات
     return d ? 'https://web.whatsapp.com/send?phone=' + d + '&text=' + encodeURIComponent(text) : '';
   }
 
@@ -374,7 +456,7 @@
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
     ownerFollow: ownerFollow, ownerMessage: ownerMessage, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
-    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, expectedIn: expectedIn,
+    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, expectedIn: expectedIn, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
     entryValues: entryValues, availability: availability, planTransfer: planTransfer, depositMoves: depositMoves
   };

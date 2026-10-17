@@ -53,7 +53,7 @@
     return ((y ? y + 'Y ' : '') + (m ? m + 'M' : '')).trim() || '0M';
   }
   function availHtml(list, today, filterText) {
-    var free = function (x) { return !x.current; };
+    var free = function (x) { return !x.current && !x.pending; };
     var checkIn = list.filter(function (x) { return x.next && +x.next.start === +today; }).length;
     var checkOut = list.filter(function (x) { return x.current && +x.current.end === +today; }).length;
     var locs = ['Mivida', 'CFC'], beds = ['1', '2', '3', '4'];
@@ -72,13 +72,14 @@
     var rows = list.map(function (x, i) {
       var u = x.unit, c = x.current, n = x.next, more = x.upcoming > 1 ? (x.upcoming - 1) : '';
       var st;
-      if (!c) st = '<span class="chip ok">Available</span>';
+      if (!c && x.pending) st = '<span class="chip out">لم تُستلم</span>';
+      else if (!c) st = '<span class="chip ok">Available</span>';
       else if (c.end.getUTCFullYear() >= 2090) st = '<span class="chip out">' + d(c.end) + '</span>';
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d(c.end) + '</span>';
       else st = d(c.end);
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(u.project) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + esc(u.info && u.info !== '0' ? u.info : '') + '</td>' +
         '<td>' + esc(u.block) + '</td><td>' + esc(u.building) + '</td><td>' + esc(u.apt) + '</td><td>' + st + '</td>' +
-        '<td>' + esc(c ? c.name : '') + '</td><td class="n">' + (n ? d(n.start) : '') + '</td><td class="n">' + (n ? d(n.end) : '') + '</td><td>' + esc(n ? n.name : '') + '</td>' +
+        '<td>' + esc(c ? c.name : x.pending ? x.pending.name : '') + '</td><td class="n">' + (n ? d(n.start) : '') + '</td><td class="n">' + (n ? d(n.end) : '') + '</td><td>' + esc(n ? n.name : '') + '</td>' +
         '<td class="n">' + more + '</td><td>' + esc(c ? c.receipt : '') + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;

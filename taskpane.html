@@ -469,7 +469,7 @@ function save(f){
   });
 }
 function copyText(t, btn){
-  var ok = function(){ btn.textContent='اتنسخ'; setTimeout(function(){ btn.textContent='نسخ الكود'; },1500); };
+  var orig = btn.textContent; var ok = function(){ btn.textContent='اتنسخ'; setTimeout(function(){ btn.textContent=orig==='اتنسخ'?'نسخ':orig; },1500); };
   if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok, function(){ fallback(); }); else fallback();
   function fallback(){ var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); ok(); }
 }

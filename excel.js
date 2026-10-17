@@ -293,6 +293,29 @@
     }).catch(fail);
   }
 
+  // ---------- تعديل خانات في سطر عقد موجود (استلام، تمديد، تسليم مبكر) ----------
+  function updateRenter(idx, code, fields) {
+    return Excel.run(function (ctx) {
+      var R, res = {}, skipped = [];
+      return tableWithHeader(ctx, 'renter').then(function (r) {
+        R = r;
+        var chk = R.t.getDataBodyRange().getRow(idx).load('values');
+        return ctx.sync().then(function () {
+          if (String(chk.values[0][R.H.indexOf('كود المستأجر')]).trim() !== String(code))
+            throw { message: 'سطر العقد اتغير مكانه. اضغط تحديث وجرب تاني.' };
+          var body = R.t.getDataBodyRange(); res.pos = body.load('rowIndex'); res.log = [];
+          holdCalc(ctx);
+          writeFields(body, R.H, idx, fields, skipped, res.log);
+          return ctx.sync();
+        });
+      }).then(function () { return verifyLog(ctx, res.log, res.pos.rowIndex + 1); }).then(function (bad) {
+        bad.forEach(function (b) { b.table = 'عقود المستأجرين'; });
+        if (skipped.length) throw { message: 'خانات مش موجودة في الجدول: ' + skipped.join('، ') };
+        return { idx: idx, sheetRow: res.pos.rowIndex + idx + 1, mismatch: bad, skipped: skipped };
+      });
+    }).catch(fail);
+  }
+
   // ---------- إضافة سطور فاضية (بعد ما المستخدم يفك الحماية) ----------
   var ROW_KEYS = { entry: ['تاريخ', 'ايراد', 'مصروف', 'فئة'], renter: ['كود', 'كود المستأجر'] };
   var TABLE_AR = { entry: 'الخزينة', renter: 'عقود المستأجرين' };
@@ -363,7 +386,7 @@
     loadAll: loadAll, loadTreasury: loadTreasury, readRenterRow: readRenterRow,
     getSettings: getSettings, saveSettings: saveSettings,
     writeContract: writeContract, writeEntries: writeEntries, writeTransfer: writeTransfer,
-    tableInfo: tableInfo, addRows: addRows,
+    tableInfo: tableInfo, addRows: addRows, updateRenter: updateRenter,
     goToRow: function (idx) { return goTo('renter', idx); }, goTo: goTo
   };
 })(this);
