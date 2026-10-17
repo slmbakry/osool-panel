@@ -138,9 +138,7 @@
       '<div class="kpi"><div class="v">' + rows.length + '</div><div class="k">عدد الحركات</div></div></div>' +
       '<div class="two avoid"><div><h2>إجمالي الفئات</h2><table><thead><tr><th>الفئة</th><th class="n">وارد</th><th class="n">منصرف</th></tr></thead><tbody>' + (catRows || '<tr><td colspan="3" class="muted">مفيش حركات</td></tr>') +
       '</tbody><tfoot><tr><td>الإجمالي</td><td class="n">' + money(tin) + '</td><td class="n">' + money(tout) + '</td></tr></tfoot></table></div>' +
-      '<div><h2>أرصدة الخزائن في نهاية اليوم</h2><table><thead><tr><th>الخزينة</th><th class="n">بالعملة</th><th class="n">بالجنيه</th></tr></thead><tbody>' + cashRows +
-      '</tbody><tfoot><tr><td>الإجمالي</td><td></td><td class="n">' + money(Math.round(totalEgp * 100) / 100) + '</td></tr></tfoot></table></div></div>' +
-      '<div class="sign avoid"><div>اعداد:</div><div>مراجعة:</div></div>' +
+      '<div style="flex:0 0 300px"><h2>التوقيعات</h2><div class="sign" style="flex-direction:column;margin:0"><div>اعداد:</div><div>مراجعة:</div></div></div></div>' +
       '<h2>حركات اليوم</h2>', thead: '<thead><tr><th class="n">وارد</th><th class="n">منصرف</th><th class="n">مستند</th><th>المشروع</th><th>عمارة</th><th>شقة</th><th>الفئة</th><th>البيان</th><th class="n">شهر</th><th class="n">من</th><th class="n">إلى</th><th>مراجعة</th><th>الخزينة</th></tr></thead>', rows: mv,
       tfoot: rows.length ? '<tfoot><tr><td class="n">' + money(tin) + '</td><td class="n">' + money(tout) + '</td><td colspan="11">إجمالي اليوم</td></tr></tfoot>' : '' };
   }
