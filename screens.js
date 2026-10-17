@@ -847,6 +847,102 @@
     }).join('') + (list.length > 150 ? '<div class="r2" style="padding:6px">ظاهر ١٥٠ من ' + list.length + '. الـ PDF فيه الكل.</div>' : '') : '<div class="empty" style="padding:8px">مفيش وحدات بالفلتر ده.</div>';
   }
 
+  // ======================= تمديد وتسليم مبكر =======================
+  var CE = null;
+  function isoOf(d) { return d ? L.toISO(d) : ''; }
+  function openContractEdit(idx, kind) {
+    var r = S.renters.filter(function (x) { return x.idx === idx; })[0]; if (!r) return;
+    App.openSheet('<h2>' + (kind === 'extend' ? 'تمديد العقد' : 'تسليم مبكر') + '</h2>' + loadingHtml('بيقرا العقد…'));
+    Promise.all([A.readRenterRow(idx), ensureTreasury()]).then(function (res) {
+      var row = res[0];
+      if (String(row['كود المستأجر']).trim() !== r.code) throw new Error('السطر اتغير. اضغط تحديث وجرب تاني.');
+      var g = S.ledger[r.code] || { byMonth: {} }, coll = 0;
+      Object.keys(g.byMonth).forEach(function (k) { if (F.keyToDate(k) >= F.keyToDate(F.FOLLOW_FROM)) coll += g.byMonth[k] || 0; });
+      var t = today(), E = t < r.start ? r.start : t;
+      if (E >= r.end) E = new Date(r.end.getTime() - 86400000);
+      CE = { kind: kind, r: r, months: monthsFromRow(row), notes: row['ملاحظات'], collected: coll, step: 0, edits: {},
+        newEnd: L.addMonths(new Date(r.end.getTime() + 86400000), 1), rent: '', E: E, mode: 'days', receive: E <= t };
+      CE.newEnd = new Date(CE.newEnd.getTime() - 86400000);
+      drawCE();
+    }).catch(function (e) { App.openSheet('<h2>تعديل العقد</h2>' + errHtml(e) + '<button class="btn ghost" id="ceX">رجوع</button>'); $('ceX').onclick = App.closeSheet; });
+  }
+  function cePlan() {
+    var r = CE.r, others = S.renters.filter(function (o) { return o.unit === r.unit; });
+    return CE.kind === 'extend' ? F.planExtend(r, CE.months, CE.newEnd, CE.rent, others, S.monthHeaders, CE.notes, today())
+      : F.planEarly(r, CE.months, CE.E, CE.mode, CE.notes, CE.collected, CE.receive, today());
+  }
+  function drawCE() {
+    var r = CE.r, u = unitOf(r.unit), p = cePlan(), ext = CE.kind === 'extend';
+    var head = '<h2>' + (ext ? 'تمديد العقد' : 'تسليم مبكر') + '</h2>' +
+      '<div class="card"><div class="r1">' + esc(r.name || '—') + '</div><div class="r2">' + esc(App.unitTitle(u) || r.unit) + ' · <span dir="ltr">' + esc(r.code) + '</span></div>' +
+      '<div class="r2">العقد الحالي: ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end) + '</div></div>';
+    var form = ext ?
+      '<label>النهاية الجديدة</label><div style="display:flex;gap:6px;margin-bottom:6px"><input type="date" id="ceEnd" value="' + isoOf(CE.newEnd) + '" style="flex:1">' +
+        '<input id="ceN" class="ltr" inputmode="numeric" placeholder="زوّد" style="width:62px"><select id="ceU" style="width:84px"><option value="m">شهور</option><option value="n">ليالي</option><option value="w">أسابيع</option><option value="y">سنين</option></select></div>' +
+        '<label>' + (p.info && p.info.nightly ? 'سعر الليلة' : 'الإيجار الشهري للمدة الجديدة') + '</label><input id="ceRent" class="ltr" inputmode="numeric" placeholder="' + (p.info ? (p.info.nightly ? p.info.rate : p.info.rent) || '' : '') + '" value="' + esc(CE.rent) + '" style="margin-bottom:8px">'
+      : '<label>' + (F.isNightly(r) ? 'يوم الخروج' : 'تاريخ التسليم (آخر يوم في العقد)') + '</label><input type="date" id="ceE" value="' + isoOf(CE.E) + '" style="margin-bottom:8px">' +
+        '<div class="seg" id="ceMode" style="margin-bottom:8px"><button data-m="days"' + (CE.mode === 'days' ? ' class="on"' : '') + '>الشهر الأخير بالأيام</button><button data-m="full"' + (CE.mode === 'full' ? ' class="on"' : '') + '>الشهر الأخير كامل</button></div>' +
+        '<label class="chk" style="font-size:13px;color:var(--ink);margin-bottom:8px"><input type="checkbox" id="ceRcv"' + (CE.receive ? ' checked' : '') + '> سجّل "تم الاستلام" مع التسليم</label>';
+    var rows = (p.rows || []).map(function (x) {
+      var v = x.key in CE.edits ? CE.edits[x.key] : x.after, removed = !ext && x.after === 0 && x.note === 'هيتشال';
+      return '<tr><td>' + L.monthLabel(x.key) + (x.note && !removed ? '<div class="r2">' + esc(x.note) + '</div>' : '') + '</td><td class="n">' + (x.before ? money(x.before) : '—') + '</td><td class="n">' +
+        (removed ? '<span class="strike">هيتشال</span>' : x.formula && !(x.key in CE.edits) ? '<b>' + money(x.after) + '</b><div class="r2" dir="ltr">' + esc(x.formula) + '</div>' :
+          '<input class="ltr" data-ce="' + x.key + '" value="' + v + '" style="width:96px;padding:4px 6px">') + '</td></tr>';
+    }).join('');
+    var table = rows ? '<table class="mt" style="margin:6px 0 8px"><tr><th>الشهر</th><th class="n">قبل</th><th class="n">بعد</th></tr>' + rows + '</table>' : '';
+    var money2 = '';
+    if (!ext && !p.errors.length) {
+      var diff = Math.round(CE.collected - totalAfterEdits(p));
+      money2 = '<div class="card"><dl class="kv"><dt>المستحق بعد التعديل</dt><dd>' + money(totalAfterEdits(p)) + '</dd><dt>المحصّل</dt><dd>' + money(CE.collected) + '</dd><dt>' + (diff >= 0 ? 'دافع زيادة' : 'باقي عليه') + '</dt><dd class="' + (diff > 0 ? 'okc' : diff < 0 ? 'late' : '') + '"><b>' + money(Math.abs(diff)) + '</b></dd></dl>' +
+        '<div class="r2">الحساب من ' + esc(L.monthLabel(F.FOLLOW_FROM)) + '. ' + (diff > 0 ? 'الزيادة دي محتاجة رد أو تتخصم من حاجة تانية.' : '') + '</div></div>';
+    }
+    var notes = '<div class="r2" style="margin-bottom:8px">الملاحظات هيتكتب فيها: ' + esc(p.fields ? p.fields['ملاحظات'].split(' — ').pop() : '') + '</div>';
+    var errs = (p.errors || []).map(function (m) { return '<div class="msg err">' + esc(m) + '</div>'; }).join('');
+    var confirm = CE.step === 1 && !p.errors.length ? '<div class="msg warn">' + (ext ? 'هيتمد العقد لحد ' + L.fmt(CE.newEnd) : 'العقد هيخلص ' + L.fmt(CE.E)) + '، والشهور اللي فوق هتتكتب في نفس السطر. اضغط تأكيد.</div>' : '';
+    App.openSheet(head + form + table + money2 + (p.errors.length ? '' : notes) + errs + confirm + '<div id="ceMsg"></div>' +
+      '<div style="display:flex;gap:8px"><button class="btn ghost" id="ceBack">إلغاء</button><button class="btn primary" id="ceGo"' + (p.errors.length ? ' disabled' : '') + '>' + (CE.step === 1 ? 'تأكيد' : 'مراجعة') + '</button></div>');
+    var redraw = function () { CE.step = 0; drawCE(); };
+    if (ext) {
+      $('ceEnd').onchange = function () { CE.newEnd = L.parseISO(this.value); CE.edits = {}; redraw(); };
+      var dur = function () {
+        var n = +digits($('ceN').value), un = $('ceU').value; if (!(n > 0)) return;
+        CE.newEnd = un === 'n' || un === 'w' ? new Date(r.end.getTime() + n * (un === 'w' ? 7 : 1) * 86400000) : L.endFromDuration(new Date(r.end.getTime() + 86400000), n, un);
+        CE.edits = {}; redraw();
+      };
+      $('ceN').onchange = dur; $('ceU').onchange = dur;
+      $('ceRent').onchange = function () { CE.rent = digits(this.value); CE.edits = {}; redraw(); };
+    } else {
+      $('ceE').onchange = function () { CE.E = L.parseISO(this.value); CE.receive = CE.E && CE.E <= today(); CE.edits = {}; redraw(); };
+      document.querySelectorAll('#ceMode button').forEach(function (b) { b.onclick = function () { CE.mode = b.dataset.m; CE.edits = {}; redraw(); }; });
+      $('ceRcv').onchange = function () { CE.receive = this.checked; CE.step = 0; };
+    }
+    document.querySelectorAll('input[data-ce]').forEach(function (i) { i.onchange = function () { CE.edits[i.dataset.ce] = +digits(i.value) || 0; redraw(); }; });
+    $('ceBack').onclick = function () { CE = null; App.closeSheet(); };
+    $('ceGo').onclick = function () {
+      if (CE.step === 0) { CE.step = 1; drawCE(); return; }
+      var fields = {}; Object.keys(p.fields).forEach(function (k) { fields[k] = p.fields[k]; });
+      if (!ext) { if (CE.receive) fields['موقف الاستلام'] = F.RECEIVED; else delete fields['موقف الاستلام']; }
+      Object.keys(CE.edits).forEach(function (k) { fields[k] = CE.edits[k] ? CE.edits[k] : null; });
+      var btn = this; btn.disabled = true; btn.textContent = 'بيسجل…';
+      A.updateRenter(r.idx, r.code, fields).then(function (res) {
+        // تحديث البيانات اللي في البانل
+        r.end = ext ? CE.newEnd : CE.E;
+        if ('موقف الاستلام' in fields) r.receipt = fields['موقف الاستلام'];
+        (p.rows || []).forEach(function (x) { if (S.months[x.key]) S.months[x.key][r.idx] = x.key in fields ? (fields[x.key] === null ? '' : (x.key in CE.edits ? CE.edits[x.key] : x.after)) : S.months[x.key][r.idx]; });
+        S.availAll = null;
+        App.openSheet('<h2>' + (ext ? 'اتمد العقد' : 'اتسجل التسليم المبكر') + '</h2><div class="msg ok">' + esc(r.name || r.code) + ': العقد بقى لحد ' + L.fmt(r.end) + ' في السطر ' + res.sheetRow + '.</div>' + App.checkHtml(res) +
+          '<div style="display:flex;gap:8px"><button class="btn ghost" id="ceRow">روح للسطر</button><button class="btn primary" id="ceDone">تمام</button></div>');
+        $('ceRow').onclick = function () { A.goToRow(r.idx); };
+        $('ceDone').onclick = function () { CE = null; App.closeSheet(); };
+      }).catch(function (e) { btn.disabled = false; btn.textContent = 'تأكيد'; $('ceMsg').innerHTML = errHtml(e); });
+    };
+  }
+  function totalAfterEdits(p) {
+    var t = p.totalAfter;
+    (p.rows || []).forEach(function (x) { if (x.key in CE.edits && F.keyToDate(x.key) >= F.keyToDate(F.FOLLOW_FROM)) t += CE.edits[x.key] - x.after; });
+    return Math.round(t);
+  }
+
   // ======================= الخروج والاستلام =======================
   var EX = { confirm: null, flash: '', check: '' };
   function drawExits() {
@@ -954,6 +1050,6 @@
 
   window.OsoolScreens = {
     onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); },
-    startTransfer: startTransfer, openSettings: openSettings
+    startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit
   };
 })();

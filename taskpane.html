@@ -496,13 +496,17 @@ $('sQ').addEventListener('input', function(){
       '<dl class="kv"><dt>الوحدة</dt><dd>'+esc(u?unitTitle(u):r.unit)+'</dd><dt>الفترة</dt><dd>'+L.fmt(r.start)+' ← '+L.fmt(r.end)+'</dd>'+
       (r.phone?'<dt>التليفون</dt><dd class="ltr" style="direction:ltr;text-align:right">'+esc(r.phone)+'</dd>':'')+
       (r.nationality?'<dt>الجنسية</dt><dd>'+esc(r.nationality)+'</dd>':'')+'</dl>'+
-      '<div style="display:flex;gap:16px;margin-top:6px">'+(r.idx>=0?'<button class="link" data-idx="'+r.idx+'">روح للسطر في الشيت</button>':'')+
-      (r.idx>=0 && r.end && r.end>today && r.start && r.start<r.end ? '<button class="link" data-transfer="'+r.idx+'">نقل لوحدة تانية</button>':'')+'</div></div>';
+      '<div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">'+(r.idx>=0?'<button class="link" data-idx="'+r.idx+'">روح للسطر في الشيت</button>':'')+
+      (r.idx>=0 && r.end && r.end>today && r.start && r.start<r.end ? '<button class="link" data-transfer="'+r.idx+'">نقل لوحدة تانية</button>':'')+
+      (r.idx>=0 && r.end && r.start && r.end.getUTCFullYear()<2090 && r.end>=new Date(today.getTime()-30*864e5) ? '<button class="link" data-extend="'+r.idx+'">تمديد</button>':'')+
+      (r.idx>=0 && r.end && r.start && r.end>today && r.end.getUTCFullYear()<2090 ? '<button class="link" data-early="'+r.idx+'">تسليم مبكر</button>':'')+'</div></div>';
   }).join('');
 });
 $('sRes').addEventListener('click', function(e){
   var tb = e.target.closest('button[data-transfer]');
   if (tb){ OsoolScreens.startTransfer(+tb.dataset.transfer); return; }
+  var xb = e.target.closest('button[data-extend],button[data-early]');
+  if (xb){ OsoolScreens.openContractEdit(+(xb.dataset.extend||xb.dataset.early), xb.dataset.extend!==undefined?'extend':'early'); return; }
   var b = e.target.closest('button[data-idx]'); if(!b) return;
   A.goToRow(+b.dataset.idx).catch(function(err){ alert(err.message); });
 });

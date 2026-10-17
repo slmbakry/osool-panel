@@ -255,6 +255,87 @@
     return bv;
   }
 
+  function nextKey(k, n) { return L.monthKey(L.addMonths(keyToDate(k), n || 1)); }
+  function noteAdd(old, line) { old = str(old); return old ? old + ' — ' + line : line; }
+  function isNightly(r) { return r.start && r.end && L.daysBetween(r.start, r.end) < 30; }
+
+  // ---------- تمديد العقد: نفس السطر، النهاية بتتغير والشهور الجديدة بتتضاف ----------
+  // r: العقد · months: {key: amount} من السطر · others: باقي عقود نفس الوحدة · headers: أعمدة الشهور الموجودة
+  function planExtend(r, months, newEnd, rentIn, others, headers, notes, today) {
+    today = today || L.todayUTC();
+    var err = [];
+    if (!newEnd) err.push('حدد النهاية الجديدة.');
+    else if (newEnd <= r.end) err.push('النهاية الجديدة لازم تكون بعد النهاية الحالية (' + L.fmt(r.end) + ').');
+    if (err.length) return { errors: err };
+    var clash = (others || []).filter(function (o) { return o !== r && o.code !== r.code && o.start && o.end && o.start <= newEnd && o.end > r.end && !/ملغ[يى]/.test(str(o.name)); })
+      .sort(function (a, b) { return a.start - b.start; })[0];
+    if (clash) err.push('فيه حجز على نفس الشقة بيبدأ ' + L.fmt(clash.start) + ' (' + (clash.name || clash.code) + '). آخر نهاية ممكنة ' + L.fmt(new Date(clash.start.getTime() - DAY)) + '.');
+    var keys = Object.keys(months).sort(cmpKey), changes = {}, rows = [];
+    if (isNightly(r)) {
+      var K = keys[0] || L.monthKey(r.start), cur = num(months[K]), nights = L.daysBetween(r.start, r.end);
+      var rate = num(rentIn) || (cur && nights ? Math.round(cur / nights) : 0), extra = L.daysBetween(r.end, newEnd);
+      if (!rate) err.push('اكتب سعر الليلة.');
+      var f = cur ? '=' + cur + '+' + rate + '*' + extra : '=' + rate + '*' + extra;
+      changes[K] = f;
+      rows.push({ key: K, before: cur, after: cur + rate * extra, formula: f, note: extra + ' ليلة زيادة × ' + rate });
+      var rr = { nightly: true, rate: rate, extra: extra };
+    } else {
+      var rent = num(rentIn) || num(r.rent) || modeAmount(keys.map(function (k) { return num(months[k]); })) || 0;
+      if (!rent) err.push('اكتب قيمة الإيجار الشهري.');
+      var from = new Date(r.end.getTime() + DAY), md = L.monthsAndDays(from, newEnd);
+      var last = keys.length ? keys[keys.length - 1] : L.monthKey(r.end), k0 = nextKey(last);
+      for (var i = 0; i < md.months; i++) { var k = nextKey(last, i + 1); changes[k] = rent; rows.push({ key: k, before: num(months[k]), after: rent, note: '' }); }
+      if (md.days > 0) {
+        var part = Math.round(rent / 30 * md.days), kp = nextKey(last, md.months + 1);
+        changes[kp] = part; rows.push({ key: kp, before: num(months[kp]), after: part, note: md.days + ' يوم — تقديري' });
+      }
+      rr = { nightly: false, rent: rent, months: md.months, days: md.days };
+    }
+    var missing = Object.keys(changes).filter(function (k) { return headers && headers.indexOf(k) === -1; });
+    if (missing.length) err.push('أعمدة الشهور دي مش موجودة في جدول العقود: ' + missing.join('، ') + '. زوّدها في الجدول الأول.');
+    var fields = { 'نهاية العقد': L.dateToSerial(newEnd), 'ملاحظات': noteAdd(notes, 'تمديد: النهاية كانت ' + L.fmt(r.end) + ' واتمدت لـ ' + L.fmt(newEnd) + ' بتاريخ ' + L.fmt(today)) };
+    if (isReceived(r) && str(r.receipt) && newEnd >= today) fields['موقف الاستلام'] = '';
+    Object.keys(changes).forEach(function (k) { fields[k] = changes[k]; });
+    return { errors: err, rows: rows, fields: fields, info: rr, added: rows.reduce(function (a, x) { return a + x.after - x.before; }, 0) };
+  }
+
+  // ---------- تسليم مبكر: النهاية بتتقدم، والشهور اللي بعدها بتتشال ----------
+  // E: آخر يوم (للشهري) أو يوم الخروج (لليلي) · mode: 'days' الشهر الأخير بالأيام، 'full' كامل
+  function planEarly(r, months, E, mode, notes, collected, receive, today) {
+    today = today || L.todayUTC();
+    var err = [];
+    if (!E) err.push('حدد تاريخ التسليم.');
+    else if (!(E >= r.start && E < r.end)) err.push('تاريخ التسليم لازم يكون بين بداية العقد ونهايته (' + L.fmt(r.start) + ' – ' + L.fmt(r.end) + ').');
+    if (err.length) return { errors: err };
+    var keys = Object.keys(months).sort(cmpKey), changes = {}, rows = [];
+    if (isNightly(r)) {
+      var K = keys[0], cur = num(months[K]), nights = L.daysBetween(r.start, r.end), used = L.daysBetween(r.start, E);
+      if (used < 1) err.push('لازم ليلة واحدة على الأقل.');
+      var rate = nights ? cur / nights : 0, isInt = Math.abs(rate - Math.round(rate)) < 0.001;
+      if (K) { changes[K] = isInt ? '=' + Math.round(rate) + '*' + used : Math.round(rate * used); rows.push({ key: K, before: cur, after: Math.round(rate * used), note: used + ' ليلة بدل ' + nights }); }
+      keys.slice(1).forEach(function (k) { changes[k] = null; rows.push({ key: k, before: num(months[k]), after: 0, note: 'هيتشال' }); });
+    } else {
+      var T = new Date(E.getTime() + DAY), k = L.monthsAndDays(r.start, E).months;
+      var pStart = L.addMonths(r.start, k), pEnd = L.addMonths(r.start, k + 1);
+      var frac = L.daysBetween(pStart, T) / L.daysBetween(pStart, pEnd);
+      var Kk = keys.length ? nextKey(keys[0], k) : null; // شهر الاستحقاق اللي فيه يوم التسليم
+      keys.forEach(function (key) {
+        var a = num(months[key]), c = cmpKey(key, Kk);
+        if (c < 0) return;
+        if (c === 0) {
+          var nv = mode === 'full' || frac >= 0.999 ? a : Math.round(a * frac);
+          if (nv !== a) changes[key] = nv;
+          rows.push({ key: key, before: a, after: nv, note: mode === 'full' ? 'الشهر كامل' : L.daysBetween(pStart, T) + ' يوم من ' + L.daysBetween(pStart, pEnd) });
+        } else { changes[key] = null; rows.push({ key: key, before: a, after: 0, note: 'هيتشال' }); }
+      });
+    }
+    var fields = { 'نهاية العقد': L.dateToSerial(E), 'ملاحظات': noteAdd(notes, 'تسليم مبكر: النهاية الأصلية ' + L.fmt(r.end) + '، واتسلمت ' + L.fmt(E) + ' (اتسجل ' + L.fmt(today) + ')') };
+    if (receive) fields['موقف الاستلام'] = RECEIVED;
+    Object.keys(changes).forEach(function (k) { fields[k] = changes[k]; });
+    var totalAfter = 0; keys.filter(function (k) { return cmpKey(k, FOLLOW_FROM) >= 0; }).forEach(function (k) { totalAfter += k in changes ? (changes[k] === null ? 0 : rows.filter(function (x) { return x.key === k; })[0].after) : num(months[k]); });
+    return { errors: err, rows: rows, fields: fields, totalAfter: Math.round(totalAfter), collected: Math.round(collected || 0), diff: Math.round((collected || 0) - totalAfter) };
+  }
+
   /* old: {start,end,rent} · oldMonths: {key: amount} لكل أعمدة الشهور في السطر القديم */
   function planTransfer(old, oldMonths, T, newRent) {
     var err = [];
@@ -456,7 +537,7 @@
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
     ownerFollow: ownerFollow, ownerMessage: ownerMessage, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
-    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, expectedIn: expectedIn, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
+    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
     entryValues: entryValues, availability: availability, planTransfer: planTransfer, depositMoves: depositMoves
   };
