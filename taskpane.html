@@ -130,8 +130,10 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
     <button class="tab on" data-tab="new">عقد جديد</button>
     <button class="tab" data-tab="search">بحث</button>
     <button class="tab" data-tab="coll">التحصيلات</button>
+    <button class="tab" data-tab="owners">الملاك</button>
     <button class="tab" data-tab="avail">المتاح</button>
     <button class="tab" data-tab="treas">الخزينة</button>
+    <button class="tab" data-tab="review">المراجعة</button>
   </nav>
 </div>
 
@@ -219,6 +221,8 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   </section>
 
   <section id="tab-coll" class="hide"></section>
+  <section id="tab-owners" class="hide"></section>
+  <section id="tab-review" class="hide"></section>
   <section id="tab-avail" class="hide"></section>
   <section id="tab-treas" class="hide"></section>
   <section id="tab-transfer" class="hide"></section>
@@ -261,7 +265,7 @@ var S = { units:[], renters:[], monthHeaders:[], unit:null, type:'monthly', type
 // ---------- تحميل ----------
 function load(){
   $('loading').classList.remove('hide'); $('fatal').classList.add('hide');
-  ['tab-new','tab-search','tab-coll','tab-transfer','tab-avail','tab-treas'].forEach(function(id){ $(id).classList.add('hide'); });
+  ['tab-new','tab-search','tab-coll','tab-transfer','tab-avail','tab-treas','tab-owners','tab-review'].forEach(function(id){ $(id).classList.add('hide'); });
   return A.loadAll().then(function(d){
     S.units = L.buildUnits(d.owner);
     S.renters = L.buildRenters(d.renter);
@@ -287,7 +291,7 @@ function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option
 function showTab(t){
   S.tab = t;
   document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.classList.toggle('on', b.dataset.tab===t); });
-  ['new','search','coll','transfer','avail','treas'].forEach(function(x){ $('tab-'+x).classList.toggle('hide', t!==x); });
+  ['new','search','coll','transfer','avail','treas','owners','review'].forEach(function(x){ $('tab-'+x).classList.toggle('hide', t!==x); });
   $('bar').classList.toggle('hide', t!=='new' || !$('doneView').classList.contains('hide'));
   if (t==='search') $('sQ').focus();
   if (window.OsoolScreens && OsoolScreens.onTab) OsoolScreens.onTab(t);
@@ -453,6 +457,7 @@ function save(f){
       '<div class="r2">في السطر '+res.sheetRow+' بشيت عقود المستأجرين</div>'+
       '<div class="code" style="margin:14px 0;border:1px solid var(--line)"><span class="r2">كود المستأجر</span><b>'+esc(res.code)+'</b></div>'+
       (res.duplicate?'<div class="msg err">الكود ده ظهر مرتين في الجدول. غالباً حد تاني سجل في نفس اللحظة، راجع السطر.</div>':'')+
+      checkHtml(res)+
       (res.skipped.length?'<div class="msg warn">خانات متكتبتش لأن عمودها مش موجود: '+esc(res.skipped.join('، '))+'</div>':'')+
       '<div style="display:flex;gap:8px"><button class="btn ghost" id="copy">نسخ الكود</button><button class="btn primary" id="again">عقد جديد</button></div></div>';
     $('copy').addEventListener('click', function(){ copyText(res.code, this); });
@@ -503,7 +508,13 @@ $('sRes').addEventListener('click', function(e){
 });
 
 // ---------- مشاركة مع باقي الشاشات ----------
-window.OsoolApp = { S:S, A:A, L:L, $:$, esc:esc, money:money, digits:digits, unitTitle:unitTitle, showTab:showTab, copyText:copyText,
+// نتيجة التحقق بعد الكتابة
+function checkHtml(res){
+  var m = (res && res.mismatch) || [];
+  if (!m.length) return '<div class="msg ok">اتأكدت: رجعت قريت كل الخانات من الملف واتكتبت صح.</div>';
+  return '<div class="msg err"><b>اتكتب، بس فيه '+m.length+' خانة مختلفة عن المطلوب. راجعها:</b>'+m.slice(0,8).map(function(x){ return '<div>'+esc(x.table||'')+' · سطر '+x.row+' · '+esc(x.key)+': المفروض '+esc(x.expected)+'، اتكتب '+esc(x.got)+'</div>'; }).join('')+'</div>';
+}
+window.OsoolApp = { S:S, A:A, L:L, $:$, esc:esc, money:money, digits:digits, unitTitle:unitTitle, showTab:showTab, copyText:copyText, checkHtml:checkHtml,
   openSheet:function(html){ $('sheet').innerHTML=html; $('ov').classList.add('on'); }, closeSheet:function(){ $('ov').classList.remove('on'); } };
 
 // ---------- البداية ----------

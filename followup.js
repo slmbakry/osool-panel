@@ -304,9 +304,58 @@
     return { lastPaid: last ? L.serialToDate(last) : null, lastAmount: lp ? lp.amt : 0, rows: rows };
   }
 
+  // ---------- متابعة الملاك (زي شيت متابعة ملاك) ----------
+  function ownerFollow(units, t, ownerMonths, settings, today) {
+    today = today || L.todayUTC();
+    var c = t.cols, n = c['فئة'].length, agg = {};
+    var curKey = L.monthKey(today), keys = keyRange(FOLLOW_FROM, curKey);
+    for (var i = 0; i < n; i++) {
+      var cat = str(c['فئة'][i]); if (cat !== 'سداد ايجار' && cat !== 'رد ايجار من مالك') continue;
+      var u = str(c['كود'] ? c['كود'][i] : ''); if (!u) continue;
+      var g = agg[u] || (agg[u] = { byMonth: {}, m: 0, end: 0, date: 0, amt: 0, payments: [] });
+      var k = keyOf(c['شهر'][i]);
+      if (cat === 'رد ايجار من مالك') { if (k) g.byMonth[k] = (g.byMonth[k] || 0) - num(c['ايراد'][i]); continue; }
+      var out = num(c['مصروف'][i]), m = num(c['شهر'][i]), e = num(c['نهاية الايجار'][i]), dt = Math.floor(num(c['تاريخ'][i]));
+      if (k) g.byMonth[k] = (g.byMonth[k] || 0) + out;
+      g.payments.push({ date: dt, amt: out });
+      if (m > g.m) { g.m = m; g.end = e; g.date = dt; g.amt = out; }
+      else if (m === g.m && m) { if (e > g.end) g.end = e; if (dt > g.date) g.date = dt; if (out > g.amt) g.amt = out; }
+    }
+    return units.filter(function (u) {
+      return inScope(u, settings) && str(u.settle).toUpperCase() !== 'OUT' && (!u.ownerEnd || u.ownerEnd >= today);
+    }).map(function (u) {
+      var g = agg[u.code] || { byMonth: {}, m: 0, end: 0, date: 0, amt: 0, payments: [] };
+      var paidUntil = g.end ? L.serialToDate(g.end) : null;
+      var lastDate = g.date ? L.serialToDate(g.date) : null;
+      var lastSum = g.date ? g.payments.filter(function (p) { return p.date === g.date; }).reduce(function (a, p) { return a + p.amt; }, 0) : 0;
+      var monthAmt = ownerMonths && ownerMonths[curKey] ? num(ownerMonths[curKey][u.idx]) : 0;
+      var per = monthAmt || g.amt || u.rent || 0;
+      var due = 0, paid = 0;
+      keys.forEach(function (k) { due += ownerMonths && ownerMonths[k] ? num(ownerMonths[k][u.idx]) : 0; paid += g.byMonth[k] || 0; });
+      var daysLeft = paidUntil ? L.daysBetween(today, paidUntil) : null;
+      return {
+        unit: u, paidMonth: g.m ? L.serialToDate(g.m) : null, paidUntil: paidUntil, lastDate: lastDate, lastAmount: g.amt, lastSum: lastSum,
+        every: u.every || 1, required: per * (u.every || 1), balance: Math.round(due - paid), daysLeft: daysLeft,
+        nextByDate: lastDate ? new Date(lastDate.getTime() + (u.every || 1) * 30 * DAY) : null,
+        status: daysLeft === null ? 'none' : daysLeft < 0 ? 'late' : daysLeft <= 7 ? 'soon' : 'ok'
+      };
+    }).sort(function (a, b) { return (a.daysLeft === null ? 99999 : a.daysLeft) - (b.daysLeft === null ? 99999 : b.daysLeft); });
+  }
+  // نفس نص رسالة الشيت بالظبط
+  function ownerMessage(x) {
+    var u = x.unit, p = x.paidUntil;
+    return 'نحيط سيادتكم علما  أ-' + u.owner + '- انه تم سداد مبلغ' + '  ' + x.lastSum + ' ج ' + ' من حساب ايجار الوحدة رقم' + '  ' + u.building + '-' + u.apt + '  ' + 'كمبوند ' + u.project +
+      ' حتى ' + (p ? p.getUTCDate() + '-' + (p.getUTCMonth() + 1) + '-' + p.getUTCFullYear() : '') + ' . هذه رسالة تلقائية , شكرا لتفهمكم ';
+  }
+  function waLink(phone, text) {
+    var d = str(phone).replace(/[^\d]/g, '');
+    if (/^01\d{9}$/.test(d)) d = '2' + d;
+    return d ? 'https://web.whatsapp.com/send?phone=' + d + '&text=' + encodeURIComponent(text) : '';
+  }
+
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,

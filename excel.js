@@ -4,7 +4,7 @@
   var L = root.OsoolLogic;
 
   var OWNER_COLS = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'نهاية العقد', 'Bedrooms'];
-  var OWNER_OPT = ['تسويات', 'Info', 'قيمة الايجار', 'يسدد كل'];
+  var OWNER_OPT = ['تسويات', 'Info', 'قيمة الايجار', 'يسدد كل', 'التليفون'];
   var RENTER_COLS = ['كود', 'كود المستأجر', 'بداية العقد', 'نهاية العقد', 'الاسم', 'التليفون',
     'رقم البطاقة - جواز السفر', 'الجنسية', 'Special', 'Operation'];
   var RENTER_OPT = ['البروكر', 'قيمة الايجار', 'التأمين', 'موقف الاستلام'];
@@ -123,14 +123,6 @@
   }
 
   // ---------- كتابة ----------
-  function setCell(body, r, c, key, v) {
-    var cell = body.getCell(r, c);
-    if (v === null) { cell.values = [['']]; return; }
-    if (typeof v === 'string' && v.charAt(0) === '=') { cell.formulas = [[v]]; return; }
-    // من غير تغيير تنسيق (الشيت ممكن يكون محمي): الأرقام الطويلة تتكتب كنص بعلامة '
-    if (TEXT_COLS.indexOf(key) !== -1) { var s = String(v); cell.values = [[/^\d+$/.test(s) ? "'" + s : s]]; return; }
-    cell.values = [[v]];
-  }
   // قيمة جاهزة للكتابة كـ formulas (أرقام، نص، أو معادلة) من غير تغيير تنسيق
   function cellValue(key, v, isMonth) {
     if (v === null || v === undefined) return '';
@@ -139,10 +131,11 @@
     if (isMonth && s.charAt(0) === '=') return s;              // معادلة الليالي
     if (TEXT_COLS.indexOf(key) !== -1 && /^\d+$/.test(s)) return "'" + s;
     if (/^[=+\-@]/.test(s)) return "'" + s;                    // نص بيبدأ بعلامة متتقريش كمعادلة
+    if (/^[\d\s\/\-.:,%]+$/.test(s)) return "'" + s;           // نص شكله رقم أو تاريخ يفضل نص زي ما اتكتب
     return s;
   }
   // بيجمّع الخانات المتجاورة ويكتب كل مجموعة مرة واحدة — طلبات أقل وإعادة حساب أقل
-  function writeFields(body, H, rowIdx, obj, skipped) {
+  function writeFields(body, H, rowIdx, obj, skipped, log) {
     var cells = {};
     Object.keys(obj).forEach(function (k) {
       var i = H.indexOf(k);
@@ -154,8 +147,33 @@
       var b = a; while (b + 1 < idx.length && idx[b + 1] === idx[b] + 1) b++;
       var run = []; for (var j = a; j <= b; j++) run.push(cells[idx[j]]);
       body.getCell(rowIdx, idx[a]).getResizedRange(0, run.length - 1).formulas = [run];
+      if (log) log.push({ body: body, row: rowIdx, col: idx[a], vals: run, keys: H.slice(idx[a], idx[a] + run.length) });
       a = b + 1;
     }
+  }
+  // ---------- التحقق بعد الكتابة ----------
+  // بيرجع يقرا كل خانة اتكتبت من الملف نفسه ويقارنها باللي كان المفروض يتكتب
+  function same(exp, val, fml) {
+    if (exp === '' || exp === null || exp === undefined) return val === '' || val === null;
+    if (typeof exp === 'number') return Math.abs(Number(val) - exp) < 0.005;
+    var s = String(exp);
+    if (s.charAt(0) === '=') return String(fml).replace(/\s/g, '').toUpperCase() === s.replace(/\s/g, '').toUpperCase();
+    if (s.charAt(0) === "'") s = s.slice(1);
+    return String(val).trim() === s.trim();
+  }
+  function verifyLog(ctx, log, rowOffset) {
+    if (!log.length) return Promise.resolve([]);
+    var rs = log.map(function (w) { return w.body.getCell(w.row, w.col).getResizedRange(0, w.vals.length - 1).load('values,formulas'); });
+    return ctx.sync().then(function () {
+      var bad = [];
+      log.forEach(function (w, i) {
+        w.vals.forEach(function (exp, j) {
+          var v = rs[i].values[0][j], f = rs[i].formulas[0][j];
+          if (!same(exp, v, f)) bad.push({ key: w.keys[j], expected: String(exp).replace(/^'/, ''), got: v === '' || v === null ? '(فاضية)' : String(v), row: w.row + (rowOffset || 0) });
+        });
+      });
+      return bad;
+    });
   }
   // يأجل إعادة حساب الملف لحد ما الكتابة تخلص (الملف تقيل)
   function holdCalc(ctx) {
@@ -181,15 +199,17 @@
     });
   }
 
-  function writeEntriesCtx(ctx, entries, skipped) {
+  function writeEntriesCtx(ctx, entries, skipped, log) {
     if (!entries.length) return Promise.resolve([]);
     var E;
     return tableWithHeader(ctx, 'entry').then(function (e) { E = e; return freeRows(ctx, E, ['تاريخ', 'ايراد', 'مصروف', 'فئة'], entries.length); })
       .then(function (f) {
         var body = E.t.getDataBodyRange(); var pos = body.load('rowIndex');
         holdCalc(ctx);
-        entries.forEach(function (v, j) { writeFields(body, E.H, f.start + j, v, skipped); });
-        return ctx.sync().then(function () {
+        var mine = [];
+        entries.forEach(function (v, j) { writeFields(body, E.H, f.start + j, v, skipped, mine); });
+        return ctx.sync().then(function () { return verifyLog(ctx, mine, pos.rowIndex + 1); }).then(function (bad) {
+          if (log) bad.forEach(function (b) { b.table = 'الخزينة'; log.push(b); });
           return entries.map(function (_, j) { return pos.rowIndex + f.start + j + 1; });
         });
       });
@@ -205,20 +225,22 @@
           var data = L.toRowValues(form, code), body = R.t.getDataBodyRange();
           var pos = body.load('rowIndex');
           holdCalc(ctx);
-          writeFields(body, R.H, start, data.fields, skipped);
-          writeFields(body, R.H, start, data.months, skipped);
+          var log = [];
+          writeFields(body, R.H, start, data.fields, skipped, log);
+          writeFields(body, R.H, start, data.months, skipped, log);
           R.t.worksheet.activate(); body.getRow(start).select();
-          return ctx.sync().then(function () {
-            return { code: code, idx: start, sheetRow: pos.rowIndex + start + 1, duplicate: false, skipped: skipped };
+          return ctx.sync().then(function () { return verifyLog(ctx, log, pos.rowIndex + 1); }).then(function (bad) {
+            bad.forEach(function (b) { b.table = 'عقود المستأجرين'; });
+            return { code: code, idx: start, sheetRow: pos.rowIndex + start + 1, duplicate: false, skipped: skipped, mismatch: bad };
           });
         });
     }).catch(fail);
   }
   function writeEntries(entries) {
     return Excel.run(function (ctx) {
-      var skipped = [];
-      return writeEntriesCtx(ctx, entries, skipped).then(function (rows) {
-        return { rows: rows, skipped: skipped };
+      var skipped = [], bad = [];
+      return writeEntriesCtx(ctx, entries, skipped, bad).then(function (rows) {
+        return { rows: rows, skipped: skipped, mismatch: bad };
       });
     }).catch(fail);
   }
@@ -242,13 +264,15 @@
         res.pos = body.load('rowIndex');
         holdCalc(ctx);
         var old = { 'نهاية العقد': plan.oldEndSerial, 'ملاحظات': plan.oldNote.replace('{NEW}', code) };
-        writeFields(body, R.H, plan.oldIdx, old, skipped);
-        writeFields(body, R.H, plan.oldIdx, plan.monthChanges, skipped);
+        res.log = [];
+        writeFields(body, R.H, plan.oldIdx, old, skipped, res.log);
+        writeFields(body, R.H, plan.oldIdx, plan.monthChanges, skipped, res.log);
         var nf = {}; Object.keys(plan.newFields).forEach(function (k) { nf[k] = plan.newFields[k]; });
         nf['كود'] = Number(plan.newUnit) || plan.newUnit; nf['كود المستأجر'] = code;
-        writeFields(body, R.H, newIdx, nf, skipped);
-        writeFields(body, R.H, newIdx, plan.newMonths, skipped);
-        return ctx.sync();
+        writeFields(body, R.H, newIdx, nf, skipped, res.log);
+        writeFields(body, R.H, newIdx, plan.newMonths, skipped, res.log);
+        return ctx.sync().then(function () { return verifyLog(ctx, res.log, res.pos.rowIndex + 1); })
+          .then(function (bad) { res.bad = bad; bad.forEach(function (b) { b.table = 'عقود المستأجرين'; }); });
       }).then(function () {
         var ents = [];
         plan.deposits.forEach(function (d) {
@@ -258,12 +282,12 @@
             'بيان': 'نقل تأمين من ' + plan.oldCode + ' / ' + plan.name, 'كود المستأجر': code, 'كاش': d.cash });
           if (d.fx) { ents[ents.length - 2]['العملة'] = d.fx; ents[ents.length - 1]['العملة'] = d.fx; }
         });
-        return writeEntriesCtx(ctx, ents, skipped);
+        return writeEntriesCtx(ctx, ents, skipped, res.bad);
       }).then(function (rows) {
         res.entryRows = rows;
         R.t.worksheet.activate(); R.t.getDataBodyRange().getRow(newIdx).select();
         return ctx.sync().then(function () {
-          return { code: code, idx: newIdx, sheetRow: res.pos.rowIndex + newIdx + 1, duplicate: false, skipped: skipped, entryRows: res.entryRows };
+          return { code: code, idx: newIdx, sheetRow: res.pos.rowIndex + newIdx + 1, duplicate: false, skipped: skipped, entryRows: res.entryRows, mismatch: res.bad };
         });
       });
     }).catch(fail);
