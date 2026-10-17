@@ -172,7 +172,8 @@
     bindExport('collExp', function () {
       var list = S.collView || [];
       var nm = ({ due: 'المتأخرين والمستحقين ', late: 'المتأخرات ', soon: 'المتوقع تحصيله ', all: 'الأرصدة ' })[C.view] + ({ live: 'ساري ', ended: 'منتهي ', all: '' })[C.st] + L.toISO(today());
-      return { name: nm,
+      return { name: nm, title: nm.replace(/ \d{4}-\d{2}-\d{2}$/, ''), sheet: 'التحصيلات', sub: (C.grp || 'كل الأماكن') + (C.op ? ' · ' + C.op : ''),
+        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'phone', 'text', 'money', 'date', 'date', 'num', 'date', 'date', 'money'], sums: [8],
         headers: ['الاسم', 'كود المستأجر', 'المشروع', 'عمارة', 'شقة', 'المسؤول', 'التليفون', 'الحالة', 'المطلوب', 'ميعاد القسط', 'مسدد لحد', 'أيام التأخير', 'بداية العقد', 'نهاية العقد', 'رصيد التأمين'],
         rows: list.map(function (x) { var u = x.unit || {}, sn = !x.late && x.exp;
           return [x.r.name, x.r.code, u.project || '', u.building || '', u.apt || '', x.r.operation, x.r.phone, x.late ? 'متأخر' : sn ? 'مستحق' : 'رصيد',
@@ -470,7 +471,7 @@
           '</select> يوم</div></div></div>' +
         '<div class="r2" style="margin:-4px 0 8px">المطلوب للمتأخرين والمستحقين: <b>' + money(sumReq) + '</b></div>' +
         '<div class="seg" id="owSeg" style="grid-template-columns:1fr 1fr 1fr"><button data-v="due">متأخر ومستحق</button><button data-v="late">المتأخرين</button><button data-v="all">الكل</button></div>' +
-        '<div style="margin-top:8px"></div>' + grpChips('oGrp', F.groupsIn(list.map(function (x) { return x.unit; })), OW.grp) +
+        '<div style="margin-top:8px"></div>' + exportBar('owExp') + grpChips('oGrp', F.groupsIn(list.map(function (x) { return x.unit; })), OW.grp) +
         '<input id="owQ" placeholder="بحث باسم المالك أو الوحدة" value="' + esc(OW.q) + '" autocomplete="off" style="margin:8px 0 10px"><div id="owList"></div>';
       OW.flash = ''; OW.check = '';
       document.querySelectorAll('#owSeg button').forEach(function (b) {
@@ -479,6 +480,15 @@
       });
       $('owQ').oninput = function () { OW.q = this.value; drawOwners(); };
       bindGrp('oGrp', function (g) { OW.grp = g; renderOwners(); });
+      bindExport('owExp', function () {
+        var l = S.owView || [];
+        return { name: 'سدادات الملاك ' + L.toISO(today()), title: 'سدادات الملاك', sheet: 'الملاك', sub: ({ due: 'متأخر ومستحق', late: 'المتأخرين', all: 'الكل' })[OW.view] + ' · ' + (OW.grp || 'كل الأماكن'),
+          kinds: ['text', 'text', 'text', 'text', 'text', 'phone', 'text', 'num', 'money', 'date', 'date', 'money', 'text', 'text', 'text', 'text'], sums: [8],
+          headers: ['المالك', 'كود الوحدة', 'المشروع', 'عمارة', 'شقة', 'التليفون', 'الحالة', 'يسدد كل', 'المطلوب', 'مسدد لحد', 'آخر سداد', 'مبلغ آخر سداد', 'المستفيد', 'رقم الحساب', 'البنك', 'طريقة الدفع'],
+          rows: l.map(function (x) { var u = x.unit, t = F.ownerTransfer(x);
+            return [u.owner, u.code, u.project, u.building, u.apt, u.phone, x.status === 'late' ? 'متأخر ' + (-x.daysLeft) + ' يوم' : x.status === 'none' ? 'مفيش سداد' : 'باقي ' + x.daysLeft + ' يوم',
+              x.every, x.required, x.paidUntil, x.lastDate, x.lastSum, t.name, t.acc, t.bank, t.method]; }) };
+      });
       $('owDays').onchange = function () { OW.days = +this.value; try { localStorage.setItem('osoolPanel.ownerDays', OW.days); } catch (e) {} renderOwners(); };
       drawOwners();
     }).catch(function (e) { box.innerHTML = errHtml(e); });
@@ -492,6 +502,7 @@
       if (q && L.norm([x.unit.owner, x.unit.code, x.unit.project, x.unit.building, x.unit.apt].join(' ')).indexOf(q) === -1) return false;
       return true;
     });
+    S.owView = list;
     $('owList').innerHTML = list.length ? list.map(function (x, i) {
       var u = x.unit, st;
       if (x.status === 'none') st = '<span class="badge done">مفيش سداد متسجل</span>';
@@ -760,20 +771,26 @@
 
   // ======================= التصدير =======================
   function exportBar(id) {
-    return '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px"><button class="link" id="' + id + '">تصدير إكسيل</button>' +
-      '<button class="link" id="' + id + 'C" style="color:var(--muted)">نسخ الجدول</button><span class="r2" id="' + id + 'M"></span></div>';
+    return '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px"><button class="link" id="' + id + '">إكسيل</button><button class="link" id="' + id + 'P">PDF</button>' +
+      '<button class="link" id="' + id + 'C" style="color:var(--muted)">نسخ</button><span class="r2" id="' + id + 'M"></span></div>';
   }
   function bindExport(id, getData) {
+    var msg = function (t) { $(id + 'M').textContent = t; };
     $(id).onclick = function () {
-      var d = getData();
-      if (!d.rows.length) { $(id + 'M').textContent = 'مفيش بيانات.'; return; }
-      try { downloadXlsx(d); $(id + 'M').textContent = d.rows.length + ' سطر'; }
-      catch (e) { $(id + 'M').textContent = 'التحميل مش متاح هنا، استخدم نسخ الجدول.'; }
+      var d = getData(); if (!d.rows.length) { msg('مفيش بيانات.'); return; }
+      msg('بيجهز الإكسيل…');
+      R.downloadXlsx(d).then(function () { msg(d.rows.length + ' سطر'); }, function () {
+        try { downloadXlsx(d); msg(d.rows.length + ' سطر'); } catch (e) { msg('التحميل مش متاح هنا، استخدم نسخ.'); }
+      });
+    };
+    $(id + 'P').onclick = function () {
+      var d = getData(); if (!d.rows.length) { msg('مفيش بيانات.'); return; }
+      R.openPrint(R.tableReport(d), d.name).then(function () { msg('اختار Save as PDF من نافذة الطباعة.'); });
     };
     $(id + 'C').onclick = function () {
       var d = getData();
       var tsv = [d.headers].concat(d.rows).map(function (r) { return r.map(function (v) { return v instanceof Date ? L.fmt(v) : String(v === null || v === undefined ? '' : v).replace(/[\t\n]/g, ' '); }).join('\t'); }).join('\n');
-      App.copyText(tsv, { set textContent(t) { $(id + 'M').textContent = t === 'اتنسخ' ? 'اتنسخ، الصقه في أي شيت' : ''; } });
+      App.copyText(tsv, { set textContent(t) { msg(t === 'اتنسخ' ? 'اتنسخ، الصقه في أي شيت' : ''); } });
     };
   }
   function downloadXlsx(d) {
@@ -824,7 +841,7 @@
       box.innerHTML = '<div id="exitBox"></div><div id="avSum"></div>' +
         '<div class="card"><h3>المكان <button class="link" id="avAllP" style="margin-inline-start:auto;font-size:11px">الكل</button></h3>' + chips('p', projects, AV.projects) +
         '<h3 style="margin-top:12px">التسويات</h3>' + chips('s', settles, AV.settles, settleLabel) + '</div>' +
-        '<div style="display:flex;gap:8px;margin-bottom:6px"><button class="btn primary" id="avPdf">PDF المتاح</button><button class="btn ghost" id="avPrint">طباعة</button></div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:6px"><button class="btn primary" id="avPdf">PDF أو طباعة</button><button class="btn ghost" id="avXl">إكسيل</button></div>' +
         '<div class="r2" id="avMsg" style="margin-bottom:8px"></div><div id="avList"></div>';
       box.querySelectorAll('.tg').forEach(function (b) {
         b.onclick = function () {
@@ -843,12 +860,18 @@
         var txt = AV.projects.length === projects.length ? 'كل الأماكن' : AV.projects.join('، ');
         return R.availHtml(S.availView || [], today(), txt);
       };
-      $('avPdf').onclick = function () {
-        var b = this; b.disabled = true; $('avMsg').textContent = 'بيجهز الـ PDF…';
-        R.toPdf(report(), 'المتاح ' + L.toISO(today())).then(function () { $('avMsg').textContent = 'اتحمل.'; }, function (e) { $('avMsg').textContent = (e && e.message) || 'التحميل مش متاح هنا، استخدم الطباعة.'; })
-          .then(function () { b.disabled = false; });
+      $('avPdf').onclick = function () { R.openPrint(report(), 'المتاح ' + L.toISO(today())).then(function () { $('avMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
+      $('avXl').onclick = function () {
+        var l = S.availView || [];
+        $('avMsg').textContent = 'بيجهز الإكسيل…';
+        R.downloadXlsx({ name: 'المتاح ' + L.toISO(today()), title: 'المتاح', sheet: 'المتاح', sub: AV.projects.join('، '), sums: [],
+          kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text'],
+          headers: ['المكان', 'المشروع', 'كود الوحدة', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي'],
+          rows: l.map(function (x) { var u = x.unit, c = x.current, n = x.next;
+            var st = c ? (c.end.getUTCFullYear() >= 2090 ? 'خارج التشغيل' : 'مشغولة') : x.pending ? 'لسه متستلمتش' : 'متاحة';
+            return [F.groupOf(u.project), u.project, u.code, u.block, u.building, u.apt, u.bedrooms, u.settle, st, c && c.end.getUTCFullYear() < 2090 ? new Date(c.end.getTime() + 864e5) : '', c ? c.name : x.pending ? x.pending.name : '', n ? n.start : '', n ? n.end : '', n ? n.name : '']; }) })
+          .then(function () { $('avMsg').textContent = l.length + ' وحدة'; }, function (e) { $('avMsg').textContent = e.message || 'التحميل مش متاح هنا.'; });
       };
-      $('avPrint').onclick = function () { R.printHtml(report(), 'المتاح'); };
       drawExits();
       drawAvail();
     });
@@ -1024,14 +1047,14 @@
       var cashes = {}; c['كاش'].forEach(function (v) { v = String(v || ''); if (v.trim()) cashes[v] = 1; });
       box.innerHTML = (TR.flash ? '<div class="msg ok">' + esc(TR.flash) + '</div>' + (TR.check || '') : '') + '<button class="btn primary addbtn" id="eNew">+ حركة خزينة جديدة</button>' +
         '<div class="card"><h3>طباعة اليومية</h3><div style="display:flex;gap:8px;align-items:center"><input type="date" id="dDate" value="' + L.toISO(TR.day || today()) + '" max="' + L.toISO(today()) + '">' +
-        '<button class="btn primary" id="dPdf" style="flex:0 0 auto;padding:8px 14px">PDF</button><button class="btn ghost" id="dPrint">طباعة</button></div><div class="r2" id="dMsg" style="margin-top:6px"></div></div>' +
+        '<button class="btn primary" id="dPdf" style="flex:0 0 auto;padding:8px 14px">PDF أو طباعة</button><button class="btn ghost" id="dXl">إكسيل</button></div><div class="r2" id="dMsg" style="margin-top:6px"></div></div>' +
         '<h3 style="font-size:13px;color:var(--muted);margin:4px 0">بحث في الحركات</h3>' +
         '<div class="grid2"><div><label>من</label><input type="date" id="tFrom" value="' + L.toISO(TR.from) + '"></div><div><label>إلى</label><input type="date" id="tTo" value="' + L.toISO(TR.to) + '"></div></div>' +
         '<div class="filters"><select id="tCash"><option value="">كل الخزائن</option>' + Object.keys(cashes).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === TR.cash ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' +
         '<select id="tCat"><option value="">كل الفئات</option>' + Object.keys(cats).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === TR.cat ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></div>' +
         '<div class="filters"><select id="tSide"><option value="">وارد ومنصرف</option><option value="in">وارد بس</option><option value="out">منصرف بس</option></select>' +
         '<input id="tQ" placeholder="بيان أو كود" value="' + esc(TR.q) + '" autocomplete="off"></div>' +
-        '<div id="tSum"></div><div id="tList"></div>';
+        '<div id="tSum"></div>' + exportBar('trExp') + '<div id="tList"></div>';
       $('tSide').value = TR.side;
       $('tFrom').onchange = function () { TR.from = L.parseISO(this.value); drawTreas(); };
       $('tTo').onchange = function () { TR.to = L.parseISO(this.value); drawTreas(); };
@@ -1040,16 +1063,31 @@
       $('tSide').onchange = function () { TR.side = this.value; drawTreas(); };
       var tm; $('tQ').oninput = function () { TR.q = this.value; clearTimeout(tm); tm = setTimeout(drawTreas, 200); };
       TR.flash = ''; TR.check = '';
+      bindExport('trExp', function () { return treasData(S.treasView || [], 'حركات الخزينة ' + L.toISO(TR.from || today()) + ' لـ ' + L.toISO(TR.to || today()), 'حركات الخزينة', L.fmt(TR.from) + ' ← ' + L.fmt(TR.to) + (TR.cat ? ' · ' + TR.cat : '') + (TR.cash ? ' · ' + TR.cash : '')); });
       $('eNew').onclick = openEntry;
       var daily = function () { var dd = L.parseISO($('dDate').value) || today(); TR.day = dd; return { d: dd, html: R.dailyHtml(S.treasury, S.units, S.cash, dd) }; };
-      $('dPdf').onclick = function () {
-        var b = this, x = daily(); b.disabled = true; $('dMsg').textContent = 'بيجهز الـ PDF…';
-        R.toPdf(x.html, 'يومية الخزينة ' + L.toISO(x.d)).then(function () { $('dMsg').textContent = 'اتحمل.'; }, function (e) { $('dMsg').textContent = (e && e.message) || 'التحميل مش متاح هنا، استخدم الطباعة.'; })
-          .then(function () { b.disabled = false; });
+      $('dPdf').onclick = function () { var x = daily(); R.openPrint(x.html, 'يومية الخزينة ' + L.fmt(x.d)).then(function () { $('dMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
+      $('dXl').onclick = function () {
+        var dd = L.parseISO($('dDate').value) || today(), ds = L.dateToSerial(dd), cc = S.treasury.cols, idx = [];
+        for (var i = 0; i < cc['تاريخ'].length; i++) if (Math.floor(Number(cc['تاريخ'][i])) === ds) idx.push(i);
+        $('dMsg').textContent = 'بيجهز الإكسيل…';
+        R.downloadXlsx(treasData(idx, 'يومية الخزينة ' + L.toISO(dd), 'يومية الخزينة', DAYS_AR[dd.getUTCDay()] + ' ' + L.fmt(dd)))
+          .then(function () { $('dMsg').textContent = idx.length + ' حركة'; }, function (e) { $('dMsg').textContent = e.message || 'التحميل مش متاح هنا.'; });
       };
-      $('dPrint').onclick = function () { var x = daily(); R.printHtml(x.html, 'يومية الخزينة ' + L.fmt(x.d)); };
       drawTreas();
     }).catch(function (e) { box.innerHTML = errHtml(e); });
+  }
+  var DAYS_AR = ['الأحد', 'الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة', 'السبت'];
+  function treasData(idx, name, title, sub) {
+    var c = S.treasury.cols, ub = {}; S.units.forEach(function (u) { ub[u.code] = u; });
+    var g = function (k, i) { return c[k] ? c[k][i] : ''; };
+    return { name: name, title: title, sheet: 'الخزينة', sub: sub, sums: [1, 2],
+      kinds: ['date', 'money', 'money', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'date', 'text', 'text', 'text'],
+      headers: ['التاريخ', 'وارد', 'منصرف', 'الفئة', 'البيان', 'كود', 'الوحدة', 'كود المستأجر', 'شهر', 'من', 'إلى', 'الخزينة', 'رقم المستند', 'مراجعة'],
+      rows: idx.map(function (i) { var u = ub[String(g('كود', i))] || {};
+        return [L.serialToDate(g('تاريخ', i)), Number(g('ايراد', i)) || '', Number(g('مصروف', i)) || '', g('فئة', i), g('بيان', i), g('كود', i),
+          [u.project, u.building, u.apt].filter(function (v) { return v && v !== '0'; }).join(' - '), g('كود المستأجر', i),
+          g('شهر', i) ? L.monthKey(L.serialToDate(g('شهر', i))) : '', L.serialToDate(g('بداية الايجار', i)) || '', L.serialToDate(g('نهاية الايجار', i)) || '', g('كاش', i), g('رقم المستند', i), g('مراجعة', i)]; }) };
   }
   function drawTreas() {
     var c = S.treasury.cols, n = c['تاريخ'].length, out = [];
@@ -1075,7 +1113,7 @@
       return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(String(c['فئة'][i] || '—')) + '</div><div class="r2">' + esc(String(c['بيان'] ? c['بيان'][i] || '' : '')) + '</div></div>' +
         '<div class="amt ' + (vin ? 'okc' : 'late') + '">' + (vin ? '+' + money(vin) : '−' + money(vout)) + '</div></div>' +
         '<div class="r2" style="margin-top:4px">' + L.fmt(L.serialToDate(c['تاريخ'][i])) + ' · ' + esc(String(c['كاش'][i] || '')) + (c['كود'] && c['كود'][i] ? ' · <span dir="ltr">' + esc(String(c['كود'][i])) + '</span>' : '') + '</div></div>';
-    }).join('') + (out.length > 100 ? '<div class="r2" style="padding:6px">ظاهر أحدث ١٠٠ حركة من ' + out.length + '. التصدير فيه الكل.</div>' : '') : '<div class="empty" style="padding:8px">مفيش حركات بالفلتر ده.</div>';
+    }).join('') + (out.length > 100 ? '<div class="r2" style="padding:6px">ظاهر أحدث ١٠٠ حركة من ' + out.length + '. الإكسيل والـ PDF فيهم الكل.</div>' : '') : '<div class="empty" style="padding:8px">مفيش حركات بالفلتر ده.</div>';
   }
 
   window.OsoolScreens = {
