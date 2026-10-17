@@ -116,12 +116,35 @@
     if (TEXT_COLS.indexOf(key) !== -1) { var s = String(v); cell.values = [[/^\d+$/.test(s) ? "'" + s : s]]; return; }
     cell.values = [[v]];
   }
+  // قيمة جاهزة للكتابة كـ formulas (أرقام، نص، أو معادلة) من غير تغيير تنسيق
+  function cellValue(key, v, isMonth) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return v;
+    var s = String(v);
+    if (isMonth && s.charAt(0) === '=') return s;              // معادلة الليالي
+    if (TEXT_COLS.indexOf(key) !== -1 && /^\d+$/.test(s)) return "'" + s;
+    if (/^[=+\-@]/.test(s)) return "'" + s;                    // نص بيبدأ بعلامة متتقريش كمعادلة
+    return s;
+  }
+  // بيجمّع الخانات المتجاورة ويكتب كل مجموعة مرة واحدة — طلبات أقل وإعادة حساب أقل
   function writeFields(body, H, rowIdx, obj, skipped) {
+    var cells = {};
     Object.keys(obj).forEach(function (k) {
       var i = H.indexOf(k);
       if (i === -1) { if (skipped.indexOf(k) === -1) skipped.push(k); return; }
-      setCell(body, rowIdx, i, k, obj[k]);
+      cells[i] = cellValue(k, obj[k], MONTH_RE.test(k));
     });
+    var idx = Object.keys(cells).map(Number).sort(function (a, b) { return a - b; });
+    for (var a = 0; a < idx.length;) {
+      var b = a; while (b + 1 < idx.length && idx[b + 1] === idx[b] + 1) b++;
+      var run = []; for (var j = a; j <= b; j++) run.push(cells[idx[j]]);
+      body.getCell(rowIdx, idx[a]).getResizedRange(0, run.length - 1).formulas = [run];
+      a = b + 1;
+    }
+  }
+  // يأجل إعادة حساب الملف لحد ما الكتابة تخلص (الملف تقيل)
+  function holdCalc(ctx) {
+    try { ctx.workbook.application.suspendApiCalculationUntilNextSync(); } catch (e) { /* نسخة أقدم */ }
   }
   // أول سطر فاضي بعد آخر سطر مستخدم، ويزود سطور لو مفيش
   function freeRows(ctx, T, keyCols, n) {
@@ -148,6 +171,7 @@
     return tableWithHeader(ctx, 'entry').then(function (e) { E = e; return freeRows(ctx, E, ['تاريخ', 'ايراد', 'مصروف', 'فئة'], entries.length); })
       .then(function (f) {
         var body = E.t.getDataBodyRange(); var pos = body.load('rowIndex');
+        holdCalc(ctx);
         entries.forEach(function (v, j) { writeFields(body, E.H, f.start + j, v, skipped); });
         return ctx.sync().then(function () {
           return entries.map(function (_, j) { return pos.rowIndex + f.start + j + 1; });
@@ -163,24 +187,17 @@
           start = f.start;
           code = L.nextTenantCode(form.unit.code, f.cols['كود المستأجر']);
           var data = L.toRowValues(form, code), body = R.t.getDataBodyRange();
+          var pos = body.load('rowIndex');
+          holdCalc(ctx);
           writeFields(body, R.H, start, data.fields, skipped);
           writeFields(body, R.H, start, data.months, skipped);
           R.t.worksheet.activate(); body.getRow(start).select();
-          return ctx.sync();
-        })
-        .then(function () { return verify(ctx, R, code, start, skipped); });
+          return ctx.sync().then(function () {
+            return { code: code, idx: start, sheetRow: pos.rowIndex + start + 1, duplicate: false, skipped: skipped };
+          });
+        });
     }).catch(fail);
   }
-  function verify(ctx, R, code, idx, skipped) {
-    return readCols(ctx, R.t, R.H, ['كود المستأجر']).then(function (c) {
-      var pos = R.t.getDataBodyRange().load('rowIndex');
-      return ctx.sync().then(function () {
-        var dup = c['كود المستأجر'].filter(function (v) { return String(v).trim() === code; }).length;
-        return { code: code, idx: idx, sheetRow: pos.rowIndex + idx + 1, duplicate: dup > 1, skipped: skipped };
-      });
-    });
-  }
-
   function writeEntries(entries) {
     return Excel.run(function (ctx) {
       var skipped = [];
@@ -206,6 +223,8 @@
         newIdx = f.start;
         code = L.nextTenantCode(plan.newUnit, f.cols['كود المستأجر']);
         var body = R.t.getDataBodyRange();
+        res.pos = body.load('rowIndex');
+        holdCalc(ctx);
         var old = { 'نهاية العقد': plan.oldEndSerial, 'ملاحظات': plan.oldNote.replace('{NEW}', code) };
         writeFields(body, R.H, plan.oldIdx, old, skipped);
         writeFields(body, R.H, plan.oldIdx, plan.monthChanges, skipped);
@@ -227,8 +246,10 @@
       }).then(function (rows) {
         res.entryRows = rows;
         R.t.worksheet.activate(); R.t.getDataBodyRange().getRow(newIdx).select();
-        return ctx.sync().then(function () { return verify(ctx, R, code, newIdx, skipped); });
-      }).then(function (v) { v.entryRows = res.entryRows; return v; });
+        return ctx.sync().then(function () {
+          return { code: code, idx: newIdx, sheetRow: res.pos.rowIndex + newIdx + 1, duplicate: false, skipped: skipped, entryRows: res.entryRows };
+        });
+      });
     }).catch(fail);
   }
 
