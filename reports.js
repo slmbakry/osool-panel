@@ -333,8 +333,8 @@
           if (k === 'phone') { var u = waUrl(v); c.value = u ? { text: String(v), hyperlink: u } : String(v); if (u) c.font = { color: { argb: 'FF1F7A45' }, underline: true }; return; }
           if (typeof v === 'number') { c.value = v; c.numFmt = k === 'money' || sums.indexOf(i) !== -1 ? '#,##0' : 'General'; return; }
           if ((k === 'num' || k === 'money') && /^-?[\d.]+$/.test(String(v))) { c.value = Number(v); c.numFmt = '#,##0'; return; }
-          // الأكواد والأرقام المكتوبة كنص تتحفظ أرقام (إلا اللي بيبدأ بصفر)
-          if (/^[1-9]\d{0,14}$/.test(String(v).trim())) { c.value = Number(String(v).trim()); return; }
+          // الأكواد القصيرة تتحفظ أرقام؛ أرقام الحسابات والتليفونات الطويلة تفضل نص عشان الإكسيل ميقلبهاش
+          if (/^[1-9]\d{0,9}$/.test(String(v).trim())) { c.value = Number(String(v).trim()); return; }
           c.value = String(v);
         });
         if (ri % 2) row.eachCell({ includeEmpty: true }, function (c, ci) { if (ci <= n) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBF8F1' } }; });
