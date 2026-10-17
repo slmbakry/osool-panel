@@ -6,7 +6,13 @@
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
   var ENTRY_COLS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'شهر', 'نهاية الايجار', 'كود المستأجر', 'كاش', 'العملة', 'رقم المستند', 'كود', 'بيان', 'بداية الايجار', 'مراجعة'];
   var COPY_FIELDS = ['الاسم', 'Special', 'Rate', 'الجنسية', 'رقم البطاقة - جواز السفر', 'التليفون', 'التأمين', 'تحصيل كل', 'Operation', 'الاستهلاكات', 'موقف الاستلام'];
-  var C = { view: 'late', op: '', sort: 'amount', q: '', flash: '', st: 'live' };
+  var C = { view: 'late', op: '', sort: 'amount', q: '', flash: '', st: 'live', days: 7 };
+  try { var savedCD = +localStorage.getItem('osoolPanel.collDays'); if (savedCD > 0) C.days = savedCD; } catch (e) {}
+  var DAY_CHOICES = [3, 5, 7, 10, 14, 15, 21, 30];
+  function daysSelect(id, cur) {
+    var l = DAY_CHOICES.indexOf(cur) === -1 ? DAY_CHOICES.concat([cur]).sort(function (a, b) { return a - b; }) : DAY_CHOICES;
+    return '<select id="' + id + '" style="width:auto;padding:1px 4px;font-size:12px;display:inline-block">' + l.map(function (d) { return '<option value="' + d + '"' + (d === cur ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select>';
+  }
   // حالة العقد: ساري (نهايته النهارده أو بعد كده، ومعاه الجاي) أو منتهي
   function isLive(end) { return !end || end >= today(); }
   function stOk(st, end) { return st === 'all' || (st === 'live') === isLive(end); }
@@ -53,8 +59,10 @@
       }).join('') + '</div>' +
       '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
       '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
-      '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>');
+      '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>' +
+      '<button class="btn ghost" id="setRows" style="width:100%;margin-top:10px">إضافة سطور فاضية للجداول</button>');
     $('setBack').onclick = App.closeSheet;
+    $('setRows').onclick = openAddRows;
     $('setSave').onclick = function () {
       var mode = document.querySelector('input[name=mode]:checked').value;
       var list = Array.prototype.slice.call(document.querySelectorAll('.chks input:checked')).map(function (i) { return i.value; });
@@ -65,6 +73,35 @@
         S.settings = obj; S.settingsLoaded = true; App.closeSheet();
         if (S.tab === 'coll') drawColl();
       }).catch(function (e) { $('setMsg').innerHTML = errHtml(e); $('setSave').disabled = false; });
+    };
+  }
+  // ======================= إضافة سطور فاضية =======================
+  function openAddRows() {
+    App.openSheet('<h2>إضافة سطور فاضية</h2>' +
+      '<p class="r2">الإكسيل مش بيكبّر الجدول والشيت محمي. فك حماية الشيت، وزوّد السطور من هنا، وبعدين رجّع الحماية.</p>' +
+      '<div id="arInfo">' + loadingHtml('بيعد السطور الفاضية…') + '</div>' +
+      '<div style="margin-bottom:10px"><label>الجدول</label><select id="arT"><option value="entry">الخزينة</option><option value="renter">عقود المستأجرين</option></select></div>' +
+      '<div style="margin-bottom:10px"><label>عدد السطور</label><input id="arN" class="ltr" value="500" inputmode="numeric"></div>' +
+      '<div id="arMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="arBack">رجوع</button><button class="btn primary" id="arGo">إضافة</button></div>');
+    var show = function () {
+      $('arInfo').innerHTML = loadingHtml('بيعد السطور الفاضية…');
+      return Promise.all([A.tableInfo('entry'), A.tableInfo('renter')]).then(function (l) {
+        $('arInfo').innerHTML = '<div class="card">' + l.map(function (i) {
+          return '<div class="r2" style="margin:3px 0"><b>' + esc(i.title) + ':</b> ' + money(i.empty) + ' سطر فاضي من ' + money(i.total) + ' · ' +
+            (i.protected ? '<span class="late">الشيت محمي</span>' : '<span class="okc">الحماية مفكوكة</span>') + '</div>';
+        }).join('') + '</div>';
+      }).catch(function (e) { $('arInfo').innerHTML = errHtml(e); });
+    };
+    show();
+    $('arBack').onclick = function () { App.closeSheet(); };
+    $('arGo').onclick = function () {
+      var btn = this, n = +digits($('arN').value), name = $('arT').value;
+      if (!(n >= 1 && n <= 2000)) { $('arMsg').innerHTML = '<div class="msg err">اكتب عدد من ١ لـ ٢٠٠٠.</div>'; return; }
+      btn.disabled = true; btn.textContent = 'بيضيف…'; $('arMsg').innerHTML = '';
+      A.addRows(name, n).then(function (r) {
+        $('arMsg').innerHTML = '<div class="msg ok">اتضاف ' + money(r.added) + ' سطر لجدول ' + esc(r.title) + '. فيه دلوقتي ' + money(r.empty) + ' سطر فاضي. متنساش ترجّع الحماية.</div>';
+        btn.disabled = false; btn.textContent = 'إضافة'; show();
+      }).catch(function (e) { $('arMsg').innerHTML = errHtml(e); btn.disabled = false; btn.textContent = 'إضافة'; });
     };
   }
   $('gear').addEventListener('click', function () { ensureSettings().then(openSettings); });
@@ -87,34 +124,42 @@
     var all = F.followUp(ctx(), S.settings, today());
     S.fuAll = all;
     var items = all.filter(function (x) { return stOk(C.st, x.r.end); });
+    items.forEach(function (x) { x.exp = F.expectedIn(x, today(), C.days); });
     S.fu = items;
+    var soon = items.filter(function (x) { return x.exp; });
     var late = items.filter(function (x) { return x.late; });
     var bal = items.filter(function (x) { return x.balance > 1; });
     var ops = {}; bal.forEach(function (x) { var o = x.r.operation; if (o) ops[o] = 1; });
     var box = $('tab-coll');
     box.innerHTML = (C.flash ? '<div class="msg ok">' + esc(C.flash) + '</div>' + (C.check || '') : '') +
       '<div class="sum"><div class="box"><div class="v late">' + late.length + '</div><div class="k">متأخر</div></div>' +
-      '<div class="box"><div class="v">' + money(Math.round(late.reduce(function (a, x) { return a + x.balance; }, 0))) + '</div><div class="k">إجمالي المتأخرات</div></div></div>' +
+      '<div class="box"><div class="v">' + money(Math.round(late.reduce(function (a, x) { return a + x.balance; }, 0))) + '</div><div class="k">إجمالي المتأخرات</div></div>' +
+      '<div class="box"><div class="v">' + soon.length + '</div><div class="k">مستحقين خلال ' + daysSelect('collDays', C.days) + ' يوم</div></div>' +
+      '<div class="box"><div class="v">' + money(soon.reduce(function (a, x) { return a + x.exp.amount; }, 0)) + '</div><div class="k">المتوقع تحصيله</div></div></div>' +
       '<div class="r2" style="margin-bottom:8px">' + esc(scopeText(S.settings)) + ' · <button class="link" id="chgScope">تغيير</button></div>' +
       stSeg('stSeg', C.st) +
-      '<div class="seg" id="vSeg"><button data-v="late">المتأخرين</button><button data-v="all">كل اللي عليهم رصيد (' + bal.length + ')</button></div>' +
+      '<div class="seg" id="vSeg" style="grid-template-columns:repeat(3,1fr)"><button data-v="late">المتأخرين</button><button data-v="soon">المستحقين</button><button data-v="all">الأرصدة (' + bal.length + ')</button></div>' +
       '<div class="filters"><select id="fOp"><option value="">كل المسؤولين</option>' + Object.keys(ops).sort().map(function (o) { return '<option' + (o === C.op ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' +
-      '<select id="fSort"><option value="amount">الأكبر مبلغ</option><option value="days"' + (C.sort === 'days' ? ' selected' : '') + '>الأقدم تأخير</option></select></div>' +
+      '<select id="fSort"><option value="amount">الأكبر مبلغ</option><option value="days"' + (C.sort === 'days' ? ' selected' : '') + '>' + (C.view === 'soon' ? 'الأقرب ميعاد' : 'الأقدم تأخير') + '</option></select></div>' +
       '<input id="fQ" placeholder="بحث بالاسم أو الكود" value="' + esc(C.q) + '" autocomplete="off" style="margin-bottom:8px">' +
       exportBar('collExp') +
       '<div id="collList"></div>';
     C.flash = ''; C.check = '';
     document.querySelectorAll('#vSeg button').forEach(function (b) {
       b.classList.toggle('on', b.dataset.v === C.view);
-      b.onclick = function () { C.view = b.dataset.v; document.querySelectorAll('#vSeg button').forEach(function (x) { x.classList.toggle('on', x === b); }); drawList(); };
+      b.onclick = function () { C.view = b.dataset.v; drawColl(); };
     });
     bindSeg('stSeg', function (v) { C.st = v; drawColl(); });
+    $('collDays').onchange = function () { C.days = +this.value; try { localStorage.setItem('osoolPanel.collDays', C.days); } catch (e) {} drawColl(); };
     $('fOp').onchange = function () { C.op = this.value; drawList(); };
     $('fSort').onchange = function () { C.sort = this.value; drawList(); };
     $('fQ').oninput = function () { C.q = this.value; drawList(); };
     $('chgScope').onclick = openSettings;
     bindExport('collExp', function () {
       var list = S.collView || [];
+      if (C.view === 'soon') return { name: 'المتوقع تحصيله خلال ' + C.days + ' يوم ' + L.toISO(today()),
+        headers: ['الاسم', 'كود المستأجر', 'المشروع', 'عمارة', 'شقة', 'المسؤول', 'التليفون', 'المتوقع', 'مستحق يوم', 'مسدد لحد', 'بداية العقد', 'نهاية العقد'],
+        rows: list.map(function (x) { var u = x.unit || {}; return [x.r.name, x.r.code, u.project || '', u.building || '', u.apt || '', x.r.operation, x.r.phone, x.exp.amount, x.exp.date, x.paidUntil, x.r.start, x.r.end]; }) };
       return { name: (C.view === 'late' ? 'المتأخرات ' : 'الأرصدة ') + ({ live: 'ساري ', ended: 'منتهي ', all: '' })[C.st] + L.toISO(today()),
         headers: ['الاسم', 'كود المستأجر', 'المشروع', 'عمارة', 'شقة', 'المسؤول', 'التليفون', 'الرصيد', 'مسدد لحد', 'ملاحظة', 'أيام التأخير', 'بداية العقد', 'نهاية العقد', 'رصيد التأمين'],
         rows: list.map(function (x) { var u = x.unit || {}; return [x.r.name, x.r.code, u.project || '', u.building || '', u.apt || '', x.r.operation, x.r.phone, Math.round(x.balance), x.paidUntil, x.paidNote, x.daysLate, x.r.start, x.r.end, x.deposit]; }) };
@@ -123,19 +168,21 @@
   }
 
   function statusLine(x) {
+    if (C.view === 'soon' && x.exp) return '<span class="okc">مستحق ' + L.fmt(x.exp.date) + (x.exp.inDays ? ' (بعد ' + x.exp.inDays + ' يوم)' : ' (النهارده)') + '</span>' + (x.paidNote === 'مفيش تحصيل' ? ' · أول تحصيل' : ' · مسدد لحد ' + L.fmt(x.paidUntil));
     if (x.late) return '<span class="late">متأخر ' + x.daysLate + ' يوم</span> · ' + (x.paidNote === 'مفيش تحصيل' ? 'مفيش تحصيل من البداية' : 'مسدد لحد ' + L.fmt(x.paidUntil) + (x.paidNote ? ' (' + x.paidNote + ')' : ''));
     return '<span class="okc">مسدد لحد ' + L.fmt(x.paidUntil) + '</span>';
   }
   function drawList() {
-    var list = (S.fu || []).filter(function (x) { return C.view === 'late' ? x.late : x.balance > 1; });
+    var list = (S.fu || []).filter(function (x) { return C.view === 'late' ? x.late : C.view === 'soon' ? !!x.exp : x.balance > 1; });
     if (C.op) list = list.filter(function (x) { return x.r.operation === C.op; });
     var q = L.norm(C.q);
     if (q) list = list.filter(function (x) { return L.norm(x.r.name + ' ' + x.r.code).indexOf(q) !== -1; });
-    list.sort(C.sort === 'days' ? function (a, b) { return b.daysLate - a.daysLate; } : function (a, b) { return b.balance - a.balance; });
+    if (C.view === 'soon') list.sort(C.sort === 'days' ? function (a, b) { return a.exp.date - b.exp.date; } : function (a, b) { return b.exp.amount - a.exp.amount; });
+    else list.sort(C.sort === 'days' ? function (a, b) { return b.daysLate - a.daysLate; } : function (a, b) { return b.balance - a.balance; });
     S.collView = list;
     $('collList').innerHTML = list.length ? list.map(function (x) {
       return '<div class="rcard click" data-code="' + esc(x.r.code) + '"><div class="top2"><div><div class="r1">' + esc(x.r.name || '—') + '</div>' +
-        '<div class="r2">' + esc(x.unit ? App.unitTitle(x.unit) : x.r.unit) + '</div></div><div class="amt">' + money(x.balance) + '</div></div>' +
+        '<div class="r2">' + esc(x.unit ? App.unitTitle(x.unit) : x.r.unit) + '</div></div><div class="amt">' + money(C.view === 'soon' && x.exp ? x.exp.amount : x.balance) + '</div></div>' +
         '<div class="r2" style="margin-top:4px">' + statusLine(x) + '</div>' +
         '<div style="margin-top:4px"><span class="pill" dir="ltr">' + esc(x.r.code) + '</span> ' + (x.r.operation ? '<span class="pill">' + esc(x.r.operation) + '</span>' : '') + '</div></div>';
     }).join('') : '<div class="empty" style="padding:8px">مفيش حد هنا.</div>';

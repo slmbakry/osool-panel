@@ -293,6 +293,49 @@
     }).catch(fail);
   }
 
+  // ---------- إضافة سطور فاضية (بعد ما المستخدم يفك الحماية) ----------
+  var ROW_KEYS = { entry: ['تاريخ', 'ايراد', 'مصروف', 'فئة'], renter: ['كود', 'كود المستأجر'] };
+  var TABLE_AR = { entry: 'الخزينة', renter: 'عقود المستأجرين' };
+  function infoCtx(ctx, name) {
+    var T;
+    return tableWithHeader(ctx, name).then(function (x) { T = x; return readCols(ctx, T.t, T.H, ROW_KEYS[name]); }).then(function (c) {
+      var keys = ROW_KEYS[name], len = c[keys[0]].length, last = -1;
+      for (var i = len - 1; i >= 0 && last === -1; i--) for (var j = 0; j < keys.length; j++) { var v = c[keys[j]][i]; if (v !== '' && v !== null) { last = i; break; } }
+      var pr = T.t.worksheet.protection.load('protected');
+      return ctx.sync().then(function () { return { name: name, title: TABLE_AR[name], total: len, used: last + 1, empty: len - last - 1, protected: pr.protected, T: T }; });
+    });
+  }
+  function tableInfo(name) {
+    return Excel.run(function (ctx) { return infoCtx(ctx, name).then(function (i) { delete i.T; return i; }); }).catch(fail);
+  }
+  function addRows(name, n) {
+    n = Math.floor(Number(n) || 0);
+    if (n < 1 || n > 2000) return Promise.reject(new Error('عدد السطور لازم يكون من ١ لـ ٢٠٠٠.'));
+    return Excel.run(function (ctx) {
+      var before;
+      return infoCtx(ctx, name).then(function (info) {
+        before = info;
+        if (info.protected) throw { message: 'شيت ' + info.title + ' لسه محمي. فك الحماية الأول، وبعد الإضافة رجّعها.' };
+        var t = info.T.t, below = t.getRange().getRowsBelow(n).load('values');
+        return ctx.sync().then(function () {
+          var busy = below.values.some(function (r) { return r.some(function (v) { return v !== '' && v !== null; }); });
+          if (busy) throw { message: 'فيه بيانات تحت جدول ' + info.title + ' مباشرة، والإضافة كانت هتدخلها جوه الجدول. فضّي المكان ده الأول.' };
+          holdCalc(ctx);
+          var canResize = typeof t.resize === 'function' && root.Office && Office.context && Office.context.requirements && Office.context.requirements.isSetSupported('ExcelApi', '1.13');
+          if (canResize) { t.resize(t.getRange().getResizedRange(n, 0)); return ctx.sync(); }
+          // نسخة أقدم: سطر سطر على دفعات
+          var left = n, step = function () { if (left <= 0) return Promise.resolve(); var k = Math.min(100, left); left -= k; for (var a = 0; a < k; a++) t.rows.add(); return ctx.sync().then(step); };
+          return step();
+        });
+      }).then(function () { return infoCtx(ctx, name); }).then(function (after) {
+        delete after.T;
+        after.added = after.total - before.total;
+        if (after.added !== n) throw { message: 'اتضاف ' + after.added + ' سطر بس من ' + n + '. راجع آخر جدول ' + after.title + '.' };
+        return after;
+      });
+    }).catch(fail);
+  }
+
   function goTo(tableName, idx) {
     return Excel.run(function (ctx) {
       var t = ctx.workbook.tables.getItem(tableName);
@@ -305,6 +348,7 @@
     loadAll: loadAll, loadTreasury: loadTreasury, readRenterRow: readRenterRow,
     getSettings: getSettings, saveSettings: saveSettings,
     writeContract: writeContract, writeEntries: writeEntries, writeTransfer: writeTransfer,
+    tableInfo: tableInfo, addRows: addRows,
     goToRow: function (idx) { return goTo('renter', idx); }, goTo: goTo
   };
 })(this);

@@ -113,6 +113,22 @@
     return out;
   }
 
+  // المتوقع تحصيله خلال فترة: مش متأخر، والمدفوع بيخلص جوه الفترة، والعقد مكمل بعده.
+  // المبلغ = المستحق لحد شهر نهاية الفترة ناقص كل اللي اتحصّل لحد نفس الشهر.
+  function expectedIn(item, today, days) {
+    today = today || L.todayUTC();
+    var r = item.r, p = item.paidUntil;
+    if (item.late || !p || !r.end) return null;
+    var until = new Date(today.getTime() + days * DAY);
+    if (p < today || p >= until || r.end <= p) return null;
+    var keys = keyRange(FOLLOW_FROM, L.monthKey(until)), due = 0, coll = 0;
+    keys.forEach(function (k) { due += item.dues[k] || 0; coll += item.ledger.byMonth[k] || 0; });
+    var amt = Math.round(due - coll);
+    if (amt <= 1) return null;
+    var next = new Date(p.getTime() + DAY);
+    return { amount: amt, date: next, inDays: L.daysBetween(today, next) };
+  }
+
   // تفاصيل الشهور: مستحق ومحصل ومتبقي متجمع
   function monthsDetail(item, today) {
     var keys = keyRange(FOLLOW_FROM, L.monthKey(today || L.todayUTC()));
@@ -358,7 +374,7 @@
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
     ownerFollow: ownerFollow, ownerMessage: ownerMessage, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
-    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp,
+    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, expectedIn: expectedIn,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
     entryValues: entryValues, availability: availability, planTransfer: planTransfer, depositMoves: depositMoves
   };
