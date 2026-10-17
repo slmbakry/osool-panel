@@ -511,7 +511,7 @@
     var t = F.ownerTransfer(x);
     return '<div class="bankbox"><dl><dt>المستفيد</dt><dd>' + esc(t.name || '—') + '</dd><dt>رقم الحساب</dt><dd>' + esc(t.acc || '—') + '</dd><dt>البنك</dt><dd>' + esc(t.bank || '—') + '</dd>' +
       '<dt>طريقة الدفع</dt><dd>' + esc(t.method || '—') + '</dd><dt>المبلغ</dt><dd>' + money(t.amount) + ' EGP</dd></dl>' +
-      (!t.acc && !t.name ? '<div class="r2" style="margin-top:4px">مفيش بيانات تحويل للمالك ده في عقود الملاك.</div>' : '') +
+      (!t.acc ? '<div class="r2" style="margin-top:4px">مفيش رقم حساب للمالك ده في عقود الملاك.</div>' : '') +
       '<div style="display:flex;gap:14px;margin-top:7px"><button class="link" id="' + id + '">نسخ بيانات التحويل</button></div></div>';
   }
   function bindBank(x, id) { var b = $(id); if (b) b.onclick = function () { App.copyText(F.ownerTransfer(x).text, b); }; }

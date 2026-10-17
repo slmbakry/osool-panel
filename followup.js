@@ -525,7 +525,7 @@
     var u = x.unit;
     var unit = [u.project, u.building, u.apt].filter(function (v) { return str(v) && str(v) !== '0'; }).join(' - ');
     return {
-      name: u.benName || '', acc: u.benAcc || '', bank: u.bank || '', method: u.payMethod || '', amount: Math.round(x.required || 0),
+      name: u.benName || u.owner || '', acc: u.benAcc || '', // لو مفيش مستفيد، المالك نفسه هو المستفيد bank: u.bank || '', method: u.payMethod || '', amount: Math.round(x.required || 0),
       text: ['المستفيد: ' + (u.benName || u.owner || '-'), 'رقم الحساب: ' + (u.benAcc || '-'), 'البنك: ' + (u.bank || '-'), 'طريقة الدفع: ' + (u.payMethod || '-'),
         'المبلغ: ' + nf(x.required || 0) + ' EGP', 'عن: ' + (x.every || 1) + ' شهر', 'الوحدة: ' + (unit || u.code) + ' · كود ' + u.code, 'المالك: ' + (u.owner || '-')].join('\n')
     };

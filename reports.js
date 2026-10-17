@@ -8,6 +8,8 @@
   function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function money(n) { n = Number(n) || 0; return n ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—'; }
   function d(v) { return v ? L.fmt(v) : ''; }
+  function d2(v) { return v ? L.fmt(v).replace(/\/(\d{2})(\d{2})$/, '/$2') : ''; } // 05/10/26
+  function el(t, w) { return '<span class="el" style="--w:' + w + 'px">' + esc(t) + '</span>'; }
   function nowText() {
     var n = new Date();
     return L.fmt(new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()))) + ' ' + String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
@@ -38,6 +40,18 @@
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
     '.rp .foot{display:flex;justify-content:space-between;color:#8a918d;font-size:10px;margin-top:10px;border-top:1px solid #e4e2db;padding-top:6px}' +
     '.rp .muted{color:#8a918d}' +
+    /* مضغوط: صفوف أكتر في الصفحة ومقروءة */
+    '.rp{font-size:10.5px;line-height:1.25;padding:14px 16px 30px}' +
+    '.rp .band{padding:7px 12px;margin-bottom:7px;border-radius:8px}.rp .band h1{font-size:16px}.rp .band .sub{font-size:11px;margin-top:0}.rp .brand{font-size:11px;padding:2px 8px}' +
+    '.rp .kpis{gap:6px;margin-bottom:7px}.rp .kpi{padding:4px 9px;border-radius:7px}.rp .kpi .v{font-size:14px}.rp .kpi .k{font-size:9.5px}' +
+    '.rp th{font-size:9.5px;padding:3px 4px}' +
+    '.rp td{font-size:10.5px;line-height:1.2;padding:1.5px 4px;white-space:nowrap;vertical-align:middle}' +
+    '.rp .el{display:inline-block;max-width:var(--w,150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}' +
+    '.rp .chip{font-size:9.5px;padding:0 6px;line-height:1.3}' +
+    '.rp h2{font-size:11.5px;margin:0 0 4px}.rp .two{gap:10px;margin-bottom:7px}' +
+    '.rp .grp td{background:#f5eedc!important;color:#6e531b;font-weight:700;font-size:10px;padding:2px 6px;border-bottom:1px solid #e3d6b5}' +
+    '.rp .cats{display:grid;grid-template-columns:repeat(3,1fr);gap:0 14px;margin-bottom:7px}.rp .cats div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px dotted #e4e2db;padding:1px 0}' +
+    '.rp .signs{display:flex;gap:16px;margin-top:8px}.rp .signs div{flex:1;border:1px dashed #cfcbbf;border-radius:7px;padding:6px 10px;color:#6b736f;height:40px;white-space:normal}' +
     '</style>';
 
   function band(title, sub) {
@@ -74,13 +88,14 @@
       var st;
       if (!c && x.pending) st = '<span class="chip out">لم تُستلم</span>';
       else if (!c) st = '<span class="chip ok">Available</span>';
-      else if (c.end.getUTCFullYear() >= 2090) st = '<span class="chip out">' + d(c.end) + '</span>';
-      else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d(c.end) + '</span>';
-      else st = d(c.end);
-      return '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(u.project) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + esc(u.info && u.info !== '0' ? u.info : '') + '</td>' +
-        '<td>' + esc(u.block) + '</td><td>' + esc(u.building) + '</td><td>' + esc(u.apt) + '</td><td>' + st + '</td>' +
-        '<td>' + esc(c ? c.name : x.pending ? x.pending.name : '') + '</td><td class="n">' + (n ? d(n.start) : '') + '</td><td class="n">' + (n ? d(n.end) : '') + '</td><td>' + esc(n ? n.name : '') + '</td>' +
-        '<td class="n">' + more + '</td><td>' + esc(c ? c.receipt : '') + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
+      else if (c.end.getUTCFullYear() >= 2090) st = '<span class="chip out">خارج التشغيل</span>';
+      else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
+      else st = d2(c.end);
+      var unit = [u.block, u.building, u.apt].filter(function (v) { return v && v !== '0'; }).join(' · ');
+      return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + el(u.info && u.info !== '0' ? u.info : '', 80) + '</td>' +
+        '<td>' + el(unit, 130) + '</td><td>' + st + '</td>' +
+        '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + (n ? d2(n.start) : '') + '</td><td class="n">' + (n ? d2(n.end) : '') + '</td><td>' + el(n ? n.name : '', 130) + '</td>' +
+        '<td class="n">' + more + '</td><td>' + el(c ? c.receipt : '', 70) + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;
     var sub = DAYS[today.getUTCDay()] + ' ' + L.fmt(today) + (filterText ? ' · ' + filterText : '');
@@ -91,7 +106,7 @@
       '<div class="kpi"><div class="v">' + checkOut + '</div><div class="k">Check Out النهارده</div></div>' +
       '<div class="kpi"><div class="v">' + list.length + '</div><div class="k">إجمالي الوحدات</div></div></div></div>' +
       '<div style="flex:0 0 330px"><table><thead><tr><th>Location</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">Total</th></tr></thead><tbody>' + matrix + '</tbody></table></div></div>' +
-      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Details</th><th>Building</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n">Max.</th></tr></thead>', rows: rows, tfoot: '' };
+      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n">Max.</th></tr></thead>', rows: rows, tfoot: '' };
   }
 
   // ---------- طباعة اليومية ----------
@@ -125,23 +140,28 @@
     var mv = rows.map(function (i) {
       var u = ub[String(g('كود', i))] || {};
       var rev = String(g('مراجعة', i) || '');
-      return '<tr><td class="n g">' + money(g('ايراد', i)) + '</td><td class="n r">' + money(g('مصروف', i)) + '</td><td class="n">' + esc(g('رقم المستند', i)) + '</td>' +
-        '<td>' + esc(u.project || '') + '</td><td>' + esc(u.building || '') + '</td><td>' + esc(u.apt || '') + '</td><td>' + esc(g('فئة', i)) + '</td><td>' + esc(g('بيان', i)) + '</td>' +
-        '<td class="n">' + (g('شهر', i) ? esc(L.monthKey(L.serialToDate(g('شهر', i)))) : '') + '</td><td class="n">' + d(L.serialToDate(g('بداية الايجار', i))) + '</td><td class="n">' + d(L.serialToDate(g('نهاية الايجار', i))) + '</td>' +
-        '<td>' + (rev ? '<span class="chip soon">' + esc(rev) + '</span>' : '') + '</td><td>' + esc(g('كاش', i)) + '</td></tr>';
+      var unit = [u.project, u.building, u.apt].filter(function (v) { return v && v !== '0'; }).join(' · ');
+      var a = L.serialToDate(g('بداية الايجار', i)), b = L.serialToDate(g('نهاية الايجار', i));
+      return '<tr><td class="n g">' + money(g('ايراد', i)) + '</td><td class="n r">' + money(g('مصروف', i)) + '</td><td class="n">' + el(g('رقم المستند', i), 60) + '</td>' +
+        '<td>' + el(unit, 140) + '</td><td>' + el(g('فئة', i), 110) + '</td><td>' + el(g('بيان', i), 210) + '</td>' +
+        '<td class="n">' + (g('شهر', i) ? esc(L.monthKey(L.serialToDate(g('شهر', i)))) : '') + '</td><td class="n">' + (a || b ? d2(a) + ' → ' + d2(b) : '') + '</td>' +
+        '<td>' + (rev ? '<span class="chip soon">' + esc(rev) + '</span>' : '') + '</td><td>' + el(g('كاش', i), 95) + '</td></tr>';
     });
-    if (!mv.length) mv = ['<tr><td colspan="13" class="muted">مفيش حركات في اليوم ده</td></tr>'];
+    if (!mv.length) mv = ['<tr><td colspan="10" class="muted">مفيش حركات في اليوم ده</td></tr>'];
+    if (rows.length) mv.push('<tr class="tot"><td class="n" style="font-weight:700;background:#f1efe9;border-top:2px solid #cfcbbf">' + money(tin) + '</td><td class="n" style="font-weight:700;background:#f1efe9;border-top:2px solid #cfcbbf">' + money(tout) + '</td><td colspan="8" style="font-weight:700;background:#f1efe9;border-top:2px solid #cfcbbf">إجمالي اليوم</td></tr>');
+    // التوقيعات آخر حاجة في آخر صفحة
+    mv.push('<tr class="nostripe"><td colspan="10" style="padding:0;border:0;background:#fff!important"><div class="signs"><div>اعداد:</div><div>مراجعة:</div></div></td></tr>');
     var sub = DAYS[date.getUTCDay()] + ' ' + L.fmt(date);
     return { title: 'يومية الخزينة', sub: sub, top: band('يومية الخزينة', sub) +
       '<div class="kpis avoid"><div class="kpi"><div class="v g">' + money(tin) + '</div><div class="k">وارد اليوم</div></div>' +
       '<div class="kpi"><div class="v r">' + money(tout) + '</div><div class="k">منصرف اليوم</div></div>' +
       '<div class="kpi"><div class="v">' + money(tin - tout) + '</div><div class="k">الصافي</div></div>' +
       '<div class="kpi"><div class="v">' + rows.length + '</div><div class="k">عدد الحركات</div></div></div>' +
-      '<div class="two avoid"><div><h2>إجمالي الفئات</h2><table><thead><tr><th>الفئة</th><th class="n">وارد</th><th class="n">منصرف</th></tr></thead><tbody>' + (catRows || '<tr><td colspan="3" class="muted">مفيش حركات</td></tr>') +
-      '</tbody><tfoot><tr><td>الإجمالي</td><td class="n">' + money(tin) + '</td><td class="n">' + money(tout) + '</td></tr></tfoot></table></div>' +
-      '<div style="flex:0 0 300px"><h2>التوقيعات</h2><div class="sign" style="flex-direction:column;margin:0"><div>اعداد:</div><div>مراجعة:</div></div></div></div>' +
-      '<h2>حركات اليوم</h2>', thead: '<thead><tr><th class="n">وارد</th><th class="n">منصرف</th><th class="n">مستند</th><th>المشروع</th><th>عمارة</th><th>شقة</th><th>الفئة</th><th>البيان</th><th class="n">شهر</th><th class="n">من</th><th class="n">إلى</th><th>مراجعة</th><th>الخزينة</th></tr></thead>', rows: mv,
-      tfoot: rows.length ? '<tfoot><tr><td class="n">' + money(tin) + '</td><td class="n">' + money(tout) + '</td><td colspan="11">إجمالي اليوم</td></tr></tfoot>' : '' };
+      (catOrder.length ? '<h2>إجمالي الفئات</h2><div class="cats avoid">' + catOrder.map(function (k) {
+        return '<div><span>' + esc(k) + '</span><span dir="ltr">' + (cats[k].in ? '<b class="g">+' + money(cats[k].in) + '</b>' : '') + (cats[k].in && cats[k].out ? ' ' : '') + (cats[k].out ? '<b class="r">−' + money(cats[k].out) + '</b>' : '') + '</span></div>';
+      }).join('') + '</div>' : '') +
+      '<h2>حركات اليوم</h2>', thead: '<thead><tr><th class="n">وارد</th><th class="n">منصرف</th><th class="n">مستند</th><th>الوحدة</th><th>الفئة</th><th>البيان</th><th class="n">شهر</th><th class="n">الفترة</th><th>مراجعة</th><th>الخزينة</th></tr></thead>', rows: mv,
+      tfoot: '' };
   }
 
   // ---------- تقسيم الصفحات ----------
