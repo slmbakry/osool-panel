@@ -152,7 +152,7 @@
       stSeg('stSeg', C.st) + grpChips('cGrp', F.groupsIn(items.map(function (x) { return x.unit || {}; })), C.grp) +
       '<div class="seg" id="vSeg" style="grid-template-columns:repeat(4,1fr);font-size:12px"><button data-v="due">متأخر ومستحق</button><button data-v="late">المتأخرين</button><button data-v="soon">المستحقين</button><button data-v="all">الأرصدة (' + bal.length + ')</button></div>' +
       '<div class="filters"><select id="fOp"><option value="">كل المسؤولين</option>' + Object.keys(ops).sort().map(function (o) { return '<option' + (o === C.op ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' +
-      '<select id="fSort"><option value="days">' + ({ due: 'حسب الأيام', late: 'الأقل تأخير', soon: 'الأقرب ميعاد', all: 'الأقل تأخير' })[C.view] + '</option><option value="amount"' + (C.sort === 'amount' ? ' selected' : '') + '>الأكبر مبلغ</option></select></div>' +
+      '<select id="fSort"><option value="days">' + ({ due: 'حسب الأيام', late: 'الأكتر تأخير', soon: 'الأقرب ميعاد', all: 'الأكتر تأخير' })[C.view] + '</option><option value="amount"' + (C.sort === 'amount' ? ' selected' : '') + '>الأكبر مبلغ</option></select></div>' +
       '<input id="fQ" placeholder="بحث بالاسم أو الكود" value="' + esc(C.q) + '" autocomplete="off" style="margin-bottom:8px">' +
       exportBar('collExp') +
       '<div id="opsBar" class="r2" style="display:flex;gap:12px;align-items:center;margin:2px 0 8px"></div>' +
