@@ -99,9 +99,10 @@
       if (!(n >= 1 && n <= 2000)) { $('arMsg').innerHTML = '<div class="msg err">اكتب عدد من ١ لـ ٢٠٠٠.</div>'; return; }
       btn.disabled = true; btn.textContent = 'بيضيف…'; $('arMsg').innerHTML = '';
       A.addRows(name, n).then(function (r) {
-        $('arMsg').innerHTML = '<div class="msg ok">اتضاف ' + money(r.added) + ' سطر لجدول ' + esc(r.title) + '. فيه دلوقتي ' + money(r.empty) + ' سطر فاضي. متنساش ترجّع الحماية.</div>';
+        $('arMsg').innerHTML = '<div class="msg ok">اتضاف ' + money(r.added) + ' سطر لجدول ' + esc(r.title) + '. فيه دلوقتي ' + money(r.empty) + ' سطر فاضي. متنساش ترجّع الحماية.</div>' +
+          (r.fixedTotals ? '<div class="msg err">الإجماليات اللي تحت الجدول معادلاتها على نطاق ثابت، فمش هتحسب السطور الجديدة. وسّع نطاقها لحد آخر سطر في الجدول.</div>' : '');
         btn.disabled = false; btn.textContent = 'إضافة'; show();
-      }).catch(function (e) { $('arMsg').innerHTML = errHtml(e); btn.disabled = false; btn.textContent = 'إضافة'; });
+      }).catch(function (e) { $('arMsg').innerHTML = errHtml(e); btn.disabled = false; btn.textContent = 'إضافة'; show(); });
     };
   }
   $('gear').addEventListener('click', function () { ensureSettings().then(openSettings); });

@@ -317,21 +317,36 @@
         before = info;
         if (info.protected) throw { message: 'شيت ' + info.title + ' لسه محمي. فك الحماية الأول، وبعد الإضافة رجّعها.' };
         var t = info.T.t, below = t.getRange().getRowsBelow(n).load('values');
+        t.load('showTotals');
         return ctx.sync().then(function () {
           var busy = below.values.some(function (r) { return r.some(function (v) { return v !== '' && v !== null; }); });
-          if (busy) throw { message: 'فيه بيانات تحت جدول ' + info.title + ' مباشرة، والإضافة كانت هتدخلها جوه الجدول. فضّي المكان ده الأول.' };
+          var canResize = !t.showTotals && typeof t.resize === 'function' && root.Office && Office.context && Office.context.requirements && Office.context.requirements.isSetSupported('ExcelApi', '1.13');
           holdCalc(ctx);
-          var canResize = typeof t.resize === 'function' && root.Office && Office.context && Office.context.requirements && Office.context.requirements.isSetSupported('ExcelApi', '1.13');
-          if (canResize) { t.resize(t.getRange().getResizedRange(n, 0)); return ctx.sync(); }
-          // نسخة أقدم: سطر سطر على دفعات
-          var left = n, step = function () { if (left <= 0) return Promise.resolve(); var k = Math.min(100, left); left -= k; for (var a = 0; a < k; a++) t.rows.add(); return ctx.sync().then(step); };
+          if (canResize) {
+            // لو تحت الجدول حاجة (زي سطر الإجماليات)، ندخّل سطور كاملة الأول فتنزل لتحت زي ما هي
+            if (busy) below.getEntireRow().insert('Down');
+            return ctx.sync().then(function () { holdCalc(ctx); t.resize(t.getRange().getResizedRange(n, 0)); return ctx.sync(); });
+          }
+          // نسخة أقدم أو جدول بسطر إجمالي: الإكسيل بيدخّل السطور بنفسه وينزّل اللي تحت
+          var left = n, step = function () { if (left <= 0) return Promise.resolve(); var k = Math.min(100, left); left -= k; holdCalc(ctx); for (var a = 0; a < k; a++) t.rows.add(); return ctx.sync().then(step); };
           return step();
         });
       }).then(function () { return infoCtx(ctx, name); }).then(function (after) {
         delete after.T;
         after.added = after.total - before.total;
         if (after.added !== n) throw { message: 'اتضاف ' + after.added + ' سطر بس من ' + n + '. راجع آخر جدول ' + after.title + '.' };
-        return after;
+        // لو فيه إجماليات تحت الجدول بنطاق ثابت (زي C5:C29420)، مش هتشمل السطور الجديدة
+        var tb = ctx.workbook.tables.getItem(name), under = tb.getRange().getRowsBelow(1).load('formulas'), top = tb.getRange().load('rowIndex,rowCount');
+        return ctx.sync().then(function () {
+          var lastRow = top.rowIndex + top.rowCount; // رقم آخر سطر في الجدول (من ١)
+          after.fixedTotals = under.formulas[0].some(function (f) {
+            if (typeof f !== 'string' || f.charAt(0) !== '=') return false;
+            var m, re = /\$?[A-Z]{1,3}\$?\d+:\$?[A-Z]{1,3}\$?(\d+)/g;
+            while ((m = re.exec(f))) if (+m[1] < lastRow) return true;
+            return false;
+          });
+          return after;
+        });
       });
     }).catch(fail);
   }
