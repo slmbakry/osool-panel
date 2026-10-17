@@ -52,7 +52,7 @@
     D.free = av.filter(function (x) { return !x.current && !x.pending; });
     var ops = av.filter(function (x) { return !(x.current && x.current.end.getUTCFullYear() >= 2090); });
     D.occ = ops.length ? Math.round(100 * ops.filter(function (x) { return x.current; }).length / ops.length) : 0;
-    var byP = {}; D.free.forEach(function (x) { var p = x.unit.project || 'أخرى'; byP[p] = (byP[p] || 0) + 1; });
+    var byP = {}; D.free.forEach(function (x) { var p = F.groupOf(x.unit.project); byP[p] = (byP[p] || 0) + 1; });
     D.freeTxt = Object.keys(byP).sort(function (a, b) { return byP[b] - byP[a]; }).slice(0, 3).map(function (p) { return p + ' ' + byP[p]; }).join('، ');
     var wk = new Date(t.getTime() + 7 * DAY), ub = {}; S.units.forEach(function (u) { ub[u.code] = u; });
     D.ends = S.renters.filter(function (r) {

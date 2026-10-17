@@ -70,17 +70,14 @@
     var free = function (x) { return !x.current && !x.pending; };
     var checkIn = list.filter(function (x) { return x.next && +x.next.start === +today; }).length;
     var checkOut = list.filter(function (x) { return x.current && +x.current.end === +today; }).length;
-    var locs = ['Mivida', 'CFC'], beds = ['1', '2', '3', '4'];
+    var F = window.OsoolFollow, beds = ['1', '2', '3', '4'];
+    var groups = F.groupsIn(list.map(function (x) { return x.unit; }));
     var cell = function (loc, b) {
-      return list.filter(function (x) {
-        var p = String(x.unit.project).trim();
-        var inLoc = loc === 'Other' ? locs.indexOf(p) === -1 : p === loc;
-        return inLoc && free(x) && String(x.unit.bedrooms) === b;
-      }).length;
+      return list.filter(function (x) { return F.groupOf(x.unit.project) === loc && free(x) && String(x.unit.bedrooms) === b; }).length;
     };
-    var matrix = locs.concat(['Other']).map(function (loc) {
+    var matrix = groups.map(function (loc) {
       var cs = beds.map(function (b) { return cell(loc, b); });
-      return '<tr><td>' + (loc === 'Other' ? 'أخرى' : loc) + '</td>' + cs.map(function (c) { return '<td class="n">' + (c || '—') + '</td>'; }).join('') +
+      return '<tr><td>' + loc + '</td>' + cs.map(function (c) { return '<td class="n">' + (c || '—') + '</td>'; }).join('') +
         '<td class="n"><b>' + cs.reduce(function (a, b) { return a + b; }, 0) + '</b></td></tr>';
     }).join('');
     var rows = list.map(function (x, i) {

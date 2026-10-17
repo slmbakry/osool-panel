@@ -6,7 +6,7 @@
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
   var ENTRY_COLS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'شهر', 'نهاية الايجار', 'كود المستأجر', 'كاش', 'العملة', 'رقم المستند', 'كود', 'بيان', 'بداية الايجار', 'مراجعة'];
   var COPY_FIELDS = ['الاسم', 'Special', 'Rate', 'الجنسية', 'رقم البطاقة - جواز السفر', 'التليفون', 'التأمين', 'تحصيل كل', 'Operation', 'الاستهلاكات', 'موقف الاستلام'];
-  var C = { view: 'due', op: '', sort: 'days', q: '', flash: '', st: 'live', days: 7 };
+  var C = { view: 'due', op: '', sort: 'days', q: '', flash: '', st: 'live', days: 7, grp: '' };
   try { var savedCD = +localStorage.getItem('osoolPanel.collDays'); if (savedCD > 0) C.days = savedCD; } catch (e) {}
   var DAY_CHOICES = [3, 5, 7, 10, 14, 15, 21, 30];
   function daysSelect(id, cur) {
@@ -20,6 +20,13 @@
     return '<div class="seg" id="' + id + '" style="grid-template-columns:repeat(3,1fr);margin-bottom:8px">' + [['live', 'ساري'], ['ended', 'منتهي'], ['all', 'الكل']].map(function (o) {
       return '<button data-st="' + o[0] + '"' + (o[0] === cur ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join('') + '</div>';
   }
+  // شرايح المكان: الكل + ميفيدا/فيلدج/بورتو/الخارج (اللي موجود بس)
+  function grpChips(id, groups, cur) {
+    if (groups.length < 2) return '';
+    return '<div class="tgs" id="' + id + '" style="margin-bottom:8px"><button class="tg' + (!cur ? ' on' : '') + '" data-g="">الكل</button>' +
+      groups.map(function (g) { return '<button class="tg' + (cur === g ? ' on' : '') + '" data-g="' + esc(g) + '">' + esc(g) + '</button>'; }).join('') + '</div>';
+  }
+  function bindGrp(id, fn) { document.querySelectorAll('#' + id + ' button').forEach(function (b) { b.onclick = function () { fn(b.dataset.g); }; }); }
   function bindSeg(id, fn) { document.querySelectorAll('#' + id + ' button').forEach(function (b) { b.onclick = function () { fn(b.dataset.st); }; }); }
 
   function loadingHtml(t) { return '<div class="loading"><div class="spin"></div>' + t + '</div>'; }
@@ -142,7 +149,7 @@
       '<div class="box"><div class="v">' + soon.length + '</div><div class="k">مستحقين خلال ' + daysSelect('collDays', C.days) + ' يوم</div></div>' +
       '<div class="box"><div class="v">' + money(soon.reduce(function (a, x) { return a + x.exp.amount; }, 0)) + '</div><div class="k">المتوقع تحصيله</div></div></div>' +
       '<div class="r2" style="margin-bottom:8px">' + esc(scopeText(S.settings)) + ' · <button class="link" id="chgScope">تغيير</button></div>' +
-      stSeg('stSeg', C.st) +
+      stSeg('stSeg', C.st) + grpChips('cGrp', F.groupsIn(items.map(function (x) { return x.unit || {}; })), C.grp) +
       '<div class="seg" id="vSeg" style="grid-template-columns:repeat(4,1fr);font-size:12px"><button data-v="due">متأخر ومستحق</button><button data-v="late">المتأخرين</button><button data-v="soon">المستحقين</button><button data-v="all">الأرصدة (' + bal.length + ')</button></div>' +
       '<div class="filters"><select id="fOp"><option value="">كل المسؤولين</option>' + Object.keys(ops).sort().map(function (o) { return '<option' + (o === C.op ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' +
       '<select id="fSort"><option value="days">' + ({ due: 'حسب الأيام', late: 'الأقل تأخير', soon: 'الأقرب ميعاد', all: 'الأقل تأخير' })[C.view] + '</option><option value="amount"' + (C.sort === 'amount' ? ' selected' : '') + '>الأكبر مبلغ</option></select></div>' +
@@ -156,6 +163,7 @@
       b.onclick = function () { C.view = b.dataset.v; drawColl(); };
     });
     bindSeg('stSeg', function (v) { C.st = v; drawColl(); });
+    bindGrp('cGrp', function (g) { C.grp = g; drawColl(); });
     $('collDays').onchange = function () { C.days = +this.value; try { localStorage.setItem('osoolPanel.collDays', C.days); } catch (e) {} drawColl(); };
     $('fOp').onchange = function () { C.op = this.value; drawList(); };
     $('fSort').onchange = function () { C.sort = this.value; drawList(); };
@@ -188,6 +196,7 @@
       return C.view === 'due' ? (x.late || !!x.exp) : C.view === 'late' ? x.late : C.view === 'soon' ? !!x.exp && !x.late : x.balance > 1;
     });
     if (C.op) list = list.filter(function (x) { return x.r.operation === C.op; });
+    if (C.grp) list = list.filter(function (x) { return F.groupOf(x.unit && x.unit.project) === C.grp; });
     var q = L.norm(C.q);
     if (q) list = list.filter(function (x) { return L.norm(x.r.name + ' ' + x.r.code).indexOf(q) !== -1; });
     var amt = function (x) { return !x.late && x.exp ? x.exp.amount : x.balance; };
@@ -443,7 +452,7 @@
   }
 
   // ======================= متابعة الملاك =======================
-  var OW = { view: 'due', q: '', flash: '', check: '', days: 7 };
+  var OW = { view: 'due', q: '', flash: '', check: '', days: 7, grp: '' };
   try { var savedDays = +localStorage.getItem('osoolPanel.ownerDays'); if (savedDays > 0) OW.days = savedDays; } catch (e) {}
   var DAY_OPTS = [3, 5, 7, 10, 14, 15, 21, 30];
   function renderOwners() {
@@ -461,6 +470,7 @@
           '</select> يوم</div></div></div>' +
         '<div class="r2" style="margin:-4px 0 8px">المطلوب للمتأخرين والمستحقين: <b>' + money(sumReq) + '</b></div>' +
         '<div class="seg" id="owSeg" style="grid-template-columns:1fr 1fr 1fr"><button data-v="due">متأخر ومستحق</button><button data-v="late">المتأخرين</button><button data-v="all">الكل</button></div>' +
+        '<div style="margin-top:8px"></div>' + grpChips('oGrp', F.groupsIn(list.map(function (x) { return x.unit; })), OW.grp) +
         '<input id="owQ" placeholder="بحث باسم المالك أو الوحدة" value="' + esc(OW.q) + '" autocomplete="off" style="margin:8px 0 10px"><div id="owList"></div>';
       OW.flash = ''; OW.check = '';
       document.querySelectorAll('#owSeg button').forEach(function (b) {
@@ -468,6 +478,7 @@
         b.onclick = function () { OW.view = b.dataset.v; document.querySelectorAll('#owSeg button').forEach(function (x) { x.classList.toggle('on', x === b); }); drawOwners(); };
       });
       $('owQ').oninput = function () { OW.q = this.value; drawOwners(); };
+      bindGrp('oGrp', function (g) { OW.grp = g; renderOwners(); });
       $('owDays').onchange = function () { OW.days = +this.value; try { localStorage.setItem('osoolPanel.ownerDays', OW.days); } catch (e) {} renderOwners(); };
       drawOwners();
     }).catch(function (e) { box.innerHTML = errHtml(e); });
@@ -477,6 +488,7 @@
     var list = (S.ow || []).filter(function (x) {
       if (OW.view === 'due' && x.status !== 'late' && x.status !== 'soon') return false;
       if (OW.view === 'late' && x.status !== 'late') return false;
+      if (OW.grp && F.groupOf(x.unit.project) !== OW.grp) return false;
       if (q && L.norm([x.unit.owner, x.unit.code, x.unit.project, x.unit.building, x.unit.apt].join(' ')).indexOf(q) === -1) return false;
       return true;
     });
@@ -799,18 +811,18 @@
       var list = F.availability(S.units, S.renters, 'all', today());
       S.availAll = list;
       var projects = {}, settles = {};
-      list.forEach(function (x) { var p = String(x.unit.project).trim(); if (p) projects[p] = 1; settles[x.unit.settle || ''] = 1; });
-      projects = Object.keys(projects).sort(); settles = Object.keys(settles).sort();
+      list.forEach(function (x) { settles[x.unit.settle || ''] = 1; });
+      projects = F.groupsIn(list.map(function (x) { return x.unit; })); settles = Object.keys(settles).sort();
       if (!AV.projects) {
         var st = S.settings || F.DEFAULT_SETTINGS, lst = st.projects.map(function (x) { return x.trim().toLowerCase(); });
-        AV.projects = projects.filter(function (p) { var k = p.toLowerCase(); return st.mode === 'only' ? lst.indexOf(k) !== -1 : lst.indexOf(k) === -1; });
+        AV.projects = F.groupsIn(S.units.filter(function (u) { return F.inScope(u, st); }));
       }
       if (!AV.settles) AV.settles = settles.slice();
       var chips = function (group, vals, sel, label) {
         return '<div class="tgs">' + vals.map(function (v) { return '<button class="tg' + (sel.indexOf(v) !== -1 ? ' on' : '') + '" data-g="' + group + '" data-v="' + esc(v) + '">' + esc(label ? label(v) : v) + '</button>'; }).join('') + '</div>';
       };
       box.innerHTML = '<div id="exitBox"></div><div id="avSum"></div>' +
-        '<div class="card"><h3>الكمبوند <button class="link" id="avAllP" style="margin-inline-start:auto;font-size:11px">الكل</button></h3>' + chips('p', projects, AV.projects) +
+        '<div class="card"><h3>المكان <button class="link" id="avAllP" style="margin-inline-start:auto;font-size:11px">الكل</button></h3>' + chips('p', projects, AV.projects) +
         '<h3 style="margin-top:12px">التسويات</h3>' + chips('s', settles, AV.settles, settleLabel) + '</div>' +
         '<div style="display:flex;gap:8px;margin-bottom:6px"><button class="btn primary" id="avPdf">PDF المتاح</button><button class="btn ghost" id="avPrint">طباعة</button></div>' +
         '<div class="r2" id="avMsg" style="margin-bottom:8px"></div><div id="avList"></div>';
@@ -828,7 +840,7 @@
         drawAvail();
       };
       var report = function () {
-        var txt = AV.projects.length === projects.length ? 'كل الكمبوندات' : AV.projects.length > 4 ? AV.projects.length + ' كمبوند' : AV.projects.join('، ');
+        var txt = AV.projects.length === projects.length ? 'كل الأماكن' : AV.projects.join('، ');
         return R.availHtml(S.availView || [], today(), txt);
       };
       $('avPdf').onclick = function () {
@@ -843,7 +855,7 @@
   }
   function drawAvail() {
     var list = (S.availAll || []).filter(function (x) {
-      return AV.projects.indexOf(String(x.unit.project).trim()) !== -1 && AV.settles.indexOf(x.unit.settle || '') !== -1;
+      return AV.projects.indexOf(F.groupOf(x.unit.project)) !== -1 && AV.settles.indexOf(x.unit.settle || '') !== -1;
     });
     S.availView = list;
     var free = list.filter(function (x) { return !x.current && !x.pending; }).length;

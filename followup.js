@@ -29,6 +29,14 @@
   function endOfMonth(k) { var d = keyToDate(k); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)); }
   function isForeign(cash) { return /دولار|ريال/.test(str(cash)); }
 
+  // ---------- التجميع: ميفيدا، فيلدج، بورتو، والباقي كله "الخارج" ----------
+  var GROUPS = ['Mivida', 'Village', 'Porto', 'الخارج'];
+  function groupOf(project) {
+    var p = str(project).toLowerCase();
+    return p === 'mivida' ? 'Mivida' : p === 'village' ? 'Village' : p === 'porto' ? 'Porto' : 'الخارج';
+  }
+  function groupsIn(units) { var h = {}; units.forEach(function (u) { h[groupOf(u.project || (u.unit && u.unit.project))] = 1; }); return GROUPS.filter(function (g) { return h[g]; }); }
+
   // ---------- نطاق الملف ----------
   function inScope(unit, settings) {
     if (settings === 'all') return true;
@@ -547,7 +555,7 @@
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
     ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
-    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
+    inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
     entryValues: entryValues, availability: availability, planTransfer: planTransfer, depositMoves: depositMoves
   };
