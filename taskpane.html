@@ -124,7 +124,8 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
     <button class="tab on" data-tab="new">عقد جديد</button>
     <button class="tab" data-tab="search">بحث</button>
     <button class="tab" data-tab="coll">التحصيلات</button>
-    <button class="tab" disabled>المراجعة<small>قريباً</small></button>
+    <button class="tab" data-tab="avail">المتاح</button>
+    <button class="tab" data-tab="treas">الخزينة</button>
   </nav>
 </div>
 
@@ -152,8 +153,9 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
         </div>
         <div class="grid2">
           <div><label>بداية العقد <span class="req">*</span></label><input type="date" id="start"></div>
-          <div><label>نهاية العقد <span class="req">*</span></label><input type="date" id="end"></div>
+          <div><label>المدة</label><div style="display:flex;gap:4px"><input id="durN" class="ltr" inputmode="numeric" placeholder="١" style="width:52px;flex:0 0 52px"><select id="durU"><option value="n">ليالي</option><option value="w">أسابيع</option><option value="m" selected>شهور</option><option value="y">سنين</option></select></div></div>
         </div>
+        <div><label>نهاية العقد <span class="req">*</span> <span class="r2">(بتتحسب من المدة، أو اكتبها بإيدك)</span></label><input type="date" id="end"></div>
         <div id="dur" class="chip hide"></div>
         <label>تاريخ تبليغ القسم</label><input type="date" id="notifyDate">
       </div>
@@ -211,6 +213,8 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   </section>
 
   <section id="tab-coll" class="hide"></section>
+  <section id="tab-avail" class="hide"></section>
+  <section id="tab-treas" class="hide"></section>
   <section id="tab-transfer" class="hide"></section>
 
   <!-- بحث -->
@@ -251,7 +255,7 @@ var S = { units:[], renters:[], monthHeaders:[], unit:null, type:'monthly', type
 // ---------- تحميل ----------
 function load(){
   $('loading').classList.remove('hide'); $('fatal').classList.add('hide');
-  ['tab-new','tab-search','tab-coll','tab-transfer'].forEach(function(id){ $(id).classList.add('hide'); });
+  ['tab-new','tab-search','tab-coll','tab-transfer','tab-avail','tab-treas'].forEach(function(id){ $(id).classList.add('hide'); });
   return A.loadAll().then(function(d){
     S.units = L.buildUnits(d.owner);
     S.renters = L.buildRenters(d.renter);
@@ -276,7 +280,7 @@ function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option
 function showTab(t){
   S.tab = t;
   document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.classList.toggle('on', b.dataset.tab===t); });
-  ['new','search','coll','transfer'].forEach(function(x){ $('tab-'+x).classList.toggle('hide', t!==x); });
+  ['new','search','coll','transfer','avail','treas'].forEach(function(x){ $('tab-'+x).classList.toggle('hide', t!==x); });
   $('bar').classList.toggle('hide', t!=='new' || !$('doneView').classList.contains('hide'));
   if (t==='search') $('sQ').focus();
   if (window.OsoolScreens && OsoolScreens.onTab) OsoolScreens.onTab(t);
@@ -318,12 +322,22 @@ function setType(t, byUser){
   S.type = t; if (byUser) S.typeTouched = true;
   document.querySelectorAll('#typeSeg button').forEach(function(b){ b.classList.toggle('on', b.dataset.type===t); });
   $('rateBox').classList.toggle('hide', t!=='nightly');
+  if (byUser && !$('durN').value) $('durU').value = t==='nightly' ? 'n' : 'm';
   $('rentBox').classList.toggle('hide', t!=='monthly');
 }
 document.querySelectorAll('#typeSeg button').forEach(function(b){ b.addEventListener('click', function(){ setType(b.dataset.type, true); refresh(); }); });
-['start','end'].forEach(function(id){ $(id).addEventListener('change', function(){
+function applyDuration(){
+  var s=L.parseISO($('start').value), n=parseInt(digits($('durN').value),10);
+  if (!s || !(n>0)) return false;
+  $('end').value = L.toISO(L.endFromDuration(s, n, $('durU').value));
+  return true;
+}
+$('durN').addEventListener('input', function(){ if (applyDuration()) $('end').dispatchEvent(new Event('change')); });
+$('durU').addEventListener('change', function(){ if (applyDuration()) $('end').dispatchEvent(new Event('change')); });
+['start','end'].forEach(function(id){ $(id).addEventListener('change', function(ev){
+  if (id==='start') applyDuration();
+  if (id==='end' && ev.isTrusted) $('durN').value='';
   var s=L.parseISO($('start').value), e=L.parseISO($('end').value);
-  if (id==='start' && s && !$('end').value) { /* لا شيء */ }
   if (s && e && !S.typeTouched) setType(L.daysBetween(s,e) < 30 ? 'nightly' : 'monthly');
   refresh();
 }); });
@@ -491,6 +505,7 @@ function start(){ load(); }
 if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); else start();
 })();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="screens.js"></script>
 </body>
 </html>

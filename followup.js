@@ -234,12 +234,32 @@
     return out;
   }
 
+  // ---------- المتاح (زي شيت Available) ----------
+  function availability(units, renters, settings, today) {
+    today = today || L.todayUTC();
+    var by = {};
+    renters.forEach(function (r) { if (r.unit && r.start && r.end) (by[r.unit] = by[r.unit] || []).push(r); });
+    return units.filter(function (u) { return inScope(u, settings); }).map(function (u) {
+      var mine = by[u.code] || [];
+      var cur = mine.filter(function (r) { return r.start <= today && r.end >= today; }).sort(function (a, b) { return b.end - a.end; })[0] || null;
+      var next = mine.filter(function (r) { return r.start > today; }).sort(function (a, b) { return a.start - b.start; })[0] || null;
+      var freeFrom = cur ? cur.end : today;
+      var rem = '';
+      if (u.ownerEnd && u.ownerEnd > today) {
+        var md = L.monthsAndDays(today, u.ownerEnd);
+        rem = (md.months >= 12 ? Math.floor(md.months / 12) + ' سنة ' : '') + (md.months % 12 ? (md.months % 12) + ' شهر' : '');
+      } else if (u.ownerEnd) rem = 'منتهي';
+      var status = cur ? 'مشغولة' : next ? 'محجوزة' : 'فاضية';
+      return { unit: u, current: cur, next: next, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
+    }).sort(function (a, b) { return a.daysToFree - b.daysToFree || String(a.unit.project).localeCompare(String(b.unit.project)); });
+  }
+
   var api = {
     CAT: CAT, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
-    entryValues: entryValues, planTransfer: planTransfer, depositMoves: depositMoves
+    entryValues: entryValues, availability: availability, planTransfer: planTransfer, depositMoves: depositMoves
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.OsoolFollow = api;

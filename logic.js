@@ -37,6 +37,14 @@
     var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
     return new Date(Date.UTC(y, m, Math.min(day, last)));
   }
+  // البداية + مدة: الليالي = البداية + عدد الليالي، الشهر = نفس اليوم في الشهر اللي بعده ناقص يوم
+  function endFromDuration(start, n, unit) {
+    n = Number(n) || 0;
+    if (unit === 'n') return new Date(start.getTime() + n * DAY);
+    if (unit === 'w') return new Date(start.getTime() + 7 * n * DAY);
+    var months = unit === 'y' ? 12 * n : n;
+    return new Date(addMonths(start, months).getTime() - DAY);
+  }
   function monthKey(d) { return MONTHS[d.getUTCMonth()] + '-' + String(d.getUTCFullYear()).slice(2); }
   function monthLabel(key) {
     var ar = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -72,7 +80,8 @@
         owner: str(c['الاسم'][i]),
         ownerEnd: serialToDate(c['نهاية العقد'][i]),
         bedrooms: str(c['Bedrooms'][i]),
-        settle: c['تسويات'] ? str(c['تسويات'][i]) : ''
+        settle: c['تسويات'] ? str(c['تسويات'][i]) : '',
+        info: c['Info'] ? str(c['Info'][i]) : ''
       });
     }
     return out;
@@ -179,6 +188,7 @@
     if (!start || !end || end <= start) return '';
     var md = monthsAndDays(start, end);
     var nights = daysBetween(start, end);
+    if (!md.months) return nights + ' ليلة';
     var parts = [];
     if (md.months >= 12) { parts.push(Math.floor(md.months / 12) + ' سنة'); }
     if (md.months % 12) parts.push((md.months % 12) + ' شهر');
@@ -275,7 +285,7 @@
   var api = {
     serialToDate: serialToDate, dateToSerial: dateToSerial, parseISO: parseISO, toISO: toISO, fmt: fmt,
     todayUTC: todayUTC, daysBetween: daysBetween, addMonths: addMonths, monthKey: monthKey, monthLabel: monthLabel,
-    monthsAndDays: monthsAndDays, buildUnits: buildUnits, buildRenters: buildRenters, lastFilledIndex: lastFilledIndex,
+    monthsAndDays: monthsAndDays, endFromDuration: endFromDuration, buildUnits: buildUnits, buildRenters: buildRenters, lastFilledIndex: lastFilledIndex,
     nextTenantCode: nextTenantCode, defaultShift: defaultShift, unitStatus: unitStatus, findOverlaps: findOverlaps, buildSchedule: buildSchedule,
     durationText: durationText, validate: validate, searchUnits: searchUnits, searchRenters: searchRenters,
     topValues: topValues, toRowValues: toRowValues, norm: norm

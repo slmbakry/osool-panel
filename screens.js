@@ -4,7 +4,7 @@
   var App = window.OsoolApp, F = window.OsoolFollow, L = App.L, S = App.S, A = App.A;
   var $ = App.$, esc = App.esc, money = App.money, digits = App.digits;
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
-  var ENTRY_COLS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'شهر', 'نهاية الايجار', 'كود المستأجر', 'كاش', 'العملة'];
+  var ENTRY_COLS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'شهر', 'نهاية الايجار', 'كود المستأجر', 'كاش', 'العملة', 'رقم المستند', 'كود', 'بيان'];
   var COPY_FIELDS = ['الاسم', 'Special', 'Rate', 'الجنسية', 'رقم البطاقة - جواز السفر', 'التليفون', 'التأمين', 'تحصيل كل', 'Operation', 'الاستهلاكات', 'موقف الاستلام'];
   var C = { view: 'late', op: '', sort: 'amount', q: '', flash: '' };
 
@@ -24,7 +24,7 @@
   }
   function appendTreasury(values) {
     if (!S.treasury) return;
-    ENTRY_COLS.forEach(function (k) { S.treasury.cols[k].push(values[k] === undefined ? '' : values[k]); });
+    ENTRY_COLS.forEach(function (k) { if (S.treasury.cols[k]) S.treasury.cols[k].push(values[k] === undefined ? '' : values[k]); });
     S.ledger = F.buildLedger(S.treasury);
   }
   function scopeText(s) {
@@ -88,7 +88,8 @@
       '<div class="seg" id="vSeg"><button data-v="late">المتأخرين</button><button data-v="all">كل اللي عليهم رصيد (' + bal.length + ')</button></div>' +
       '<div class="filters"><select id="fOp"><option value="">كل المسؤولين</option>' + Object.keys(ops).sort().map(function (o) { return '<option' + (o === C.op ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' +
       '<select id="fSort"><option value="amount">الأكبر مبلغ</option><option value="days"' + (C.sort === 'days' ? ' selected' : '') + '>الأقدم تأخير</option></select></div>' +
-      '<input id="fQ" placeholder="بحث بالاسم أو الكود" value="' + esc(C.q) + '" autocomplete="off" style="margin-bottom:10px">' +
+      '<input id="fQ" placeholder="بحث بالاسم أو الكود" value="' + esc(C.q) + '" autocomplete="off" style="margin-bottom:8px">' +
+      exportBar('collExp') +
       '<div id="collList"></div>';
     C.flash = '';
     document.querySelectorAll('#vSeg button').forEach(function (b) {
@@ -99,6 +100,12 @@
     $('fSort').onchange = function () { C.sort = this.value; drawList(); };
     $('fQ').oninput = function () { C.q = this.value; drawList(); };
     $('chgScope').onclick = openSettings;
+    bindExport('collExp', function () {
+      var list = S.collView || [];
+      return { name: (C.view === 'late' ? 'المتأخرات ' : 'الأرصدة ') + L.toISO(today()),
+        headers: ['الاسم', 'كود المستأجر', 'المشروع', 'عمارة', 'شقة', 'المسؤول', 'التليفون', 'الرصيد', 'مسدد لحد', 'ملاحظة', 'أيام التأخير', 'بداية العقد', 'نهاية العقد', 'رصيد التأمين'],
+        rows: list.map(function (x) { var u = x.unit || {}; return [x.r.name, x.r.code, u.project || '', u.building || '', u.apt || '', x.r.operation, x.r.phone, Math.round(x.balance), x.paidUntil, x.paidNote, x.daysLate, x.r.start, x.r.end, x.deposit]; }) };
+    });
     drawList();
   }
 
@@ -112,6 +119,7 @@
     var q = L.norm(C.q);
     if (q) list = list.filter(function (x) { return L.norm(x.r.name + ' ' + x.r.code).indexOf(q) !== -1; });
     list.sort(C.sort === 'days' ? function (a, b) { return b.daysLate - a.daysLate; } : function (a, b) { return b.balance - a.balance; });
+    S.collView = list;
     $('collList').innerHTML = list.length ? list.map(function (x) {
       return '<div class="rcard click" data-code="' + esc(x.r.code) + '"><div class="top2"><div><div class="r1">' + esc(x.r.name || '—') + '</div>' +
         '<div class="r2">' + esc(x.unit ? App.unitTitle(x.unit) : x.r.unit) + '</div></div><div class="amt">' + money(x.balance) + '</div></div>' +
@@ -342,8 +350,174 @@
     };
   }
 
+  // ======================= التصدير =======================
+  function exportBar(id) {
+    return '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px"><button class="link" id="' + id + '">تصدير إكسيل</button>' +
+      '<button class="link" id="' + id + 'C" style="color:var(--muted)">نسخ الجدول</button><span class="r2" id="' + id + 'M"></span></div>';
+  }
+  function bindExport(id, getData) {
+    $(id).onclick = function () {
+      var d = getData();
+      if (!d.rows.length) { $(id + 'M').textContent = 'مفيش بيانات.'; return; }
+      try { downloadXlsx(d); $(id + 'M').textContent = d.rows.length + ' سطر'; }
+      catch (e) { $(id + 'M').textContent = 'التحميل مش متاح هنا، استخدم نسخ الجدول.'; }
+    };
+    $(id + 'C').onclick = function () {
+      var d = getData();
+      var tsv = [d.headers].concat(d.rows).map(function (r) { return r.map(function (v) { return v instanceof Date ? L.fmt(v) : String(v === null || v === undefined ? '' : v).replace(/[\t\n]/g, ' '); }).join('\t'); }).join('\n');
+      App.copyText(tsv, { set textContent(t) { $(id + 'M').textContent = t === 'اتنسخ' ? 'اتنسخ، الصقه في أي شيت' : ''; } });
+    };
+  }
+  function downloadXlsx(d) {
+    if (!window.XLSX) throw new Error('no lib');
+    // التاريخ يوم صافي من غير ساعات، والأكواد أرقام (إلا اللي بيبدأ بصفر زي التليفون)
+    var rows = d.rows.map(function (r) { return r.map(function (v) {
+      if (v instanceof Date) return new Date(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate());
+      if (typeof v === 'string' && /^[1-9]\d{0,14}$/.test(v.trim())) return Number(v);
+      return v === null || v === undefined ? '' : v;
+    }); });
+    var ws = XLSX.utils.aoa_to_sheet([d.headers].concat(rows), { cellDates: true, dateNF: 'dd/mm/yyyy' });
+    ws['!cols'] = d.headers.map(function (h, i) {
+      var w = String(h).length;
+      d.rows.slice(0, 300).forEach(function (r) { var v = r[i]; var n = v instanceof Date ? 10 : String(v === null || v === undefined ? '' : v).length; if (n > w) w = n; });
+      return { wch: Math.min(45, w + 2) };
+    });
+    var wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+    XLSX.utils.book_append_sheet(wb, ws, 'تقرير');
+    var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellDates: true });
+    var blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = d.name + '.xlsx';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+    window.__lastExport = d;
+  }
+
+  // ======================= المتاح =======================
+  var AV = { status: 'active', project: '', beds: '', q: '' };
+  function renderAvail() {
+    var box = $('tab-avail');
+    box.innerHTML = loadingHtml('بيحسب الوحدات…');
+    ensureSettings().then(function () {
+      var list = F.availability(S.units, S.renters, S.settings || F.DEFAULT_SETTINGS, today());
+      list.forEach(function (x) {
+        if (x.unit.settle.toUpperCase() === 'OUT' || (x.current && x.current.end.getUTCFullYear() >= 2090)) x.status = 'خارج التشغيل';
+      });
+      S.avail = list;
+      var cnt = function (f) { return list.filter(f).length; };
+      var projects = {}, beds = {};
+      list.forEach(function (x) { if (x.unit.project) projects[x.unit.project] = 1; if (x.unit.bedrooms) beds[x.unit.bedrooms] = 1; });
+      box.innerHTML = '<div class="sum"><div class="box"><div class="v okc">' + cnt(function (x) { return x.status === 'فاضية' || x.status === 'محجوزة'; }) + '</div><div class="k">فاضية النهارده</div></div>' +
+        '<div class="box"><div class="v">' + cnt(function (x) { return x.status === 'مشغولة' && x.daysToFree <= 7; }) + '</div><div class="k">هتفضى خلال أسبوع</div></div></div>' +
+        (S.settings ? '' : '<div class="msg warn">نطاق الملف لسه متحددش، فالقايمة بالنطاق الافتراضي. حدده من الترس.</div>') +
+        '<div class="filters"><select id="aSt"><option value="active">كل الوحدات الشغالة</option><option value="free">فاضية النهارده</option><option value="week">هتفضى خلال أسبوع</option><option value="busy">مشغولة</option><option value="booked">عليها حجز جاي</option><option value="out">خارج التشغيل</option></select>' +
+        '<select id="aPr"><option value="">كل المشاريع</option>' + Object.keys(projects).sort().map(function (p) { return '<option' + (p === AV.project ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="filters"><select id="aBd"><option value="">كل الغرف</option>' + Object.keys(beds).sort().map(function (b) { return '<option value="' + esc(b) + '"' + (b === AV.beds ? ' selected' : '') + '>' + esc(b) + ' غرف</option>'; }).join('') + '</select>' +
+        '<input id="aQ" placeholder="بحث" value="' + esc(AV.q) + '" autocomplete="off"></div>' +
+        exportBar('avExp') + '<div id="avList"></div>';
+      $('aSt').value = AV.status;
+      $('aSt').onchange = function () { AV.status = this.value; drawAvail(); };
+      $('aPr').onchange = function () { AV.project = this.value; drawAvail(); };
+      $('aBd').onchange = function () { AV.beds = this.value; drawAvail(); };
+      $('aQ').oninput = function () { AV.q = this.value; drawAvail(); };
+      bindExport('avExp', function () {
+        return { name: 'المتاح ' + L.toISO(today()),
+          headers: ['كود', 'المشروع', 'غرف', 'Info', 'بلوك', 'عمارة', 'شقة', 'الحالة', 'مشغول حتى', 'الساكن', 'كود المستأجر', 'محجوز من', 'محجوز إلى', 'اسم العميل', 'نهاية عقد المالك', 'المدة المتبقية', 'تسويات'],
+          rows: (S.availView || []).map(function (x) { var u = x.unit, c = x.current, n = x.next;
+            return [u.code, u.project, u.bedrooms, u.info, u.block, u.building, u.apt, x.status, c ? c.end : '', c ? c.name : '', c ? c.code : '', n ? n.start : '', n ? n.end : '', n ? n.name : '', u.ownerEnd || '', x.remaining, u.settle]; }) };
+      });
+      drawAvail();
+    });
+  }
+  function drawAvail() {
+    var q = L.norm(AV.q);
+    var list = (S.avail || []).filter(function (x) {
+      if (AV.status === 'out') { if (x.status !== 'خارج التشغيل') return false; }
+      else if (x.status === 'خارج التشغيل') return false;
+      if (AV.status === 'free' && x.status === 'مشغولة') return false;
+      if (AV.status === 'week' && !(x.status === 'مشغولة' && x.daysToFree <= 7)) return false;
+      if (AV.status === 'busy' && x.status !== 'مشغولة') return false;
+      if (AV.status === 'booked' && !x.next) return false;
+      if (AV.project && x.unit.project !== AV.project) return false;
+      if (AV.beds && x.unit.bedrooms !== AV.beds) return false;
+      if (q && L.norm([x.unit.code, x.unit.project, x.unit.building, x.unit.apt, x.unit.owner, x.current ? x.current.name : ''].join(' ')).indexOf(q) === -1) return false;
+      return true;
+    });
+    S.availView = list;
+    $('avList').innerHTML = list.length ? list.map(function (x) {
+      var u = x.unit, c = x.current, n = x.next, st;
+      if (x.status === 'خارج التشغيل') st = '<span class="badge done">خارج التشغيل</span>';
+      else if (c) st = '<span class="badge book">مشغولة ' + (x.daysToFree === 0 ? 'لحد النهارده' : x.daysToFree + ' يوم') + '</span>';
+      else st = '<span class="badge live">فاضية</span>';
+      return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2"><span dir="ltr">' + esc(u.code) + '</span>' + (u.bedrooms ? ' · ' + esc(u.bedrooms) + ' غرف' : '') + (u.info && u.info !== '0' ? ' · ' + esc(u.info) : '') + '</div></div>' + st + '</div>' +
+        '<dl class="kv">' + (c && x.status !== 'خارج التشغيل' ? '<dt>الساكن</dt><dd>' + esc(c.name || '—') + ' لحد ' + L.fmt(c.end) + '</dd>' : '') +
+        (n ? '<dt>حجز جاي</dt><dd>' + esc(n.name || '—') + ' · ' + L.fmt(n.start) + ' ← ' + L.fmt(n.end) + '</dd>' : '') +
+        '<dt>عقد المالك</dt><dd>' + L.fmt(u.ownerEnd) + (x.remaining ? ' · ' + esc(x.remaining) : '') + '</dd></dl></div>';
+    }).join('') : '<div class="empty" style="padding:8px">مفيش وحدات بالفلتر ده.</div>';
+  }
+
+  // ======================= الخزينة =======================
+  var TR = null;
+  function renderTreas() {
+    var box = $('tab-treas');
+    box.innerHTML = loadingHtml('بيقرا الخزينة…');
+    ensureTreasury().then(function () {
+      var c = S.treasury.cols;
+      if (!TR) { var t = today(); TR = { from: new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1)), to: t, cash: '', cat: '', side: '', q: '' }; }
+      var cats = {}; c['فئة'].forEach(function (v) { v = String(v || '').trim(); if (v) cats[v] = 1; });
+      var cashes = {}; c['كاش'].forEach(function (v) { v = String(v || ''); if (v.trim()) cashes[v] = 1; });
+      box.innerHTML = '<div class="grid2"><div><label>من</label><input type="date" id="tFrom" value="' + L.toISO(TR.from) + '"></div><div><label>إلى</label><input type="date" id="tTo" value="' + L.toISO(TR.to) + '"></div></div>' +
+        '<div class="filters"><select id="tCash"><option value="">كل الخزائن</option>' + Object.keys(cashes).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === TR.cash ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' +
+        '<select id="tCat"><option value="">كل الفئات</option>' + Object.keys(cats).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === TR.cat ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="filters"><select id="tSide"><option value="">وارد ومنصرف</option><option value="in">وارد بس</option><option value="out">منصرف بس</option></select>' +
+        '<input id="tQ" placeholder="بيان أو كود" value="' + esc(TR.q) + '" autocomplete="off"></div>' +
+        '<div id="tSum"></div>' + exportBar('trExp') + '<div id="tList"></div>';
+      $('tSide').value = TR.side;
+      $('tFrom').onchange = function () { TR.from = L.parseISO(this.value); drawTreas(); };
+      $('tTo').onchange = function () { TR.to = L.parseISO(this.value); drawTreas(); };
+      $('tCash').onchange = function () { TR.cash = this.value; drawTreas(); };
+      $('tCat').onchange = function () { TR.cat = this.value; drawTreas(); };
+      $('tSide').onchange = function () { TR.side = this.value; drawTreas(); };
+      var tm; $('tQ').oninput = function () { TR.q = this.value; clearTimeout(tm); tm = setTimeout(drawTreas, 200); };
+      bindExport('trExp', function () {
+        var c = S.treasury.cols, idx = S.treasView || [];
+        var g = function (k, i) { return c[k] ? c[k][i] : ''; };
+        var d = function (v) { return L.serialToDate(v) || ''; };
+        return { name: 'الخزينة ' + L.toISO(TR.from || today()) + ' - ' + L.toISO(TR.to || today()),
+          headers: ['التاريخ', 'وارد', 'منصرف', 'رقم المستند', 'الكود', 'الفئة', 'البيان', 'الشهر', 'كود المستأجر', 'الخزينة', 'العملة'],
+          rows: idx.map(function (i) { return [d(g('تاريخ', i)), g('ايراد', i), g('مصروف', i), g('رقم المستند', i), g('كود', i), g('فئة', i), g('بيان', i), d(g('شهر', i)), g('كود المستأجر', i), g('كاش', i), g('العملة', i)]; }) };
+      });
+      drawTreas();
+    }).catch(function (e) { box.innerHTML = errHtml(e); });
+  }
+  function drawTreas() {
+    var c = S.treasury.cols, n = c['تاريخ'].length, out = [];
+    var f = TR.from ? L.dateToSerial(TR.from) : -Infinity, t = TR.to ? L.dateToSerial(TR.to) : Infinity;
+    var q = L.norm(TR.q), sin = 0, sout = 0;
+    for (var i = 0; i < n; i++) {
+      var d = Number(c['تاريخ'][i]); if (!d || d < f || d >= t + 1) continue;
+      if (TR.cash && String(c['كاش'][i]) !== TR.cash) continue;
+      if (TR.cat && String(c['فئة'][i] || '').trim() !== TR.cat) continue;
+      var vin = Number(c['ايراد'][i]) || 0, vout = Number(c['مصروف'][i]) || 0;
+      if (TR.side === 'in' && !vin) continue;
+      if (TR.side === 'out' && !vout) continue;
+      if (q && L.norm([c['بيان'] ? c['بيان'][i] : '', c['كود'] ? c['كود'][i] : '', c['كود المستأجر'][i]].join(' ')).indexOf(q) === -1) continue;
+      out.push(i); sin += vin; sout += vout;
+    }
+    out.sort(function (a, b) { return (Number(c['تاريخ'][b]) - Number(c['تاريخ'][a])) || (b - a); });
+    S.treasView = out;
+    $('tSum').innerHTML = '<div class="sum"><div class="box"><div class="v okc">' + money(Math.round(sin)) + '</div><div class="k">وارد</div></div><div class="box"><div class="v late">' + money(Math.round(sout)) + '</div><div class="k">منصرف</div></div></div>' +
+      '<div class="r2" style="margin:-4px 0 6px">' + out.length + ' حركة · الصافي ' + money(Math.round(sin - sout)) + '</div>';
+    var shown = out.slice(0, 100);
+    $('tList').innerHTML = shown.length ? shown.map(function (i) {
+      var vin = Number(c['ايراد'][i]) || 0, vout = Number(c['مصروف'][i]) || 0;
+      return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(String(c['فئة'][i] || '—')) + '</div><div class="r2">' + esc(String(c['بيان'] ? c['بيان'][i] || '' : '')) + '</div></div>' +
+        '<div class="amt ' + (vin ? 'okc' : 'late') + '">' + (vin ? '+' + money(vin) : '−' + money(vout)) + '</div></div>' +
+        '<div class="r2" style="margin-top:4px">' + L.fmt(L.serialToDate(c['تاريخ'][i])) + ' · ' + esc(String(c['كاش'][i] || '')) + (c['كود'] && c['كود'][i] ? ' · <span dir="ltr">' + esc(String(c['كود'][i])) + '</span>' : '') + '</div></div>';
+    }).join('') + (out.length > 100 ? '<div class="r2" style="padding:6px">ظاهر أحدث ١٠٠ حركة من ' + out.length + '. التصدير فيه الكل.</div>' : '') : '<div class="empty" style="padding:8px">مفيش حركات بالفلتر ده.</div>';
+  }
+
   window.OsoolScreens = {
-    onTab: function (t) { if (t === 'coll') renderColl(); },
+    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); },
     startTransfer: startTransfer, openSettings: openSettings
   };
 })();

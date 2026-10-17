@@ -4,11 +4,12 @@
   var L = root.OsoolLogic;
 
   var OWNER_COLS = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'نهاية العقد', 'Bedrooms'];
-  var OWNER_OPT = ['تسويات'];
+  var OWNER_OPT = ['تسويات', 'Info'];
   var RENTER_COLS = ['كود', 'كود المستأجر', 'بداية العقد', 'نهاية العقد', 'الاسم', 'التليفون',
     'رقم البطاقة - جواز السفر', 'الجنسية', 'Special', 'Operation'];
   var RENTER_OPT = ['البروكر', 'قيمة الايجار', 'التأمين'];
   var ENTRY_COLS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'شهر', 'نهاية الايجار', 'كود المستأجر', 'كاش', 'العملة'];
+  var ENTRY_OPT = ['رقم المستند', 'كود', 'بيان'];
   var TEXT_COLS = ['كود المستأجر', 'التليفون', 'رقم البطاقة - جواز السفر'];
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
   var PER_SYNC = 3;            // أعمدة في كل طلب — عشان نفضل تحت حد حجم الطلب في الإكسيل أونلاين
@@ -27,12 +28,13 @@
   function fail(e) { throw new Error(friendly(e)); }
 
   // يقرا أعمدة بالاسم على دفعات صغيرة
-  function readCols(ctx, table, hdr, names, optional) {
+  function readCols(ctx, table, hdr, names, optional, perSync) {
+    var per = perSync || PER_SYNC;
     var list = [];
     names.forEach(function (h) { var i = hdr.indexOf(h); if (i === -1) throw { message: 'العمود "' + h + '" مش موجود في جدول ' + table.__name + '.' }; list.push([h, i]); });
     (optional || []).forEach(function (h) { var i = hdr.indexOf(h); if (i !== -1) list.push([h, i]); });
     var out = {}, p = Promise.resolve();
-    for (var s = 0; s < list.length; s += PER_SYNC) {
+    for (var s = 0; s < list.length; s += per) {
       (function (batch) {
         p = p.then(function () {
           var rs = batch.map(function (x) { return table.columns.getItemAt(x[1]).getDataBodyRange().load('values'); });
@@ -40,7 +42,7 @@
             batch.forEach(function (x, j) { out[x[0]] = rs[j].values.map(function (r) { return r[0]; }); });
           });
         });
-      })(list.slice(s, s + PER_SYNC));
+      })(list.slice(s, s + per));
     }
     return p.then(function () { return out; });
   }
@@ -77,7 +79,7 @@
 
   function loadTreasury() {
     return Excel.run(function (ctx) {
-      return tableWithHeader(ctx, 'entry').then(function (E) { return readCols(ctx, E.t, E.H, ENTRY_COLS); })
+      return tableWithHeader(ctx, 'entry').then(function (E) { return readCols(ctx, E.t, E.H, ENTRY_COLS, ENTRY_OPT, 2); })
         .then(function (c) { return { cols: c }; });
     }).catch(fail);
   }
