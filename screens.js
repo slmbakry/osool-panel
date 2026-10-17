@@ -6,7 +6,15 @@
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
   var ENTRY_COLS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'شهر', 'نهاية الايجار', 'كود المستأجر', 'كاش', 'العملة', 'رقم المستند', 'كود', 'بيان', 'بداية الايجار', 'مراجعة'];
   var COPY_FIELDS = ['الاسم', 'Special', 'Rate', 'الجنسية', 'رقم البطاقة - جواز السفر', 'التليفون', 'التأمين', 'تحصيل كل', 'Operation', 'الاستهلاكات', 'موقف الاستلام'];
-  var C = { view: 'late', op: '', sort: 'amount', q: '', flash: '' };
+  var C = { view: 'late', op: '', sort: 'amount', q: '', flash: '', st: 'live' };
+  // حالة العقد: ساري (نهايته النهارده أو بعد كده، ومعاه الجاي) أو منتهي
+  function isLive(end) { return !end || end >= today(); }
+  function stOk(st, end) { return st === 'all' || (st === 'live') === isLive(end); }
+  function stSeg(id, cur) {
+    return '<div class="seg" id="' + id + '" style="grid-template-columns:repeat(3,1fr);margin-bottom:8px">' + [['live', 'ساري'], ['ended', 'منتهي'], ['all', 'الكل']].map(function (o) {
+      return '<button data-st="' + o[0] + '"' + (o[0] === cur ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join('') + '</div>';
+  }
+  function bindSeg(id, fn) { document.querySelectorAll('#' + id + ' button').forEach(function (b) { b.onclick = function () { fn(b.dataset.st); }; }); }
 
   function loadingHtml(t) { return '<div class="loading"><div class="spin"></div>' + t + '</div>'; }
   function errHtml(e) { return '<div class="msg err">' + esc(e.message || e) + '</div>'; }
@@ -76,7 +84,9 @@
   }
 
   function drawColl() {
-    var items = F.followUp(ctx(), S.settings, today());
+    var all = F.followUp(ctx(), S.settings, today());
+    S.fuAll = all;
+    var items = all.filter(function (x) { return stOk(C.st, x.r.end); });
     S.fu = items;
     var late = items.filter(function (x) { return x.late; });
     var bal = items.filter(function (x) { return x.balance > 1; });
@@ -86,6 +96,7 @@
       '<div class="sum"><div class="box"><div class="v late">' + late.length + '</div><div class="k">متأخر</div></div>' +
       '<div class="box"><div class="v">' + money(Math.round(late.reduce(function (a, x) { return a + x.balance; }, 0))) + '</div><div class="k">إجمالي المتأخرات</div></div></div>' +
       '<div class="r2" style="margin-bottom:8px">' + esc(scopeText(S.settings)) + ' · <button class="link" id="chgScope">تغيير</button></div>' +
+      stSeg('stSeg', C.st) +
       '<div class="seg" id="vSeg"><button data-v="late">المتأخرين</button><button data-v="all">كل اللي عليهم رصيد (' + bal.length + ')</button></div>' +
       '<div class="filters"><select id="fOp"><option value="">كل المسؤولين</option>' + Object.keys(ops).sort().map(function (o) { return '<option' + (o === C.op ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' +
       '<select id="fSort"><option value="amount">الأكبر مبلغ</option><option value="days"' + (C.sort === 'days' ? ' selected' : '') + '>الأقدم تأخير</option></select></div>' +
@@ -97,13 +108,14 @@
       b.classList.toggle('on', b.dataset.v === C.view);
       b.onclick = function () { C.view = b.dataset.v; document.querySelectorAll('#vSeg button').forEach(function (x) { x.classList.toggle('on', x === b); }); drawList(); };
     });
+    bindSeg('stSeg', function (v) { C.st = v; drawColl(); });
     $('fOp').onchange = function () { C.op = this.value; drawList(); };
     $('fSort').onchange = function () { C.sort = this.value; drawList(); };
     $('fQ').oninput = function () { C.q = this.value; drawList(); };
     $('chgScope').onclick = openSettings;
     bindExport('collExp', function () {
       var list = S.collView || [];
-      return { name: (C.view === 'late' ? 'المتأخرات ' : 'الأرصدة ') + L.toISO(today()),
+      return { name: (C.view === 'late' ? 'المتأخرات ' : 'الأرصدة ') + ({ live: 'ساري ', ended: 'منتهي ', all: '' })[C.st] + L.toISO(today()),
         headers: ['الاسم', 'كود المستأجر', 'المشروع', 'عمارة', 'شقة', 'المسؤول', 'التليفون', 'الرصيد', 'مسدد لحد', 'ملاحظة', 'أيام التأخير', 'بداية العقد', 'نهاية العقد', 'رصيد التأمين'],
         rows: list.map(function (x) { var u = x.unit || {}; return [x.r.name, x.r.code, u.project || '', u.building || '', u.apt || '', x.r.operation, x.r.phone, Math.round(x.balance), x.paidUntil, x.paidNote, x.daysLate, x.r.start, x.r.end, x.deposit]; }) };
     });
@@ -136,7 +148,7 @@
   }
 
   function openDetail(code) {
-    var x = (S.fu || []).filter(function (i) { return i.r.code === code; })[0]; if (!x) return;
+    var x = (S.fuAll || S.fu || []).filter(function (i) { return i.r.code === code; })[0]; if (!x) return;
     var sg = F.suggestCollection(x, today()), rows = F.monthsDetail(x, today()), r = x.r;
     var keys = Object.keys(x.dues).filter(function (k) { return F.cmpKey(k, F.FOLLOW_FROM) >= 0; });
     if (keys.indexOf(sg.month) === -1) keys.push(sg.month);
@@ -410,7 +422,7 @@
   }
 
   // ======================= المراجعة =======================
-  var RV = { open: {} };
+  var RV = { open: {}, st: 'live' };
   function renderReview() {
     var box = $('tab-review');
     box.innerHTML = loadingHtml('بيراجع الخزينة والعقود…');
@@ -418,18 +430,28 @@
       var st = S.settings || F.DEFAULT_SETTINGS, t = today(), tS = L.dateToSerial(t);
       var ub = {}; S.units.forEach(function (u) { ub[u.code] = u; });
       var inS = function (code) { var u = ub[String(code)]; return !u || F.inScope(u, st); };
+      var rb = {}; S.renters.forEach(function (r) { if (r.code) rb[String(r.code)] = r; });
+      // حالة الحركة من عقدها: المستأجر لو فيه كوده، وإلا عقد المالك. الحركة اللي ملهاش عقد معروف تتحسب مع الساري.
+      var entOk = function (i) {
+        if (RV.st === 'all') return true;
+        var r = rb[String(c['كود المستأجر'][i] || '').trim()];
+        if (r) return stOk(RV.st, r.end);
+        var u = ub[String(c['كود'] ? c['كود'][i] : '')];
+        if (u && u.ownerEnd) return stOk(RV.st, u.ownerEnd);
+        return RV.st === 'live';
+      };
       var c = S.treasury.cols, n = c['تاريخ'].length, flags = {}, dates = [], both = [];
       for (var i = 0; i < n; i++) {
         var code = c['كود'] ? c['كود'][i] : '';
-        if (!inS(code)) continue;
+        if (!inS(code) || !entOk(i)) continue;
         var f = String(c['مراجعة'] ? c['مراجعة'][i] || '' : '').trim();
         if (f) (flags[f] = flags[f] || []).push(i);
         var d = Number(c['تاريخ'][i]);
         if (d && (d < 44197 || Math.floor(d) > tS)) dates.push(i);
         if ((Number(c['ايراد'][i]) || 0) && (Number(c['مصروف'][i]) || 0)) both.push(i);
       }
-      // عقود سارية أو جاية: تداخل حقيقي، أو بتعدّي عقد المالك
-      var act = S.renters.filter(function (r) { return r.idx >= 0 && r.start && r.end && r.end >= t && r.end.getUTCFullYear() < 2090 && inS(r.unit); });
+      // العقود حسب فلتر الحالة: تداخل حقيقي، أو بتعدّي عقد المالك
+      var act = S.renters.filter(function (r) { return r.idx >= 0 && r.start && r.end && stOk(RV.st, r.end) && r.end.getUTCFullYear() < 2090 && inS(r.unit); });
       var byU = {}; act.forEach(function (r) { (byU[r.unit] = byU[r.unit] || []).push(r); });
       var overlaps = [];
       Object.keys(byU).forEach(function (u) {
@@ -441,17 +463,18 @@
       Object.keys(flags).sort(function (a, b) { return flags[b].length - flags[a].length; }).forEach(function (k) {
         sec.push({ id: 'f' + k, title: 'الخزينة: ' + k, why: k === 'خطأ مالك' ? 'سداد للمالك ناقصه الشهر، أو فترته بتعدّي نهاية العقد.' : k === 'خطأ مستأجر' ? 'حركة مستأجر ناقصها كود المستأجر أو الشهر، أو فترتها بتعدّي نهاية عقده.' : k === 'خطأ عملة' ? 'خزينة بعملة أجنبية من غير المبلغ بالعملة.' : 'معادلة مرجعها مكسور.', kind: 'entry', items: flags[k] });
       });
-      if (overlaps.length) sec.push({ id: 'ov', title: 'عقود متداخلة على نفس الوحدة', why: 'عقدين ساريين أو جايين بيتقاطعوا في يوم واحد على الأقل.', kind: 'pair', items: overlaps });
+      if (overlaps.length) sec.push({ id: 'ov', title: 'عقود متداخلة على نفس الوحدة', why: 'عقدين على نفس الوحدة بيتقاطعوا في يوم واحد على الأقل.', kind: 'pair', items: overlaps });
       if (beyond.length) sec.push({ id: 'be', title: 'عقود بتعدّي نهاية عقد المالك', why: 'نهاية عقد المستأجر بعد نهاية عقد المالك.', kind: 'renter', items: beyond });
       if (dates.length) sec.push({ id: 'dt', title: 'تواريخ غريبة في الخزينة', why: 'قبل ٢٠٢١ أو بعد النهارده.', kind: 'entry', items: dates });
       if (both.length) sec.push({ id: 'bo', title: 'سطور فيها وارد ومنصرف مع بعض', why: 'السطر الواحد المفروض يا وارد يا منصرف.', kind: 'entry', items: both });
       var total = sec.reduce(function (a, x) { return a + x.items.length; }, 0);
-      box.innerHTML = '<div class="sum"><div class="box"><div class="v ' + (total ? 'late' : 'okc') + '">' + total + '</div><div class="k">ملاحظة محتاجة مراجعة</div></div>' +
+      box.innerHTML = stSeg('rvSeg', RV.st) + '<div class="sum"><div class="box"><div class="v ' + (total ? 'late' : 'okc') + '">' + total + '</div><div class="k">ملاحظة محتاجة مراجعة</div></div>' +
         '<div class="box"><div class="v">' + sec.length + '</div><div class="k">نوع</div></div></div>' +
         (sec.length ? sec.map(function (x) {
           return '<div class="card"><h3 style="cursor:pointer" data-sec="' + x.id + '"><span style="flex:1">' + esc(x.title) + '</span><span class="badge ' + (x.items.length ? 'book' : 'live') + '">' + x.items.length + '</span></h3>' +
             '<div class="r2" style="margin-top:-4px">' + esc(x.why) + '</div><div id="sec-' + x.id + '" class="' + (RV.open[x.id] ? '' : 'hide') + '" style="margin-top:8px">' + secItems(x) + '</div></div>';
         }).join('') : '<div class="msg ok">مفيش ملاحظات. كله تمام.</div>');
+      bindSeg('rvSeg', function (v) { RV.st = v; renderReview(); });
       box.querySelectorAll('h3[data-sec]').forEach(function (h) { h.onclick = function () { var id = h.dataset.sec; RV.open[id] = !RV.open[id]; $('sec-' + id).classList.toggle('hide', !RV.open[id]); }; });
       box.querySelectorAll('button[data-go]').forEach(function (b) { b.onclick = function () { var p = b.dataset.go.split(':'); (p[0] === 'entry' ? A.goTo('entry', +p[1]) : A.goToRow(+p[1])).catch(function (e) { alert(e.message); }); }; });
     }).catch(function (e) { box.innerHTML = errHtml(e); });
