@@ -9,6 +9,10 @@
     rentIn: 'تحصيل ايجار', rentBack: 'رد ايجار للمستأجر',
     depIn: 'تحصيل تأمين', depBack: 'رد تأمين للمستأجر'
   };
+  var TENANT_CATS = ['تحصيل ايجار', 'تحصيل تأمين', 'رد تأمين للمستأجر', 'رد ايجار للمستأجر'];
+  var TENANT_MONTH = ['تحصيل ايجار', 'رد ايجار للمستأجر'];
+  var OWNER_CATS = ['سداد ايجار', 'رد ايجار من مالك', 'سداد تأمين', 'رد تأمين من المالك'];
+  var OWNER_MONTH = ['سداد ايجار', 'رد ايجار من مالك'];
   var DEFAULT_SETTINGS = { mode: 'exclude', projects: ['Village', 'Porto'] };
   var FOLLOW_FROM = 'Jan-25'; // نفس بداية شيت المتابعة
 
@@ -27,6 +31,7 @@
 
   // ---------- نطاق الملف ----------
   function inScope(unit, settings) {
+    if (settings === 'all') return true;
     settings = settings || DEFAULT_SETTINGS;
     if (!unit) return settings.mode !== 'only';
     if (str(unit.settle).toUpperCase().replace(/[_\s]/g, '-') === 'N-F') return false; // N-F ليها ملف لوحدها
@@ -149,12 +154,13 @@
     if (!(num(e.amount) > 0)) err.push('اكتب المبلغ.');
     if (!str(e.cash)) err.push('اختار الخزينة.');
     else if (isForeign(e.cash) && !(num(e.fx) > 0)) err.push('الخزينة دي بعملة أجنبية: اكتب المبلغ بالعملة كمان.');
-    if (e.category === CAT.rentIn) {
-      if (!str(e.tenantCode)) err.push('كود المستأجر ناقص.');
-      if (!e.month) err.push('حدد الشهر.');
-      if (e.from && e.to && e.to < e.from) err.push('نهاية الفترة قبل بدايتها.');
-      if (e.to && e.contractEnd && e.to > e.contractEnd) err.push('نهاية الفترة بعد نهاية العقد (' + L.fmt(e.contractEnd) + ').');
-    }
+    var cat = str(e.category);
+    if (!cat) err.push('اختار الفئة.');
+    if (TENANT_CATS.indexOf(cat) !== -1 && !str(e.tenantCode)) err.push('الفئة دي محتاجة كود المستأجر.');
+    if ((TENANT_MONTH.indexOf(cat) !== -1 || OWNER_MONTH.indexOf(cat) !== -1) && !e.month) err.push('الفئة دي محتاجة الشهر.');
+    if (OWNER_CATS.indexOf(cat) !== -1 && !(str(e.unitCode) && str(e.unitCode) !== '1')) err.push('الفئة دي محتاجة كود الوحدة.');
+    if (e.from && e.to && e.to < e.from) err.push('نهاية الفترة قبل بدايتها.');
+    if (e.to && e.contractEnd && e.to > e.contractEnd) err.push('نهاية الفترة بعد نهاية العقد (' + L.fmt(e.contractEnd) + ').');
     return err;
   }
 
@@ -172,6 +178,10 @@
     if (str(e.tenantCode)) v['كود المستأجر'] = str(e.tenantCode);
     v['كاش'] = str(e.cash);
     if (num(e.fx)) v['العملة'] = num(e.fx);
+    if (str(e.notes)) v['ملاحظات'] = str(e.notes);
+    if (str(e.chequeNo)) v['رقم الشيك'] = /^\d+$/.test(str(e.chequeNo)) ? Number(e.chequeNo) : str(e.chequeNo);
+    if (e.chequeDate) v['تاريخ الشيك'] = L.dateToSerial(e.chequeDate);
+    if (!str(e.unitCode)) v['كود'] = 1;
     return v;
   }
 
@@ -255,8 +265,48 @@
     }).sort(function (a, b) { return a.daysToFree - b.daysToFree || String(a.unit.project).localeCompare(String(b.unit.project)); });
   }
 
+  // ---------- الخزينة العامة ----------
+  // الجانب الغالب لكل فئة من تاريخ الخزينة (وارد ولا منصرف)
+  function sideDefaults(t) {
+    var c = t.cols, cnt = {};
+    for (var i = 0; i < c['فئة'].length; i++) {
+      var k = str(c['فئة'][i]); if (!k) continue;
+      var x = cnt[k] || (cnt[k] = { in: 0, out: 0, n: 0 });
+      if (num(c['ايراد'][i])) x.in++; else if (num(c['مصروف'][i])) x.out++;
+      x.n++;
+    }
+    var out = {}; Object.keys(cnt).forEach(function (k) { out[k] = { side: cnt[k].in > cnt[k].out ? 'in' : 'out', n: cnt[k].n }; });
+    return out;
+  }
+  // آخر شهر اتسدد للمالك (سداد ايجار) لكل وحدة
+  function ownerPaid(t) {
+    var c = t.cols, out = {};
+    if (!c['كود']) return out;
+    for (var i = 0; i < c['فئة'].length; i++) {
+      if (str(c['فئة'][i]) !== 'سداد ايجار') continue;
+      var u = str(c['كود'][i]), m = num(c['شهر'][i]); if (!u || !m) continue;
+      if (!out[u] || m >= out[u].m) out[u] = { m: m, amt: num(c['مصروف'][i]) || (out[u] && out[u].m === m ? out[u].amt : 0) };
+    }
+    return out;
+  }
+  // اقتراح سداد المالك: الشهر اللي بعد آخر شهر اتسدد، ومبلغه من أعمدة شهور عقد المالك
+  function ownerSuggest(unit, ownerMonths, paid, today, count) {
+    today = today || L.todayUTC();
+    var lp = paid[unit.code], last = lp ? lp.m : null, first;
+    if (last) first = L.addMonths(new Date(Date.UTC(L.serialToDate(last).getUTCFullYear(), L.serialToDate(last).getUTCMonth(), 1)), 1);
+    else first = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    var rows = [];
+    for (var k = 0; k < (count || 1); k++) {
+      var m = L.addMonths(first, k), key = L.monthKey(m);
+      var amt = ownerMonths && ownerMonths[key] ? num(ownerMonths[key][unit.idx]) : 0;
+      rows.push({ key: key, from: m, to: new Date(L.addMonths(m, 1).getTime() - DAY), amount: amt || (lp && lp.amt) || unit.rent || 0, source: amt ? 'sheet' : lp && lp.amt ? 'last' : 'rent' });
+    }
+    return { lastPaid: last ? L.serialToDate(last) : null, lastAmount: lp ? lp.amt : 0, rows: rows };
+  }
+
   var api = {
-    CAT: CAT, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
+    sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,

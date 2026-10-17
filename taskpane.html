@@ -91,6 +91,8 @@ table.sch .note{font-size:11px;color:var(--muted)}
 .tgs{display:flex;flex-wrap:wrap;gap:6px}
 .tg{border:1px solid var(--line);background:#fff;border-radius:16px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
 .tg.on{background:var(--brand);border-color:var(--brand);color:#fff}
+details.more{margin-top:10px}details.more summary{cursor:pointer;color:var(--brand);font-weight:600;font-size:12.5px}
+.addbtn{width:100%;margin-bottom:10px}
 .sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .sum .box{background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 10px}
 .sum .v{font-size:17px;font-weight:700}.sum .k{font-size:11.5px;color:var(--muted)}
@@ -265,6 +267,7 @@ function load(){
     S.renters = L.buildRenters(d.renter);
     S.monthHeaders = d.monthHeaders;
     S.months = d.renter.months || {}; S.cash = d.cash || []; S.treasury = null; S.ledger = null;
+    S.ownerMonths = d.owner.months || {}; S.categories = d.categories || [];
     $('stat').textContent = S.units.length + ' وحدة · ' + S.renters.length + ' عقد';
     fill('dlNat', L.topValues(S.renters,'nationality',30));
     fill('dlOp', L.topValues(S.renters,'operation',20));
@@ -293,7 +296,7 @@ document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.addEventListe
 $('reload').addEventListener('click', load);
 
 // ---------- الوحدة ----------
-function unitTitle(u){ return [u.project, u.block && ('بلوك '+u.block), u.building && ('عمارة '+u.building), u.apt && ('شقة '+u.apt)].filter(Boolean).join(' · '); }
+function unitTitle(u){ var ok=function(v){ return v && v!=='0'; }; return [u.project, ok(u.block) && ('بلوك '+u.block), ok(u.building) && ('عمارة '+u.building), ok(u.apt) && ('شقة '+u.apt)].filter(Boolean).join(' · '); }
 $('unitQ').addEventListener('input', function(){
   var res = L.searchUnits(S.units, this.value), box = $('unitRes');
   if (!this.value.trim()) { box.classList.add('hide'); return; }

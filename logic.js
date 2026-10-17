@@ -81,7 +81,10 @@
         ownerEnd: serialToDate(c['نهاية العقد'][i]),
         bedrooms: str(c['Bedrooms'][i]),
         settle: c['تسويات'] ? str(c['تسويات'][i]) : '',
-        info: c['Info'] ? str(c['Info'][i]) : ''
+        info: c['Info'] ? str(c['Info'][i]) : '',
+        idx: i,
+        rent: c['قيمة الايجار'] ? Number(c['قيمة الايجار'][i]) || 0 : 0,
+        every: c['يسدد كل'] ? Number(c['يسدد كل'][i]) || 1 : 1
       });
     }
     return out;

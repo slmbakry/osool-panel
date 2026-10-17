@@ -4,7 +4,7 @@
   var L = root.OsoolLogic;
 
   var OWNER_COLS = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'نهاية العقد', 'Bedrooms'];
-  var OWNER_OPT = ['تسويات', 'Info'];
+  var OWNER_OPT = ['تسويات', 'Info', 'قيمة الايجار', 'يسدد كل'];
   var RENTER_COLS = ['كود', 'كود المستأجر', 'بداية العقد', 'نهاية العقد', 'الاسم', 'التليفون',
     'رقم البطاقة - جواز السفر', 'الجنسية', 'Special', 'Operation'];
   var RENTER_OPT = ['البروكر', 'قيمة الايجار', 'التأمين', 'موقف الاستلام'];
@@ -57,7 +57,13 @@
     return Excel.run(function (ctx) {
       var res = {}, O, R;
       return tableWithHeader(ctx, 'owner').then(function (o) { O = o; return readCols(ctx, O.t, O.H, OWNER_COLS, OWNER_OPT); })
-        .then(function (c) { res.owner = { cols: c }; return tableWithHeader(ctx, 'renter'); })
+        .then(function (c) {
+          res.owner = { cols: c };
+          var fromD = root.OsoolFollow.keyToDate(root.OsoolFollow.FOLLOW_FROM);
+          var keep = O.H.filter(function (h) { return MONTH_RE.test(h) && root.OsoolFollow.keyToDate(h) >= fromD; });
+          return readCols(ctx, O.t, O.H, keep);
+        })
+        .then(function (m) { res.owner.months = m; return tableWithHeader(ctx, 'renter'); })
         .then(function (r) { R = r; return readCols(ctx, R.t, R.H, RENTER_COLS, RENTER_OPT); })
         .then(function (c) {
           res.renter = { cols: c };
@@ -72,6 +78,11 @@
           var cash = ctx.workbook.tables.getItem('كاش').getDataBodyRange().load('values');
           return ctx.sync().then(function () { res.cash = cash.values.map(function (r) { return String(r[0]); }).filter(Boolean); })
             .catch(function () { res.cash = []; });
+        })
+        .then(function () {
+          var cat = ctx.workbook.tables.getItem('فئة').getDataBodyRange().load('values');
+          return ctx.sync().then(function () { res.categories = cat.values.map(function (r) { return String(r[0] || '').trim(); }).filter(Boolean); })
+            .catch(function () { res.categories = []; });
         })
         .then(function () { return res; });
     }).catch(fail);
