@@ -172,8 +172,9 @@
       if (need <= 0) return { start: start, cols: c };
       var pr = T.t.worksheet.protection.load('protected,options');
       return ctx.sync().then(function () {
-        if (pr.protected && !(pr.options && pr.options.allowInsertRows))
-          throw { message: 'جدول ' + T.t.__name + ' مفيهوش سطور فاضية، والشيت محمي ومش سامح بإضافة سطور. افتح الحماية أو اسمح بإضافة سطور فيها، أو زوّد سطور فاضية للجدول بإيدك.' };
+        // الإكسيل مش بيكبّر الجدول على شيت محمي حتى لو إضافة السطور مسموحة
+        if (pr.protected)
+          throw { message: 'جدول ' + (T.t.__name === 'entry' ? 'الخزينة' : T.t.__name === 'renter' ? 'عقود المستأجرين' : T.t.__name) + ' خلصت سطوره الفاضية والشيت محمي. فك الحماية دقيقة، واسحب آخر الجدول لتحت كام مئة سطر، ورجّع الحماية، وجرب تاني.' };
         for (var a = 0; a < need; a++) T.t.rows.add();
         return ctx.sync().then(function () { return { start: start, cols: c }; });
       });
