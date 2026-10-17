@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>لوحة أصول</title>
+<title>MBM · لوحة أصول</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
@@ -87,6 +87,10 @@ table.sch .note{font-size:11px;color:var(--muted)}
 .done{text-align:center;padding:26px 10px}
 .done .big{font-size:40px;color:var(--ok)}
 .hide{display:none!important}
+.mbm{background:rgba(255,255,255,.18);border-radius:5px;padding:0 6px;margin-inline-end:2px;letter-spacing:.5px}
+.tgs{display:flex;flex-wrap:wrap;gap:6px}
+.tg{border:1px solid var(--line);background:#fff;border-radius:16px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
+.tg.on{background:var(--brand);border-color:var(--brand);color:#fff}
 .sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .sum .box{background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 10px}
 .sum .v{font-size:17px;font-weight:700}.sum .k{font-size:11.5px;color:var(--muted)}
@@ -110,7 +114,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 <body>
 <div class="top">
   <div class="brandrow">
-    <div><div class="brand">لوحة أصول</div><div class="stat" id="stat">بيحمّل…</div></div>
+    <div><div class="brand"><span dir="ltr" class="mbm">MBM</span> · لوحة أصول</div><div class="stat" id="stat">بيحمّل…</div></div>
     <div style="display:flex;gap:6px">
     <button class="iconbtn" id="gear" title="إعداد الملف" aria-label="إعداد الملف">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -506,6 +510,8 @@ if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); els
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="reports.js"></script>
 <script src="screens.js"></script>
 </body>
 </html>

@@ -106,6 +106,7 @@
         special: str(c['Special'][i]),
         operation: str(c['Operation'][i]),
         broker: c['البروكر'] ? str(c['البروكر'][i]) : '',
+        receipt: c['موقف الاستلام'] ? str(c['موقف الاستلام'][i]) : '',
         rent: c['قيمة الايجار'] ? c['قيمة الايجار'][i] : null,
         deposit: c['التأمين'] ? c['التأمين'][i] : null
       });

@@ -5,10 +5,10 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>2c8894a3-7590-45bf-bf92-48a74bdea2fc</Id>
-  <Version>1.0.0.0</Version>
+  <Version>1.1.0.0</Version>
   <ProviderName>MBM</ProviderName>
   <DefaultLocale>ar-SA</DefaultLocale>
-  <DisplayName DefaultValue="لوحة أصول"/>
+  <DisplayName DefaultValue="MBM · لوحة أصول"/>
   <Description DefaultValue="تسجيل عقود وحجوزات المستأجرين في ملف أصول"/>
   <IconUrl DefaultValue="https://slmbakry.github.io/osool-panel/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://slmbakry.github.io/osool-panel/assets/icon-64.png"/>
@@ -81,8 +81,8 @@
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="لوحة أصول جاهزة"/>
-        <bt:String id="Group.Label" DefaultValue="أصول"/>
-        <bt:String id="Button.Label" DefaultValue="لوحة أصول"/>
+        <bt:String id="Group.Label" DefaultValue="MBM"/>
+        <bt:String id="Button.Label" DefaultValue="MBM · لوحة أصول"/>
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="افتح لوحة أصول من تبويب الصفحة الرئيسية."/>

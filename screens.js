@@ -393,66 +393,75 @@
   }
 
   // ======================= المتاح =======================
-  var AV = { status: 'active', project: '', beds: '', q: '' };
+  var AV = { projects: null, settles: null };
+  var R = window.OsoolReports;
+  function settleLabel(v) { return v ? v : 'بدون'; }
   function renderAvail() {
     var box = $('tab-avail');
     box.innerHTML = loadingHtml('بيحسب الوحدات…');
     ensureSettings().then(function () {
-      var list = F.availability(S.units, S.renters, S.settings || F.DEFAULT_SETTINGS, today());
-      list.forEach(function (x) {
-        if (x.unit.settle.toUpperCase() === 'OUT' || (x.current && x.current.end.getUTCFullYear() >= 2090)) x.status = 'خارج التشغيل';
+      var list = F.availability(S.units, S.renters, 'all', today());
+      S.availAll = list;
+      var projects = {}, settles = {};
+      list.forEach(function (x) { var p = String(x.unit.project).trim(); if (p) projects[p] = 1; settles[x.unit.settle || ''] = 1; });
+      projects = Object.keys(projects).sort(); settles = Object.keys(settles).sort();
+      if (!AV.projects) {
+        var st = S.settings || F.DEFAULT_SETTINGS, lst = st.projects.map(function (x) { return x.trim().toLowerCase(); });
+        AV.projects = projects.filter(function (p) { var k = p.toLowerCase(); return st.mode === 'only' ? lst.indexOf(k) !== -1 : lst.indexOf(k) === -1; });
+      }
+      if (!AV.settles) AV.settles = settles.slice();
+      var chips = function (group, vals, sel, label) {
+        return '<div class="tgs">' + vals.map(function (v) { return '<button class="tg' + (sel.indexOf(v) !== -1 ? ' on' : '') + '" data-g="' + group + '" data-v="' + esc(v) + '">' + esc(label ? label(v) : v) + '</button>'; }).join('') + '</div>';
+      };
+      box.innerHTML = '<div id="avSum"></div>' +
+        '<div class="card"><h3>الكمبوند <button class="link" id="avAllP" style="margin-inline-start:auto;font-size:11px">الكل</button></h3>' + chips('p', projects, AV.projects) +
+        '<h3 style="margin-top:12px">التسويات</h3>' + chips('s', settles, AV.settles, settleLabel) + '</div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:6px"><button class="btn primary" id="avPdf">PDF المتاح</button><button class="btn ghost" id="avPrint">طباعة</button></div>' +
+        '<div class="r2" id="avMsg" style="margin-bottom:8px"></div><div id="avList"></div>';
+      box.querySelectorAll('.tg').forEach(function (b) {
+        b.onclick = function () {
+          var arr = b.dataset.g === 'p' ? AV.projects : AV.settles, v = b.dataset.v, i = arr.indexOf(v);
+          if (i === -1) arr.push(v); else arr.splice(i, 1);
+          b.classList.toggle('on', i === -1); drawAvail();
+        };
       });
-      S.avail = list;
-      var cnt = function (f) { return list.filter(f).length; };
-      var projects = {}, beds = {};
-      list.forEach(function (x) { if (x.unit.project) projects[x.unit.project] = 1; if (x.unit.bedrooms) beds[x.unit.bedrooms] = 1; });
-      box.innerHTML = '<div class="sum"><div class="box"><div class="v okc">' + cnt(function (x) { return x.status === 'فاضية' || x.status === 'محجوزة'; }) + '</div><div class="k">فاضية النهارده</div></div>' +
-        '<div class="box"><div class="v">' + cnt(function (x) { return x.status === 'مشغولة' && x.daysToFree <= 7; }) + '</div><div class="k">هتفضى خلال أسبوع</div></div></div>' +
-        (S.settings ? '' : '<div class="msg warn">نطاق الملف لسه متحددش، فالقايمة بالنطاق الافتراضي. حدده من الترس.</div>') +
-        '<div class="filters"><select id="aSt"><option value="active">كل الوحدات الشغالة</option><option value="free">فاضية النهارده</option><option value="week">هتفضى خلال أسبوع</option><option value="busy">مشغولة</option><option value="booked">عليها حجز جاي</option><option value="out">خارج التشغيل</option></select>' +
-        '<select id="aPr"><option value="">كل المشاريع</option>' + Object.keys(projects).sort().map(function (p) { return '<option' + (p === AV.project ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></div>' +
-        '<div class="filters"><select id="aBd"><option value="">كل الغرف</option>' + Object.keys(beds).sort().map(function (b) { return '<option value="' + esc(b) + '"' + (b === AV.beds ? ' selected' : '') + '>' + esc(b) + ' غرف</option>'; }).join('') + '</select>' +
-        '<input id="aQ" placeholder="بحث" value="' + esc(AV.q) + '" autocomplete="off"></div>' +
-        exportBar('avExp') + '<div id="avList"></div>';
-      $('aSt').value = AV.status;
-      $('aSt').onchange = function () { AV.status = this.value; drawAvail(); };
-      $('aPr').onchange = function () { AV.project = this.value; drawAvail(); };
-      $('aBd').onchange = function () { AV.beds = this.value; drawAvail(); };
-      $('aQ').oninput = function () { AV.q = this.value; drawAvail(); };
-      bindExport('avExp', function () {
-        return { name: 'المتاح ' + L.toISO(today()),
-          headers: ['كود', 'المشروع', 'غرف', 'Info', 'بلوك', 'عمارة', 'شقة', 'الحالة', 'مشغول حتى', 'الساكن', 'كود المستأجر', 'محجوز من', 'محجوز إلى', 'اسم العميل', 'نهاية عقد المالك', 'المدة المتبقية', 'تسويات'],
-          rows: (S.availView || []).map(function (x) { var u = x.unit, c = x.current, n = x.next;
-            return [u.code, u.project, u.bedrooms, u.info, u.block, u.building, u.apt, x.status, c ? c.end : '', c ? c.name : '', c ? c.code : '', n ? n.start : '', n ? n.end : '', n ? n.name : '', u.ownerEnd || '', x.remaining, u.settle]; }) };
-      });
+      $('avAllP').onclick = function () {
+        var all = AV.projects.length === projects.length;
+        AV.projects = all ? [] : projects.slice();
+        box.querySelectorAll('.tg[data-g=p]').forEach(function (b) { b.classList.toggle('on', !all); });
+        drawAvail();
+      };
+      var report = function () {
+        var txt = AV.projects.length === projects.length ? 'كل الكمبوندات' : AV.projects.length > 4 ? AV.projects.length + ' كمبوند' : AV.projects.join('، ');
+        return R.availHtml(S.availView || [], today(), txt);
+      };
+      $('avPdf').onclick = function () {
+        var b = this; b.disabled = true; $('avMsg').textContent = 'بيجهز الـ PDF…';
+        R.toPdf(report(), 'المتاح ' + L.toISO(today())).then(function () { $('avMsg').textContent = 'اتحمل.'; }, function (e) { $('avMsg').textContent = (e && e.message) || 'التحميل مش متاح هنا، استخدم الطباعة.'; })
+          .then(function () { b.disabled = false; });
+      };
+      $('avPrint').onclick = function () { R.printHtml(report(), 'المتاح'); };
       drawAvail();
     });
   }
   function drawAvail() {
-    var q = L.norm(AV.q);
-    var list = (S.avail || []).filter(function (x) {
-      if (AV.status === 'out') { if (x.status !== 'خارج التشغيل') return false; }
-      else if (x.status === 'خارج التشغيل') return false;
-      if (AV.status === 'free' && x.status === 'مشغولة') return false;
-      if (AV.status === 'week' && !(x.status === 'مشغولة' && x.daysToFree <= 7)) return false;
-      if (AV.status === 'busy' && x.status !== 'مشغولة') return false;
-      if (AV.status === 'booked' && !x.next) return false;
-      if (AV.project && x.unit.project !== AV.project) return false;
-      if (AV.beds && x.unit.bedrooms !== AV.beds) return false;
-      if (q && L.norm([x.unit.code, x.unit.project, x.unit.building, x.unit.apt, x.unit.owner, x.current ? x.current.name : ''].join(' ')).indexOf(q) === -1) return false;
-      return true;
+    var list = (S.availAll || []).filter(function (x) {
+      return AV.projects.indexOf(String(x.unit.project).trim()) !== -1 && AV.settles.indexOf(x.unit.settle || '') !== -1;
     });
     S.availView = list;
-    $('avList').innerHTML = list.length ? list.map(function (x) {
+    var free = list.filter(function (x) { return !x.current; }).length;
+    var soon = list.filter(function (x) { return x.current && x.daysToFree <= 7 && x.current.end.getUTCFullYear() < 2090; }).length;
+    $('avSum').innerHTML = '<div class="sum"><div class="box"><div class="v okc">' + free + '</div><div class="k">فاضية النهارده</div></div>' +
+      '<div class="box"><div class="v">' + soon + '</div><div class="k">هتفضى خلال أسبوع</div></div></div>';
+    $('avList').innerHTML = list.length ? list.slice(0, 150).map(function (x) {
       var u = x.unit, c = x.current, n = x.next, st;
-      if (x.status === 'خارج التشغيل') st = '<span class="badge done">خارج التشغيل</span>';
-      else if (c) st = '<span class="badge book">مشغولة ' + (x.daysToFree === 0 ? 'لحد النهارده' : x.daysToFree + ' يوم') + '</span>';
-      else st = '<span class="badge live">فاضية</span>';
-      return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2"><span dir="ltr">' + esc(u.code) + '</span>' + (u.bedrooms ? ' · ' + esc(u.bedrooms) + ' غرف' : '') + (u.info && u.info !== '0' ? ' · ' + esc(u.info) : '') + '</div></div>' + st + '</div>' +
-        '<dl class="kv">' + (c && x.status !== 'خارج التشغيل' ? '<dt>الساكن</dt><dd>' + esc(c.name || '—') + ' لحد ' + L.fmt(c.end) + '</dd>' : '') +
-        (n ? '<dt>حجز جاي</dt><dd>' + esc(n.name || '—') + ' · ' + L.fmt(n.start) + ' ← ' + L.fmt(n.end) + '</dd>' : '') +
-        '<dt>عقد المالك</dt><dd>' + L.fmt(u.ownerEnd) + (x.remaining ? ' · ' + esc(x.remaining) : '') + '</dd></dl></div>';
-    }).join('') : '<div class="empty" style="padding:8px">مفيش وحدات بالفلتر ده.</div>';
+      if (c && c.end.getUTCFullYear() >= 2090) st = '<span class="badge done">خارج التشغيل</span>';
+      else if (c) st = '<span class="badge book">لحد ' + L.fmt(c.end) + '</span>';
+      else st = '<span class="badge live">Available</span>';
+      return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2"><span dir="ltr">' + esc(u.code) + '</span>' + (u.bedrooms ? ' · ' + esc(u.bedrooms) + ' غرف' : '') + (u.settle ? ' · ' + esc(u.settle) : '') + '</div></div>' + st + '</div>' +
+        ((c && c.end.getUTCFullYear() < 2090) || n ? '<dl class="kv">' + (c && c.end.getUTCFullYear() < 2090 ? '<dt>الساكن</dt><dd>' + esc(c.name || '—') + '</dd>' : '') +
+        (n ? '<dt>حجز جاي</dt><dd>' + esc(n.name || '—') + ' · ' + L.fmt(n.start) + ' ← ' + L.fmt(n.end) + '</dd>' : '') + '</dl>' : '') + '</div>';
+    }).join('') + (list.length > 150 ? '<div class="r2" style="padding:6px">ظاهر ١٥٠ من ' + list.length + '. الـ PDF فيه الكل.</div>' : '') : '<div class="empty" style="padding:8px">مفيش وحدات بالفلتر ده.</div>';
   }
 
   // ======================= الخزينة =======================
@@ -465,12 +474,15 @@
       if (!TR) { var t = today(); TR = { from: new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1)), to: t, cash: '', cat: '', side: '', q: '' }; }
       var cats = {}; c['فئة'].forEach(function (v) { v = String(v || '').trim(); if (v) cats[v] = 1; });
       var cashes = {}; c['كاش'].forEach(function (v) { v = String(v || ''); if (v.trim()) cashes[v] = 1; });
-      box.innerHTML = '<div class="grid2"><div><label>من</label><input type="date" id="tFrom" value="' + L.toISO(TR.from) + '"></div><div><label>إلى</label><input type="date" id="tTo" value="' + L.toISO(TR.to) + '"></div></div>' +
+      box.innerHTML = '<div class="card"><h3>طباعة اليومية</h3><div style="display:flex;gap:8px;align-items:center"><input type="date" id="dDate" value="' + L.toISO(TR.day || today()) + '" max="' + L.toISO(today()) + '">' +
+        '<button class="btn primary" id="dPdf" style="flex:0 0 auto;padding:8px 14px">PDF</button><button class="btn ghost" id="dPrint">طباعة</button></div><div class="r2" id="dMsg" style="margin-top:6px"></div></div>' +
+        '<h3 style="font-size:13px;color:var(--muted);margin:4px 0">بحث في الحركات</h3>' +
+        '<div class="grid2"><div><label>من</label><input type="date" id="tFrom" value="' + L.toISO(TR.from) + '"></div><div><label>إلى</label><input type="date" id="tTo" value="' + L.toISO(TR.to) + '"></div></div>' +
         '<div class="filters"><select id="tCash"><option value="">كل الخزائن</option>' + Object.keys(cashes).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === TR.cash ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' +
         '<select id="tCat"><option value="">كل الفئات</option>' + Object.keys(cats).sort().map(function (k) { return '<option value="' + esc(k) + '"' + (k === TR.cat ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></div>' +
         '<div class="filters"><select id="tSide"><option value="">وارد ومنصرف</option><option value="in">وارد بس</option><option value="out">منصرف بس</option></select>' +
         '<input id="tQ" placeholder="بيان أو كود" value="' + esc(TR.q) + '" autocomplete="off"></div>' +
-        '<div id="tSum"></div>' + exportBar('trExp') + '<div id="tList"></div>';
+        '<div id="tSum"></div><div id="tList"></div>';
       $('tSide').value = TR.side;
       $('tFrom').onchange = function () { TR.from = L.parseISO(this.value); drawTreas(); };
       $('tTo').onchange = function () { TR.to = L.parseISO(this.value); drawTreas(); };
@@ -478,14 +490,13 @@
       $('tCat').onchange = function () { TR.cat = this.value; drawTreas(); };
       $('tSide').onchange = function () { TR.side = this.value; drawTreas(); };
       var tm; $('tQ').oninput = function () { TR.q = this.value; clearTimeout(tm); tm = setTimeout(drawTreas, 200); };
-      bindExport('trExp', function () {
-        var c = S.treasury.cols, idx = S.treasView || [];
-        var g = function (k, i) { return c[k] ? c[k][i] : ''; };
-        var d = function (v) { return L.serialToDate(v) || ''; };
-        return { name: 'الخزينة ' + L.toISO(TR.from || today()) + ' - ' + L.toISO(TR.to || today()),
-          headers: ['التاريخ', 'وارد', 'منصرف', 'رقم المستند', 'الكود', 'الفئة', 'البيان', 'الشهر', 'كود المستأجر', 'الخزينة', 'العملة'],
-          rows: idx.map(function (i) { return [d(g('تاريخ', i)), g('ايراد', i), g('مصروف', i), g('رقم المستند', i), g('كود', i), g('فئة', i), g('بيان', i), d(g('شهر', i)), g('كود المستأجر', i), g('كاش', i), g('العملة', i)]; }) };
-      });
+      var daily = function () { var dd = L.parseISO($('dDate').value) || today(); TR.day = dd; return { d: dd, html: R.dailyHtml(S.treasury, S.units, S.cash, dd) }; };
+      $('dPdf').onclick = function () {
+        var b = this, x = daily(); b.disabled = true; $('dMsg').textContent = 'بيجهز الـ PDF…';
+        R.toPdf(x.html, 'يومية الخزينة ' + L.toISO(x.d)).then(function () { $('dMsg').textContent = 'اتحمل.'; }, function (e) { $('dMsg').textContent = (e && e.message) || 'التحميل مش متاح هنا، استخدم الطباعة.'; })
+          .then(function () { b.disabled = false; });
+      };
+      $('dPrint').onclick = function () { var x = daily(); R.printHtml(x.html, 'يومية الخزينة ' + L.fmt(x.d)); };
       drawTreas();
     }).catch(function (e) { box.innerHTML = errHtml(e); });
   }
