@@ -305,8 +305,9 @@
   }
 
   // ---------- متابعة الملاك (زي شيت متابعة ملاك) ----------
-  function ownerFollow(units, t, ownerMonths, settings, today) {
+  function ownerFollow(units, t, ownerMonths, settings, today, soonDays) {
     today = today || L.todayUTC();
+    soonDays = soonDays > 0 ? soonDays : 7;
     var c = t.cols, n = c['فئة'].length, agg = {};
     var curKey = L.monthKey(today), keys = keyRange(FOLLOW_FROM, curKey);
     for (var i = 0; i < n; i++) {
@@ -337,7 +338,7 @@
         unit: u, paidMonth: g.m ? L.serialToDate(g.m) : null, paidUntil: paidUntil, lastDate: lastDate, lastAmount: g.amt, lastSum: lastSum,
         every: u.every || 1, required: per * (u.every || 1), balance: Math.round(due - paid), daysLeft: daysLeft,
         nextByDate: lastDate ? new Date(lastDate.getTime() + (u.every || 1) * 30 * DAY) : null,
-        status: daysLeft === null ? 'none' : daysLeft < 0 ? 'late' : daysLeft <= 7 ? 'soon' : 'ok'
+        status: daysLeft === null ? 'none' : daysLeft < 0 ? 'late' : daysLeft <= soonDays ? 'soon' : 'ok'
       };
     }).sort(function (a, b) { return (a.daysLeft === null ? 99999 : a.daysLeft) - (b.daysLeft === null ? 99999 : b.daysLeft); });
   }

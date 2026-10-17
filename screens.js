@@ -365,18 +365,22 @@
   }
 
   // ======================= متابعة الملاك =======================
-  var OW = { view: 'due', q: '', flash: '', check: '' };
+  var OW = { view: 'due', q: '', flash: '', check: '', days: 7 };
+  try { var savedDays = +localStorage.getItem('osoolPanel.ownerDays'); if (savedDays > 0) OW.days = savedDays; } catch (e) {}
+  var DAY_OPTS = [3, 5, 7, 10, 14, 15, 21, 30];
   function renderOwners() {
     var box = $('tab-owners');
     box.innerHTML = loadingHtml('بيقرا الخزينة ويحسب سدادات الملاك…');
     ensureSettings().then(ensureTreasury).then(function () {
-      var list = F.ownerFollow(S.units, S.treasury, S.ownerMonths, S.settings || F.DEFAULT_SETTINGS, today());
+      var list = F.ownerFollow(S.units, S.treasury, S.ownerMonths, S.settings || F.DEFAULT_SETTINGS, today(), OW.days);
       S.ow = list;
       var late = list.filter(function (x) { return x.status === 'late'; }), soon = list.filter(function (x) { return x.status === 'soon'; });
       var sumReq = late.concat(soon).reduce(function (a, x) { return a + x.required; }, 0);
       box.innerHTML = (OW.flash ? '<div class="msg ok">' + esc(OW.flash) + '</div>' + (OW.check || '') : '') +
         '<div class="sum"><div class="box"><div class="v late">' + late.length + '</div><div class="k">متأخر سدادهم</div></div>' +
-        '<div class="box"><div class="v">' + soon.length + '</div><div class="k">مستحقين خلال أسبوع</div></div></div>' +
+        '<div class="box"><div class="v">' + soon.length + '</div><div class="k">مستحقين خلال <select id="owDays" style="width:auto;padding:1px 4px;font-size:12px;display:inline-block">' +
+          (DAY_OPTS.indexOf(OW.days) === -1 ? DAY_OPTS.concat([OW.days]).sort(function (a, b) { return a - b; }) : DAY_OPTS).map(function (d) { return '<option value="' + d + '"' + (d === OW.days ? ' selected' : '') + '>' + d + '</option>'; }).join('') +
+          '</select> يوم</div></div></div>' +
         '<div class="r2" style="margin:-4px 0 8px">المطلوب للمتأخرين والمستحقين: <b>' + money(sumReq) + '</b></div>' +
         '<div class="seg" id="owSeg" style="grid-template-columns:1fr 1fr 1fr"><button data-v="due">متأخر ومستحق</button><button data-v="late">المتأخرين</button><button data-v="all">الكل</button></div>' +
         '<input id="owQ" placeholder="بحث باسم المالك أو الوحدة" value="' + esc(OW.q) + '" autocomplete="off" style="margin:8px 0 10px"><div id="owList"></div>';
@@ -386,6 +390,7 @@
         b.onclick = function () { OW.view = b.dataset.v; document.querySelectorAll('#owSeg button').forEach(function (x) { x.classList.toggle('on', x === b); }); drawOwners(); };
       });
       $('owQ').oninput = function () { OW.q = this.value; drawOwners(); };
+      $('owDays').onchange = function () { OW.days = +this.value; try { localStorage.setItem('osoolPanel.ownerDays', OW.days); } catch (e) {} renderOwners(); };
       drawOwners();
     }).catch(function (e) { box.innerHTML = errHtml(e); });
   }
