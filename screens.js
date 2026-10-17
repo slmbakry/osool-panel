@@ -60,9 +60,13 @@
       '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
       '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
       '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>' +
-      '<button class="btn ghost" id="setRows" style="width:100%;margin-top:10px">إضافة سطور فاضية للجداول</button>');
+      '<button class="btn ghost" id="setRole" style="width:100%;margin-top:10px">دور الجهاز ده: ' + esc(window.OsoolHome ? OsoolHome.roleName() : '') + '</button>' +
+      '<button class="btn ghost" id="setReview" style="width:100%;margin-top:8px">المراجعة</button>' +
+      '<button class="btn ghost" id="setRows" style="width:100%;margin-top:8px">إضافة سطور فاضية للجداول</button>');
     $('setBack').onclick = App.closeSheet;
     $('setRows').onclick = openAddRows;
+    $('setRole').onclick = function () { if (window.OsoolHome) OsoolHome.pickRole(); };
+    $('setReview').onclick = function () { App.closeSheet(); App.showTab('review'); };
     $('setSave').onclick = function () {
       var mode = document.querySelector('input[name=mode]:checked').value;
       var list = Array.prototype.slice.call(document.querySelectorAll('.chks input:checked')).map(function (i) { return i.value; });
@@ -485,9 +489,12 @@
         '<dl class="kv"><dt>مسدد لحد</dt><dd>' + L.fmt(x.paidUntil) + '</dd><dt>يسدد كل</dt><dd>' + x.every + ' شهر · المطلوب <b>' + money(x.required) + '</b></dd>' +
         (x.lastDate ? '<dt>آخر سداد</dt><dd>' + L.fmt(x.lastDate) + ' · ' + money(x.lastSum) + '</dd>' : '') +
         (x.balance > 1 ? '<dt>متبقي من ٢٠٢٥</dt><dd class="late">' + money(x.balance) + '</dd>' : '') + '</dl>' +
-        '<div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap"><button class="link" data-pay="' + i + '">تسجيل سداد</button>' +
-        (x.lastDate ? '<button class="link" data-wa="' + i + '">رسالة واتساب</button><button class="link" data-cp="' + i + '" style="color:var(--muted)">نسخ الرسالة</button>' : '') + '</div></div>';
+        '<div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap"><button class="link" data-pay="' + i + '">تسجيل سداد</button><button class="link" data-bk="' + i + '">بيانات التحويل</button>' +
+        (x.lastDate ? '<button class="link" data-wa="' + i + '">رسالة واتساب</button><button class="link" data-cp="' + i + '" style="color:var(--muted)">نسخ الرسالة</button>' : '') + '</div><div id="bk' + i + '"></div></div>';
     }).join('') : '<div class="empty" style="padding:8px">مفيش ملاك هنا.</div>';
+    $('owList').querySelectorAll('button[data-bk]').forEach(function (b) {
+      b.onclick = function () { var box = $('bk' + b.dataset.bk); box.innerHTML = box.innerHTML ? '' : bankHtml(list[+b.dataset.bk], 'bkc' + b.dataset.bk); if (box.innerHTML) bindBank(list[+b.dataset.bk], 'bkc' + b.dataset.bk); };
+    });
     $('owList').querySelectorAll('button[data-pay]').forEach(function (b) { b.onclick = function () { var x = list[+b.dataset.pay]; openEntry({ cat: 'سداد ايجار', unit: x.unit, n: x.every }); }; });
     $('owList').querySelectorAll('button[data-wa]').forEach(function (b) {
       b.onclick = function () {
@@ -499,6 +506,15 @@
     });
     $('owList').querySelectorAll('button[data-cp]').forEach(function (b) { b.onclick = function () { App.copyText(F.ownerMessage(list[+b.dataset.cp]), { set textContent(t) { b.textContent = t === 'اتنسخ' ? 'اتنسخت' : 'نسخ الرسالة'; } }); }; });
   }
+
+  function bankHtml(x, id) {
+    var t = F.ownerTransfer(x);
+    return '<div class="bankbox"><dl><dt>المستفيد</dt><dd>' + esc(t.name || '—') + '</dd><dt>رقم الحساب</dt><dd>' + esc(t.acc || '—') + '</dd><dt>البنك</dt><dd>' + esc(t.bank || '—') + '</dd>' +
+      '<dt>طريقة الدفع</dt><dd>' + esc(t.method || '—') + '</dd><dt>المبلغ</dt><dd>' + money(t.amount) + ' EGP</dd></dl>' +
+      (!t.acc && !t.name ? '<div class="r2" style="margin-top:4px">مفيش بيانات تحويل للمالك ده في عقود الملاك.</div>' : '') +
+      '<div style="display:flex;gap:14px;margin-top:7px"><button class="link" id="' + id + '">نسخ بيانات التحويل</button></div></div>';
+  }
+  function bindBank(x, id) { var b = $(id); if (b) b.onclick = function () { App.copyText(F.ownerTransfer(x).text, b); }; }
 
   // ======================= المراجعة =======================
   var RV = { open: {}, st: 'live' };
@@ -724,7 +740,9 @@
       App.closeSheet();
       TR.flash = 'اتسجل ' + (vals.length > 1 ? vals.length + ' سطور' : 'السطر') + ' في الخزينة (' + res.rows.join('، ') + ').';
       TR.check = App.checkHtml(res);
-      if (S.tab === 'owners') { OW.flash = TR.flash; OW.check = TR.check; TR.flash = ''; TR.check = ''; renderOwners(); } else renderTreas();
+      if (S.tab === 'owners') { OW.flash = TR.flash; OW.check = TR.check; TR.flash = ''; TR.check = ''; renderOwners(); }
+      else if (S.tab === 'home' && window.OsoolHome) { OsoolHome.flash(TR.flash, TR.check); TR.flash = ''; TR.check = ''; OsoolHome.render(); }
+      else renderTreas();
     }).catch(function (err) { btn.disabled = false; btn.textContent = 'تأكيد التسجيل'; $('eMsg').innerHTML = errHtml(err); });
   }
 
@@ -1050,6 +1068,8 @@
 
   window.OsoolScreens = {
     onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); },
-    startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit
+    startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit,
+    ensureTreasury: ensureTreasury, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
+    setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }
   };
 })();

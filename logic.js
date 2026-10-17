@@ -85,7 +85,11 @@
         idx: i,
         rent: c['قيمة الايجار'] ? Number(c['قيمة الايجار'][i]) || 0 : 0,
         every: c['يسدد كل'] ? Number(c['يسدد كل'][i]) || 1 : 1,
-        phone: c['التليفون'] ? str(c['التليفون'][i]) : ''
+        phone: c['التليفون'] ? str(c['التليفون'][i]) : '',
+        payMethod: c['الدفع'] ? str(c['الدفع'][i]) : '',
+        benName: c['Beneficiary Name'] ? str(c['Beneficiary Name'][i]) : '',
+        benAcc: c['Beneficiary Acc. No.'] ? str(c['Beneficiary Acc. No.'][i]) : '',
+        bank: c['البنك'] ? str(c['البنك'][i]) : ''
       });
     }
     return out;

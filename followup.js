@@ -520,6 +520,16 @@
       };
     }).sort(function (a, b) { return (a.daysLeft === null ? 99999 : a.daysLeft) - (b.daysLeft === null ? 99999 : b.daysLeft); });
   }
+  // بيانات تحويل الإيجار للمالك (للبنك أو المحاسب)
+  function ownerTransfer(x) {
+    var u = x.unit;
+    var unit = [u.project, u.building, u.apt].filter(function (v) { return str(v) && str(v) !== '0'; }).join(' - ');
+    return {
+      name: u.benName || '', acc: u.benAcc || '', bank: u.bank || '', method: u.payMethod || '', amount: Math.round(x.required || 0),
+      text: ['المستفيد: ' + (u.benName || u.owner || '-'), 'رقم الحساب: ' + (u.benAcc || '-'), 'البنك: ' + (u.bank || '-'), 'طريقة الدفع: ' + (u.payMethod || '-'),
+        'المبلغ: ' + nf(x.required || 0) + ' EGP', 'عن: ' + (x.every || 1) + ' شهر', 'الوحدة: ' + (unit || u.code) + ' · كود ' + u.code, 'المالك: ' + (u.owner || '-')].join('\n')
+    };
+  }
   // نفس نص رسالة الشيت بالظبط
   function ownerMessage(x) {
     var u = x.unit, p = x.paidUntil;
@@ -535,7 +545,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
