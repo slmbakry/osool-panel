@@ -528,6 +528,76 @@
       };
     }).sort(function (a, b) { return (a.daysLeft === null ? 99999 : a.daysLeft) - (b.daysLeft === null ? 99999 : b.daysLeft); });
   }
+  // ---------- كشف حساب: المستحق والمدفوع بالترتيب، والرصيد بعد كل سطر (من أول متابعة الشيت) ----------
+  function finishStatement(lines) {
+    lines.sort(function (a, b) { return (a.date - b.date) || (a.kind === 'due' ? -1 : 1); });
+    var bal = 0, due = 0, paid = 0;
+    lines.forEach(function (x) { bal += (x.debit || 0) - (x.credit || 0); due += x.debit || 0; paid += x.credit || 0; x.balance = Math.round(bal); });
+    return { lines: lines, due: Math.round(due), paid: Math.round(paid), balance: Math.round(bal) };
+  }
+  function tenantStatement(r, dues, t, today) {
+    today = today || L.todayUTC();
+    var cur = L.monthKey(today), lines = [], c = t.cols, n = c['فئة'].length;
+    var keys = Object.keys(dues).filter(function (k) { return num(dues[k]); }).sort(cmpKey), k0 = keys[0];
+    keys.forEach(function (k) {
+      if (cmpKey(k, FOLLOW_FROM) < 0 || cmpKey(k, cur) > 0) return;
+      var gap = (keyToDate(k).getUTCFullYear() - keyToDate(k0).getUTCFullYear()) * 12 + keyToDate(k).getUTCMonth() - keyToDate(k0).getUTCMonth();
+      var date = r.start ? (isNightly(r) ? r.start : L.addMonths(r.start, gap)) : keyToDate(k);
+      lines.push({ date: date, kind: 'due', desc: 'إيجار ' + L.monthLabel(k), debit: num(dues[k]) });
+    });
+    var deps = [];
+    for (var i = 0; i < n; i++) {
+      if (str(c['كود المستأجر'][i]) !== r.code) continue;
+      var cat = str(c['فئة'][i]), d = L.serialToDate(Math.floor(num(c['تاريخ'][i]))), k = keyOf(c['شهر'][i]);
+      var note = str(c['بيان'] ? c['بيان'][i] : '');
+      if (cat === CAT.rentIn || cat === CAT.rentBack) {
+        if (!k || cmpKey(k, FOLLOW_FROM) < 0 || cmpKey(k, cur) > 0) continue;
+        if (cat === CAT.rentIn) lines.push({ date: d, kind: 'pay', desc: 'سداد عن ' + L.monthLabel(k) + (note ? ' · ' + note : ''), credit: num(c['ايراد'][i]), row: i });
+        else lines.push({ date: d, kind: 'back', desc: 'رد إيجار عن ' + L.monthLabel(k), debit: num(c['مصروف'][i]), row: i });
+      } else if (cat === CAT.depIn || cat === CAT.depBack) {
+        deps.push({ date: d, desc: cat + ' · ' + str(c['كاش'][i]), amount: cat === CAT.depIn ? num(c['ايراد'][i]) : -num(c['مصروف'][i]) });
+      }
+    }
+    var st = finishStatement(lines);
+    st.deposits = deps.sort(function (a, b) { return a.date - b.date; });
+    st.depTotal = Math.round(deps.reduce(function (a, x) { return a + x.amount; }, 0));
+    var upcoming = Object.keys(dues).filter(function (k) { return cmpKey(k, cur) > 0 && num(dues[k]); });
+    st.future = { count: upcoming.length, total: Math.round(upcoming.reduce(function (a, k) { return a + num(dues[k]); }, 0)) };
+    return st;
+  }
+  function ownerStatement(u, ownerMonths, t, today) {
+    today = today || L.todayUTC();
+    var cur = L.monthKey(today), lines = [], c = t.cols, n = c['فئة'].length;
+    keyRange(FOLLOW_FROM, cur).forEach(function (k) {
+      var a = ownerMonths && ownerMonths[k] ? num(ownerMonths[k][u.idx]) : 0;
+      if (a) lines.push({ date: keyToDate(k), kind: 'due', desc: 'إيجار ' + L.monthLabel(k), debit: a });
+    });
+    for (var i = 0; i < n; i++) {
+      if (str(c['كود'] ? c['كود'][i] : '') !== u.code) continue;
+      var cat = str(c['فئة'][i]); if (cat !== 'سداد ايجار' && cat !== 'رد ايجار من مالك') continue;
+      var k = keyOf(c['شهر'][i]); if (!k || cmpKey(k, FOLLOW_FROM) < 0 || cmpKey(k, cur) > 0) continue;
+      var d = L.serialToDate(Math.floor(num(c['تاريخ'][i]))), note = str(c['بيان'] ? c['بيان'][i] : '');
+      if (cat === 'سداد ايجار') lines.push({ date: d, kind: 'pay', desc: 'سداد عن ' + L.monthLabel(k) + (note ? ' · ' + note : ''), credit: num(c['مصروف'][i]), row: i });
+      else lines.push({ date: d, kind: 'back', desc: 'رد من المالك عن ' + L.monthLabel(k), debit: num(c['ايراد'][i]), row: i });
+    }
+    return finishStatement(lines);
+  }
+  // ---------- منع التكرار: حركة بنفس اليوم والفئة والمبلغ والكود (والشهر لو موجود) ----------
+  function findDuplicates(t, vals) {
+    var c = t.cols, n = c['فئة'].length, out = [];
+    vals.forEach(function (v) {
+      var amt = num(v['ايراد']) || num(v['مصروف']), side = num(v['ايراد']) ? 'ايراد' : 'مصروف';
+      for (var i = n - 1; i >= 0; i--) {
+        if (Math.floor(num(c['تاريخ'][i])) !== v['تاريخ']) continue;
+        if (str(c['فئة'][i]) !== str(v['فئة']) || Math.abs(num(c[side][i]) - amt) > 0.5) continue;
+        if (str(v['كود المستأجر']) ? str(c['كود المستأجر'][i]) !== str(v['كود المستأجر']) : str(c['كود'] ? c['كود'][i] : '') !== str(v['كود'])) continue;
+        if (v['شهر'] && num(c['شهر'][i]) && Math.floor(num(c['شهر'][i])) !== v['شهر']) continue;
+        out.push({ row: i, amount: amt, cat: str(v['فئة']), note: str(c['بيان'] ? c['بيان'][i] : '') }); break;
+      }
+    });
+    return out;
+  }
+
   // بيانات تحويل الإيجار للمالك (للبنك أو المحاسب)
   function ownerTransfer(x) {
     var u = x.unit;
@@ -553,7 +623,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,

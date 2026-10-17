@@ -367,6 +367,28 @@
     });
   }
 
-  window.OsoolReports = { BRAND: BRAND, availHtml: availHtml, dailyHtml: dailyHtml, paginate: paginate, toPdf: toPdf, printHtml: printHtml,
+  // ---------- كشف حساب ----------
+  // info: {title, who, lines: [[label, value]...]}
+  function statementReport(st, info) {
+    var rows = st.lines.map(function (x) {
+      return '<tr><td class="n">' + d2(x.date) + '</td><td>' + el(x.desc, 420) + '</td><td class="n r">' + (x.debit ? money(x.debit) : '') + '</td><td class="n g">' + (x.credit ? money(x.credit) : '') + '</td><td class="n"><b>' + money(x.balance) + '</b></td></tr>';
+    });
+    if (!rows.length) rows = ['<tr><td colspan="5" class="muted">مفيش حركات من ' + esc(L.monthLabel('Jan-25')) + '</td></tr>'];
+    if (st.deposits && st.deposits.length) {
+      rows.push('<tr class="grp"><td colspan="5">التأمين · الرصيد ' + money(st.depTotal) + '</td></tr>');
+      st.deposits.forEach(function (x) { rows.push('<tr><td class="n">' + d2(x.date) + '</td><td>' + el(x.desc, 420) + '</td><td></td><td class="n">' + money(x.amount) + '</td><td></td></tr>'); });
+    }
+    var sub = info.who + ' · لحد ' + L.fmt(L.todayUTC());
+    var bal = st.balance;
+    return { title: info.title, sub: sub, top: band(info.title, sub) +
+      '<div class="two avoid"><div><div class="kpis"><div class="kpi"><div class="v">' + money(st.due) + '</div><div class="k">المستحق</div></div>' +
+      '<div class="kpi"><div class="v g">' + money(st.paid) + '</div><div class="k">المدفوع</div></div>' +
+      '<div class="kpi"><div class="v ' + (bal > 0 ? 'r' : 'g') + '">' + money(Math.abs(bal)) + '</div><div class="k">' + (bal > 0 ? 'الباقي' : bal < 0 ? 'مدفوع زيادة' : 'الرصيد') + '</div></div></div></div>' +
+      '<div style="flex:0 0 380px"><table>' + info.lines.map(function (l) { return '<tr><td class="muted" style="width:110px">' + esc(l[0]) + '</td><td>' + esc(l[1]) + '</td></tr>'; }).join('') + '</table></div></div>',
+      thead: '<thead><tr><th class="n">التاريخ</th><th>البيان</th><th class="n">مستحق</th><th class="n">مدفوع</th><th class="n">الرصيد</th></tr></thead>', rows: rows,
+      tfoot: '<tfoot><tr><td></td><td>الإجمالي</td><td class="n">' + money(st.due) + '</td><td class="n">' + money(st.paid) + '</td><td class="n">' + money(bal) + '</td></tr></tfoot>' };
+  }
+
+  window.OsoolReports = { BRAND: BRAND, statementReport: statementReport, availHtml: availHtml, dailyHtml: dailyHtml, paginate: paginate, toPdf: toPdf, printHtml: printHtml,
     tableReport: tableReport, openPrint: openPrint, printDoc: printDoc, xlsxBlob: xlsxBlob, downloadXlsx: downloadXlsx, waUrl: waUrl };
 })();

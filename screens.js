@@ -230,6 +230,13 @@
     document.querySelectorAll('#collList button[data-oc]').forEach(function (b) { b.onclick = function () { var x = list[+b.dataset.oc]; App.copyText(F.opsMessage(x, today(), untilOf(x)).text, b); }; });
   }
 
+  // تحذير لو نفس الحركة اتسجلت قبل كده في نفس اليوم
+  function dupHtml(vals) {
+    if (!S.treasury) return '';
+    var d = F.findDuplicates(S.treasury, vals); if (!d.length) return '';
+    return '<div class="msg err"><b>انتبه: ممكن تكون متسجلة قبل كده.</b>' + d.map(function (x) { return '<div>' + esc(x.cat) + ' بـ ' + money(x.amount) + ' في نفس اليوم ولنفس الكود' + (x.note ? ' (' + esc(x.note) + ')' : '') + '.</div>'; }).join('') +
+      '<div>لو دي حركة جديدة فعلاً، اضغط تأكيد.</div></div>';
+  }
   function cashOptions(sel) {
     var list = S.cash.length ? S.cash : ['جنيه  خزينة'];
     return list.map(function (c) { return '<option value="' + esc(c) + '"' + (c === sel ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('');
@@ -259,11 +266,12 @@
       '<div class="grid2"><div><label>من</label><input type="date" id="cFrom" value="' + L.toISO(sg.from) + '"></div><div><label>إلى</label><input type="date" id="cTo" value="' + L.toISO(sg.to) + '"></div></div>' +
       '<div class="grid2"><div><label>رقم المستند</label><input id="cDoc" class="ltr"></div><div><label>البيان</label><input id="cNote" value="' + esc(r.name) + '"></div></div>' +
       '<div id="cMsg" style="margin-top:10px"></div>' +
-      '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="cBack">رجوع</button>' +
+      '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="cBack">رجوع</button><button class="btn ghost" id="cStmt">كشف حساب</button>' +
       (r.idx >= 0 ? '<button class="btn ghost" id="cGo">سطر العقد</button>' : '') + '<button class="btn primary" id="cSave">تسجيل</button></div>');
     var fx = function () { $('cFxBox').classList.toggle('hide', !F.isForeign($('cCash').value)); };
     $('cCash').onchange = fx; fx();
     $('cBack').onclick = App.closeSheet;
+    $('cStmt').onclick = function () { openStatement('tenant', r.idx); };
     if ($('cGo')) $('cGo').onclick = function () { A.goToRow(r.idx); };
     var armed = false;
     ['cDate', 'cAmt', 'cCash', 'cFx', 'cMonth', 'cFrom', 'cTo'].forEach(function (id) { $(id).addEventListener('input', function () { armed = false; $('cSave').textContent = 'تسجيل'; $('cMsg').innerHTML = ''; }); });
@@ -277,7 +285,7 @@
       if (errs.length) { $('cMsg').innerHTML = errs.map(function (m) { return '<div class="msg err">' + esc(m) + '</div>'; }).join(''); return; }
       if (!armed) {
         armed = true; this.textContent = 'تأكيد التسجيل';
-        $('cMsg').innerHTML = '<div class="msg warn">هيتسجل ' + money(e.amount) + ' ج تحصيل إيجار عن ' + L.monthLabel(e.month) + ' في ' + esc(e.cash) + '. اضغط تأكيد.</div>';
+        $('cMsg').innerHTML = dupHtml([F.entryValues(e)]) + '<div class="msg warn">هيتسجل ' + money(e.amount) + ' ج تحصيل إيجار عن ' + L.monthLabel(e.month) + ' في ' + esc(e.cash) + '. اضغط تأكيد.</div>';
         return;
       }
       var btn = this; btn.disabled = true; btn.textContent = 'بيسجل…';
@@ -512,9 +520,10 @@
         '<dl class="kv"><dt>مسدد لحد</dt><dd>' + L.fmt(x.paidUntil) + '</dd><dt>يسدد كل</dt><dd>' + x.every + ' شهر · المطلوب <b>' + money(x.required) + '</b></dd>' +
         (x.lastDate ? '<dt>آخر سداد</dt><dd>' + L.fmt(x.lastDate) + ' · ' + money(x.lastSum) + '</dd>' : '') +
         (x.balance > 1 ? '<dt>متبقي من ٢٠٢٥</dt><dd class="late">' + money(x.balance) + '</dd>' : '') + '</dl>' +
-        '<div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap"><button class="link" data-pay="' + i + '">تسجيل سداد</button><button class="link" data-bk="' + i + '">بيانات التحويل</button>' +
+        '<div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap"><button class="link" data-pay="' + i + '">تسجيل سداد</button><button class="link" data-bk="' + i + '">بيانات التحويل</button><button class="link" data-stm="' + i + '">كشف حساب</button>' +
         (x.lastDate ? '<button class="link" data-wa="' + i + '">رسالة واتساب</button><button class="link" data-cp="' + i + '" style="color:var(--muted)">نسخ الرسالة</button>' : '') + '</div><div id="bk' + i + '"></div></div>';
     }).join('') : '<div class="empty" style="padding:8px">مفيش ملاك هنا.</div>';
+    $('owList').querySelectorAll('button[data-stm]').forEach(function (b) { b.onclick = function () { openStatement('owner', list[+b.dataset.stm].unit.code); }; });
     $('owList').querySelectorAll('button[data-bk]').forEach(function (b) {
       b.onclick = function () { var box = $('bk' + b.dataset.bk); box.innerHTML = box.innerHTML ? '' : bankHtml(list[+b.dataset.bk], 'bkc' + b.dataset.bk); if (box.innerHTML) bindBank(list[+b.dataset.bk], 'bkc' + b.dataset.bk); };
     });
@@ -538,6 +547,48 @@
       '<div style="display:flex;gap:14px;margin-top:7px"><button class="link" id="' + id + '">نسخ بيانات التحويل</button></div></div>';
   }
   function bindBank(x, id) { var b = $(id); if (b) b.onclick = function () { App.copyText(F.ownerTransfer(x).text, b); }; }
+
+  // ======================= كشف الحساب =======================
+  function duesOfIdx(idx) { var o = {}; Object.keys(S.months).forEach(function (k) { var v = Number(S.months[k][idx]); if (v) o[k] = v; }); return o; }
+  function openStatement(kind, key) {
+    ensureTreasury().then(function () {
+      var st, info, name, data;
+      if (kind === 'tenant') {
+        var r = S.renters.filter(function (x) { return x.idx === key; })[0]; if (!r) return;
+        var u = unitOf(r.unit) || {};
+        st = F.tenantStatement(r, duesOfIdx(r.idx), S.treasury, today());
+        name = r.name || r.code;
+        info = { title: 'كشف حساب مستأجر', who: name, lines: [['المستأجر', name], ['كود المستأجر', r.code], ['الوحدة', App.unitTitle(u) || r.unit], ['العقد', L.fmt(r.start) + ' ← ' + L.fmt(r.end)], ['الإيجار', r.rent ? money(r.rent) : '—']] };
+      } else {
+        var o = unitOf(key); if (!o) return;
+        st = F.ownerStatement(o, S.ownerMonths, S.treasury, today());
+        name = o.owner || o.code;
+        info = { title: 'كشف حساب مالك', who: name, lines: [['المالك', name], ['الوحدة', App.unitTitle(o) || o.code], ['كود الوحدة', o.code], ['يسدد كل', (o.every || 1) + ' شهر'], ['نهاية العقد', L.fmt(o.ownerEnd)]] };
+      }
+      var bal = st.balance, fname = 'كشف حساب ' + name + ' ' + L.toISO(today());
+      var summary = [info.title, info.lines.map(function (l) { return l[0] + ': ' + l[1]; }).join('\n'), '',
+        'المستحق من ' + L.monthLabel(F.FOLLOW_FROM) + ': ' + money(st.due), 'المدفوع: ' + money(st.paid), (bal > 0 ? 'الباقي: ' : bal < 0 ? 'مدفوع زيادة: ' : 'الرصيد: ') + money(Math.abs(bal))].join('\n');
+      App.openSheet('<h2>' + info.title + '</h2><div class="card"><div class="r1">' + esc(name) + '</div><div class="r2">' + esc(kind === 'tenant' ? info.lines[2][1] : info.lines[1][1]) + '</div>' +
+        '<div class="sum" style="grid-template-columns:1fr 1fr 1fr;margin:10px 0 0"><div class="box"><div class="v">' + money(st.due) + '</div><div class="k">المستحق</div></div>' +
+        '<div class="box"><div class="v okc">' + money(st.paid) + '</div><div class="k">المدفوع</div></div>' +
+        '<div class="box"><div class="v ' + (bal > 0 ? 'late' : 'okc') + '">' + money(Math.abs(bal)) + '</div><div class="k">' + (bal > 0 ? 'الباقي' : bal < 0 ? 'مدفوع زيادة' : 'الرصيد') + '</div></div></div></div>' +
+        (st.lines.length ? '<table class="mt"><tr><th>التاريخ</th><th>البيان</th><th class="n">الرصيد</th></tr>' + st.lines.slice(-8).reverse().map(function (x) {
+          return '<tr><td>' + L.fmt(x.date) + '</td><td>' + esc(x.desc) + '<div class="r2 ' + (x.credit ? 'okc' : '') + '">' + (x.credit ? '−' + money(x.credit) : '+' + money(x.debit)) + '</div></td><td class="n">' + money(x.balance) + '</td></tr>';
+        }).join('') + '</table>' + (st.lines.length > 8 ? '<div class="r2" style="margin:4px 0">ظاهر آخر ٨ من ' + st.lines.length + ' سطر. الـ PDF والإكسيل فيهم الكل.</div>' : '') : '<div class="r2">مفيش حركات من ' + esc(L.monthLabel(F.FOLLOW_FROM)) + '.</div>') +
+        (st.future && st.future.count ? '<div class="r2" style="margin:6px 0">جاي بعد كده ' + st.future.count + ' قسط بـ ' + money(st.future.total) + '.</div>' : '') +
+        '<div class="r2" id="stMsg" style="margin:6px 0"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="stPdf">PDF</button><button class="btn ghost" id="stXl">إكسيل</button><button class="btn ghost" id="stCp">نسخ الملخص</button><button class="btn ghost" id="stX">رجوع</button></div>');
+      $('stPdf').onclick = function () { R.openPrint(R.statementReport(st, info), fname).then(function () { $('stMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
+      $('stXl').onclick = function () {
+        $('stMsg').textContent = 'بيجهز الإكسيل…';
+        R.downloadXlsx({ name: fname, title: info.title + ' · ' + name, sheet: 'كشف حساب', sub: info.lines.map(function (l) { return l[0] + ': ' + l[1]; }).join(' · '),
+          kinds: ['date', 'text', 'money', 'money', 'money'], sums: [2, 3], headers: ['التاريخ', 'البيان', 'مستحق', 'مدفوع', 'الرصيد'],
+          rows: st.lines.map(function (x) { return [x.date, x.desc, x.debit || '', x.credit || '', x.balance]; }) })
+          .then(function () { $('stMsg').textContent = st.lines.length + ' سطر'; }, function (e) { $('stMsg').textContent = e.message || 'التحميل مش متاح هنا.'; });
+      };
+      $('stCp').onclick = function () { App.copyText(summary, this); };
+      $('stX').onclick = App.closeSheet;
+    }).catch(function (e) { alert(e.message || e); });
+  }
 
   // ======================= المراجعة =======================
   var RV = { open: {}, st: 'live' };
@@ -753,7 +804,7 @@
     var total = list.reduce(function (a, e) { return a + (Number(e.amount) || 0); }, 0);
     if (!EN.armed) {
       EN.armed = true; $('eSave').textContent = 'تأكيد التسجيل';
-      $('eMsg').innerHTML = '<div class="msg warn">هيتسجل ' + (list.length > 1 ? list.length + ' سطور بإجمالي ' : '') + money(total) + ' ج ' + (EN.side === 'in' ? 'وارد' : 'منصرف') + ' · ' + esc(cat) + ' · ' + esc(cash) + '. اضغط تأكيد.</div>';
+      $('eMsg').innerHTML = dupHtml(list.map(function (e) { return F.entryValues(e); })) + '<div class="msg warn">هيتسجل ' + (list.length > 1 ? list.length + ' سطور بإجمالي ' : '') + money(total) + ' ج ' + (EN.side === 'in' ? 'وارد' : 'منصرف') + ' · ' + esc(cat) + ' · ' + esc(cash) + '. اضغط تأكيد.</div>';
       return;
     }
     var btn = $('eSave'); btn.disabled = true; btn.textContent = 'بيسجل…';
@@ -1118,7 +1169,7 @@
 
   window.OsoolScreens = {
     onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); },
-    startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit,
+    startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
     ensureTreasury: ensureTreasury, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
     setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }
   };
