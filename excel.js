@@ -18,6 +18,8 @@
   function friendly(e) {
     var code = e && e.code;
     if (code === 'ItemNotFound') return 'مش لاقي واحد من جداول الملف (الملاك أو المستأجرين أو الخزينة). اتأكد إنك فاتح ملف أصول.';
+    if (code === 'AccessDenied' || /cannot perform the requested operation/i.test(String(e && e.message)))
+      return 'الشيت محمي ومش سامح بالكتابة في الخانة دي. افتح حماية الشيت، أو اسمح فيها بإضافة سطور، وجرب تاني.';
     if (code === 'InvalidOperationInCellEditMode') return 'فيه خلية مفتوحة للكتابة. اخرج منها وجرب تاني.';
     if (code === 'RequestPayloadSizeLimitExceeded' || code === 'ResponsePayloadSizeLimitExceeded') return 'البيانات أكبر من حد الإكسيل أونلاين في طلب واحد.';
     return (e && e.message) ? e.message : String(e);
@@ -110,7 +112,8 @@
     var cell = body.getCell(r, c);
     if (v === null) { cell.values = [['']]; return; }
     if (typeof v === 'string' && v.charAt(0) === '=') { cell.formulas = [[v]]; return; }
-    if (TEXT_COLS.indexOf(key) !== -1) { cell.numberFormat = [['@']]; cell.values = [[String(v)]]; return; }
+    // من غير تغيير تنسيق (الشيت ممكن يكون محمي): الأرقام الطويلة تتكتب كنص بعلامة '
+    if (TEXT_COLS.indexOf(key) !== -1) { var s = String(v); cell.values = [[/^\d+$/.test(s) ? "'" + s : s]]; return; }
     cell.values = [[v]];
   }
   function writeFields(body, H, rowIdx, obj, skipped) {
@@ -128,8 +131,14 @@
         for (var j = 0; j < keyCols.length; j++) { var v = c[keyCols[j]][i]; if (v !== '' && v !== null) { last = i; break; } }
       }
       var start = last + 1, need = start + n - len;
-      for (var a = 0; a < need; a++) T.t.rows.add();
-      return ctx.sync().then(function () { return { start: start, cols: c }; });
+      if (need <= 0) return { start: start, cols: c };
+      var pr = T.t.worksheet.protection.load('protected,options');
+      return ctx.sync().then(function () {
+        if (pr.protected && !(pr.options && pr.options.allowInsertRows))
+          throw { message: 'جدول ' + T.t.__name + ' مفيهوش سطور فاضية، والشيت محمي ومش سامح بإضافة سطور. افتح الحماية أو اسمح بإضافة سطور فيها، أو زوّد سطور فاضية للجدول بإيدك.' };
+        for (var a = 0; a < need; a++) T.t.rows.add();
+        return ctx.sync().then(function () { return { start: start, cols: c }; });
+      });
     });
   }
 
