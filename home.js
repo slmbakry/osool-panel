@@ -81,7 +81,7 @@
   function go(tab, fn) { return function () { if (fn) fn(); App.showTab(tab); }; }
   var CARDS = {
     coll_due: { t: 'تحصيلات مستحقة', icon: 'down', sub: function (D) { return 'متأخر ومستحق خلال ' + D.cd + ' يوم · ' + money(Math.round(D.lateAmt + D.soonAmt)); }, n: function (D) { return D.late.length + D.soon.length; }, go: go('coll', function () { SC().setColl('due'); }) },
-    late: { t: 'المتأخرين', icon: 'clock', cls: 'r', sub: function (D) { return 'الأقل تأخير الأول · ' + money(Math.round(D.lateAmt)); }, n: function (D) { return D.late.length; }, go: go('coll', function () { SC().setColl('late'); }) },
+    late: { t: 'المتأخرين', icon: 'clock', cls: 'r', sub: function (D) { return 'الأكتر تأخير الأول · ' + money(Math.round(D.lateAmt)); }, n: function (D) { return D.late.length; }, go: go('coll', function () { SC().setColl('late'); }) },
     soon: { t: 'المستحقين', icon: 'cal', sub: function (D) { return 'خلال ' + D.cd + ' يوم · ' + money(Math.round(D.soonAmt)); }, n: function (D) { return D.soon.length; }, go: go('coll', function () { SC().setColl('soon'); }) },
     owners_due: { t: 'سدادات ملاك مستحقة', icon: 'up', sub: function (D) { return 'متأخر ومستحق خلال ' + D.od + ' يوم · ' + money(D.owReq); }, n: function (D) { return D.owLate.length + D.owSoon.length; }, go: go('owners', function () { SC().setOw('due'); }) },
     owners_late: { t: 'ملاك متأخر سدادهم', icon: 'clock', cls: 'r', sub: function () { return 'الأقدم الأول'; }, n: function (D) { return D.owLate.length; }, go: go('owners', function () { SC().setOw('late'); }) },

@@ -201,11 +201,11 @@
     var q = L.norm(C.q);
     if (q) list = list.filter(function (x) { return L.norm(x.r.name + ' ' + x.r.code).indexOf(q) !== -1; });
     var amt = function (x) { return !x.late && x.exp ? x.exp.amount : x.balance; };
-    // المتأخرين الأول (الأقل تأخير الأول)، وبعدهم المستحقين (الأقرب ميعاد الأول)
+    // المتأخرين الأول (الأكتر تأخير الأول)، وبعدهم المستحقين (الأقرب ميعاد الأول)
     list.sort(function (a, b) {
       if (a.late !== b.late) return a.late ? -1 : 1;
       if (C.sort === 'amount') return amt(b) - amt(a);
-      return a.late ? a.daysLate - b.daysLate : (a.exp && b.exp ? a.exp.date - b.exp.date : 0);
+      return a.late ? b.daysLate - a.daysLate : (a.exp && b.exp ? a.exp.date - b.exp.date : 0);
     });
     S.collView = list;
     var canMsg = C.view !== 'all';
