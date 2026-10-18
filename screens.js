@@ -1099,7 +1099,7 @@
     // الشهور جوه الفترة
     var months = [], m0 = new Date(Date.UTC(OCC.from.getUTCFullYear(), OCC.from.getUTCMonth(), 1));
     while (m0 <= OCC.to && months.length < 36) { var a = m0 < OCC.from ? OCC.from : m0, e = new Date(Date.UTC(m0.getUTCFullYear(), m0.getUTCMonth() + 1, 0)); if (e > OCC.to) e = OCC.to; months.push([L.monthKey(m0), a, e]); m0 = new Date(Date.UTC(m0.getUTCFullYear(), m0.getUTCMonth() + 1, 1)); }
-    var monthHtml = months.length > 1 ? '<div class="card" style="padding:8px 10px"><h3 style="margin:0 0 4px">شهر بشهر</h3><table class="mt">' + months.map(function (mm) { var s3 = F.occSum(F.occupancy(units, S.renters, mm[1], mm[2], st)); return '<tr><td>' + L.monthLabel(mm[0]) + '</td><td style="width:45%">' + bar(s3.pct) + '</td><td class="n"><b>' + pc(s3.pct) + '</b></td><td class="n r2">' + money(s3.idle) + ' يوم فاضي</td></tr>'; }).join('') + '</table></div>' : '';
+    var monthHtml = months.length > 1 ? '<div class="card" style="padding:8px 10px"><h3 style="margin:0 0 4px">شهر بشهر</h3><table class="mt">' + months.map(function (mm) { var s3 = F.occSum(F.occupancy(units, S.renters, mm[1], mm[2], st)); return '<tr><td>' + L.monthLabel(mm[0]) + '</td><td style="width:45%">' + bar(s3.pct) + '</td><td class="n" style="white-space:nowrap"><b>' + pc(s3.pct) + '</b><div class="r2" dir="rtl" style="font-size:11px">' + money(s3.idle) + ' يوم فاضي</div></td></tr>'; }).join('') + '</table></div>' : '';
     var val = function (x) { return OCC.sort === 'pct' ? x.pct : OCC.sort === 'idle' ? x.idle : OCC.sort === 'beds' ? x.beds : x.contracts; };
     rows.sort(function (a, b) { var d = val(a) - val(b) || a.pct - b.pct; return OCC.dir === 'asc' ? d : -d; });
     S.occView = rows;
@@ -1111,7 +1111,7 @@
       '<button class="btn ghost" id="ocD" style="flex:0 0 auto;padding:6px 12px">' + (OCC.dir === 'asc' ? '↑ تصاعدي' : '↓ تنازلي') + '</button></div>' + exportBar('ocExp') +
       (rows.length ? '<div class="card" style="padding:4px 10px">' + rows.map(function (x) {
         return '<div class="cmrow"><div class="t"><b>' + esc(App.unitTitle(x.unit) || x.unit.code) + '</b><i>' + esc(x.unit.code) + (x.beds ? ' · ' + x.beds + ' غرف' : '') + ' · ' + x.contracts + ' عقد</i>' + bar(x.pct) + '</div>' +
-          '<div class="nums"><b class="' + (x.pct < 0.5 ? 'late' : x.pct >= 0.9 ? 'okc' : '') + '">' + pc(x.pct) + '</b><small class="r2">' + x.idle + ' يوم فاضي من ' + x.avail + '</small></div></div>';
+          '<div class="nums"><b class="' + (x.pct < 0.5 ? 'late' : x.pct >= 0.9 ? 'okc' : '') + '">' + pc(x.pct) + '</b><small class="r2" dir="rtl">' + x.idle + ' يوم فاضي من ' + x.avail + '</small></div></div>';
       }).join('') + '</div>' : '<div class="empty">مفيش وحدات بالفلاتر دي.</div>');
     $('ocSo').onchange = function () { OCC.sort = this.value; drawOcc(base); };
     $('ocD').onclick = function () { OCC.dir = OCC.dir === 'asc' ? 'desc' : 'asc'; drawOcc(base); };
