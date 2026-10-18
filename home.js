@@ -155,21 +155,21 @@
     var line = d >= 0 ? left + ' على نهاية الفترة التجريبية المجانية (الخميس ' + L.fmt(end) + ').'
       : 'الفترة التجريبية <b>خلصت</b>، والبانل لسه شغال على حساب محمد لحد ما نتفق.';
     return '<div class="trial"><div class="tt">نسخة تجريبية مجانية 🎁</div><div class="tl">' + line + '</div>' +
-      '<button class="link" id="hTrial">شوف باقات الاشتراك</button></div>';
+      '<button class="link" id="hTrial">ادعم البانل</button></div>';
   }
   function trialSheet() {
     var pk = [
-      ['باقة الشاي', 'كوباية شاي لمحمد كل يوم الصبح', 'البانل شغال، والمتأخرين مترتبين'],
-      ['باقة الفطار', 'فطار يوم الخميس على حساب التيم', 'كل اللي فوق، ورسايل الأوبريشن جاهزة'],
-      ['باقة الشكر', 'كلمة شكر حلوة في جروب الشغل', 'كل اللي فوق، ومحمد يفضل يطور'],
-      ['الباقة المجانية', 'ولا مليم', 'ترجعوا تعدّوا المتأخرين على الآلة الحاسبة']
+      ['☕', 'قهوة وحاجة حلوة', 'أول الطريق'],
+      ['🍳', 'فطار', 'للي عايز يقول شكرًا بجد'],
+      ['🤲', 'دعوة بظهر الغيب', 'وهي أغلى واحدة فيهم']
     ];
-    App.openSheet('<h2>باقات الاشتراك</h2><div class="r2" style="margin:-4px 0 10px">اشتراكات الذكاء الاصطناعي اللي بنى البانل ده بيدفعها محمد من جيبه، والشركة والزملا بيستفيدوا ببلاش. فاختاروا باقتكم 😉</div>' +
+    App.openSheet('<h2>ادعم البانل</h2>' +
+      '<div class="r2" style="margin:-4px 0 12px;line-height:1.8">البانل ده مش مجرد أداة. ده تعب شهور من الشغل والاجتهاد: في ملف الإكسيل، وفي ترتيب منطق شغلنا كله خطوة بخطوة لحد ما بقى بيشتغل لوحده. فلو فرق معاك، اختار طريقتك 😉</div>' +
       pk.map(function (x, i) {
-        return '<div class="card" style="padding:10px 12px;margin-bottom:8px' + (i === 2 ? ';border-color:var(--gold);background:#fbf6ea' : '') + '"><div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:15px">' + x[0] + '</b>' +
-          (i === 2 ? '<span class="tagx soon">الأكثر طلبًا</span>' : '') + '</div><div style="font-weight:600;color:var(--brand);margin-top:2px">' + x[1] + '</div><div class="r2">' + x[2] + '</div></div>';
+        return '<div class="card" style="padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px' + (i === 2 ? ';border-color:var(--gold);background:#fbf6ea' : '') + '">' +
+          '<div style="font-size:26px;line-height:1">' + x[0] + '</div><div><b style="font-size:15px">' + x[1] + '</b><div class="r2">' + x[2] + '</div></div></div>';
       }).join('') +
-      '<div class="r2" style="margin:6px 0 10px">الدفع كاش، أو فودافون كاش، أو بدعوة حلوة. للاستفسار: مكتب الحسابات.</div><button class="btn primary" id="trX" style="width:100%">تمام، هفكر 😅</button>');
+      '<button class="btn primary" id="trX" style="width:100%;margin-top:4px">حاضر، من عنيا 😅</button>');
     $('trX').onclick = App.closeSheet;
   }
   function render() {
