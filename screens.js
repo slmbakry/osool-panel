@@ -886,28 +886,51 @@
   function disarmB() { if (BK) { BK.armed = false; $('bSave').textContent = 'تسجيل'; $('bMsg').innerHTML = ''; } }
   function checkRow(r) {
     var u = unitOf(digits(r.code)); r.unit = u || null; r.code = u ? u.code : String(r.code || '').trim();
-    r.err = !r.code ? 'اكتب كود الوحدة' : !u ? 'مش لاقي الوحدة دي' : !(r.amount > 0) ? 'اكتب المبلغ' : '';
+    r.err = !r.code && !(r.amount > 0) ? 'فاضي' : !r.code ? 'اكتب كود الوحدة' : !u ? 'مش لاقي الوحدة دي' : !(r.amount > 0) ? 'اكتب المبلغ' : '';
   }
   function bulkSummary() {
     var seen = {}, dups = 0, total = 0, bad = 0;
-    BK.rows.forEach(function (r) { checkRow(r); if (r.err) bad++; else { total += r.amount; if (seen[r.code]) dups++; seen[r.code] = 1; } });
-    return { n: BK.rows.length, ok: BK.rows.length - bad, bad: bad, total: total, dups: dups, seen: seen };
+    var empty = 0;
+    BK.rows.forEach(function (r) { checkRow(r); if (r.err === 'فاضي') empty++; else if (r.err) bad++; else { total += r.amount; if (seen[r.code]) dups++; seen[r.code] = 1; } });
+    return { n: BK.rows.length - empty, ok: BK.rows.length - empty - bad, bad: bad, total: total, dups: dups, seen: seen };
+  }
+  function headHtml(sm) {
+    return '<b>' + sm.n + ' وحدة</b><span class="r2">الإجمالي</span><b dir="ltr">' + money(Math.round(sm.total * 100) / 100) + '</b>' +
+      (sm.bad ? '<span class="late" style="margin-inline-start:auto">' + sm.bad + ' محتاجين تصليح</span>' : '');
   }
   function drawBulk() {
     var sm = bulkSummary(), cnt = {};
     BK.rows.forEach(function (r) { if (!r.err) cnt[r.code] = (cnt[r.code] || 0) + 1; });
     $('bRows').innerHTML = BK.rows.length ? '<div class="card" style="padding:8px 10px">' +
-      '<div style="display:flex;gap:10px;align-items:baseline;margin-bottom:6px"><b>' + sm.n + ' وحدة</b><span class="r2">الإجمالي</span><b dir="ltr">' + money(Math.round(sm.total * 100) / 100) + '</b>' +
-      (sm.bad ? '<span class="late" style="margin-inline-start:auto">' + sm.bad + ' محتاجين تصليح</span>' : '') + '</div>' +
+      '<div id="bHead" style="display:flex;gap:10px;align-items:baseline;margin-bottom:6px">' + headHtml(sm) + '</div>' +
       '<table class="sch" style="width:100%">' + BK.rows.map(function (r, i) {
         return '<tr><td style="width:34%"><input class="ltr" data-bc="' + i + '" value="' + esc(r.code) + '" placeholder="كود الوحدة" inputmode="numeric"></td>' +
           '<td style="width:26%"><input class="ltr" data-ba="' + i + '" value="' + (r.amount || '') + '" placeholder="المبلغ" inputmode="decimal"></td>' +
-          '<td><div class="r2" style="font-size:11.5px;line-height:1.4">' + (r.err ? '<span class="late">' + esc(r.err) + '</span>' : esc(App.unitTitle(r.unit) || r.code) + (cnt[r.code] > 1 ? ' · <span class="late">متكررة</span>' : '')) + '</div>' +
+          '<td><div class="r2" data-bt="' + i + '" style="font-size:11.5px;line-height:1.4">' + (r.err === 'فاضي' ? '' : r.err ? '<span class="late">' + esc(r.err) + '</span>' : esc(App.unitTitle(r.unit) || r.code) + (cnt[r.code] > 1 ? ' · <span class="late">متكررة</span>' : '')) + '</div>' +
           '<input data-bn="' + i + '" value="' + esc(r.note || '') + '" placeholder="بيان خاص (اختياري)" style="margin-top:3px;padding:3px 6px;font-size:12px"></td>' +
           '<td style="width:24px"><button class="link" data-bx="' + i + '" title="شيل">×</button></td></tr>';
       }).join('') + '</table></div>' : '<div class="r2">لسه مفيش وحدات.</div>';
-    document.querySelectorAll('#bRows input[data-bc]').forEach(function (inp) { inp.onchange = function () { BK.rows[+inp.dataset.bc].code = inp.value; disarmB(); drawBulk(); }; });
-    document.querySelectorAll('#bRows input[data-ba]').forEach(function (inp) { inp.oninput = function () { BK.rows[+inp.dataset.ba].amount = Number(digits(inp.value)) || 0; disarmB(); }; inp.onchange = function () { drawBulk(); }; });
+    // اسم الوحدة بيظهر وإنت بتكتب الكود
+    document.querySelectorAll('#bRows input[data-bc]').forEach(function (inp) {
+      var i = +inp.dataset.bc, tip = document.querySelector('#bRows [data-bt="' + i + '"]');
+      inp.oninput = function () {
+        var u = unitOf(digits(inp.value));
+        tip.innerHTML = !inp.value.trim() ? '' : u ? '<span class="okc">✓</span> ' + esc(App.unitTitle(u) || u.code) + (u.owner ? ' · ' + esc(u.owner) : '') : S.units.some(function (x) { return x.code.indexOf(digits(inp.value)) === 0; }) ? '<span class="r2">كمّل الكود…</span>' : '<span class="late">مش لاقي الوحدة دي</span>';
+      };
+      inp.onchange = function () { BK.rows[i].code = inp.value; disarmB(); inp.oninput(); var h = $('bHead'); if (h) h.innerHTML = headHtml(bulkSummary()); };
+      inp.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); var a = document.querySelector('#bRows input[data-ba="' + i + '"]'); if (a) a.focus(); } };
+    });
+    // إنتر بعد المبلغ: سطر جديد والمؤشر على خانة الكود
+    document.querySelectorAll('#bRows input[data-ba]').forEach(function (inp) {
+      inp.onkeydown = function (e) {
+        if (e.key !== 'Enter') return; e.preventDefault();
+        var i = +inp.dataset.ba; BK.rows[i].amount = Number(digits(inp.value)) || 0;
+        var c = document.querySelector('#bRows input[data-bc="' + i + '"]'); if (c) BK.rows[i].code = c.value;
+        if (i === BK.rows.length - 1) BK.rows.push({ code: '', unit: null, amount: 0, note: '', err: '' });
+        disarmB(); drawBulk(); var n = document.querySelector('#bRows input[data-bc="' + (i + 1) + '"]'); if (n) n.focus();
+      };
+    });
+    document.querySelectorAll('#bRows input[data-ba]').forEach(function (inp) { inp.oninput = function () { BK.rows[+inp.dataset.ba].amount = Number(digits(inp.value)) || 0; disarmB(); }; inp.onchange = function () { var h = $('bHead'); if (h) h.innerHTML = headHtml(bulkSummary()); }; });
     document.querySelectorAll('#bRows input[data-bn]').forEach(function (inp) { inp.oninput = function () { BK.rows[+inp.dataset.bn].note = inp.value; disarmB(); }; });
     document.querySelectorAll('#bRows button[data-bx]').forEach(function (b) { b.onclick = function () { BK.rows.splice(+b.dataset.bx, 1); disarmB(); drawBulk(); }; });
   }
@@ -920,7 +943,7 @@
     if (sm.bad) errs.push(sm.bad + ' سطر محتاجين تصليح (باللون الأحمر).');
     if (errs.length) { drawBulk(); $('bMsg').innerHTML = errs.map(function (m) { return '<div class="msg err">' + esc(m) + '</div>'; }).join(''); return; }
     var note = $('bNote').value.trim() || cat;
-    var vals = BK.rows.map(function (r) {
+    var vals = BK.rows.filter(function (r) { return r.err !== 'فاضي'; }).map(function (r) {
       return F.entryValues({ date: date, cash: cash, category: cat, side: BK.side, unitCode: r.code, amount: r.amount, doc: $('bDoc').value, note: r.note ? r.note : note });
     });
     if (!BK.armed) {
