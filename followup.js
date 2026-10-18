@@ -67,7 +67,7 @@
       if (cat === CAT.rentIn) {
         if (k) g.byMonth[k] = (g.byMonth[k] || 0) + num(c['ايراد'][i]);
         g.count++;
-        var ms = num(c['شهر'][i]), es = num(c['نهاية الايجار'][i]);
+        var ms = num(c['شهر'][i]), es = effEnd(c, i);
         if (ms) {
           if (g.maxMonth === null || ms > g.maxMonth) { g.maxMonth = ms; g.maxEnd = es || null; }
           else if (ms === g.maxMonth && es && (!g.maxEnd || es > g.maxEnd)) g.maxEnd = es;
@@ -86,6 +86,15 @@
     return led;
   }
 
+  // الدفعة الجزئية بتتسجل بفترة يوم واحد (من بداية الدورة لنفس اليوم) عشان "مسدد حتى" ميتحركش
+  function isPartialRow(c, i) {
+    var bs = num(c['بداية الايجار'] ? c['بداية الايجار'][i] : 0), es = num(c['نهاية الايجار'] ? c['نهاية الايجار'][i] : 0);
+    return !!(bs && es && Math.floor(bs) === Math.floor(es));
+  }
+  function effEnd(c, i) {
+    var es = num(c['نهاية الايجار'] ? c['نهاية الايجار'][i] : 0);
+    return es && isPartialRow(c, i) ? es - 1 : es;
+  }
   function duesOf(months, idx) {
     var out = {};
     Object.keys(months).forEach(function (k) { var v = num(months[k][idx]); if (v) out[k] = v; });
@@ -215,6 +224,9 @@
     else { to = new Date(L.addMonths(from, 1).getTime() - DAY); if (r.end && to > r.end) to = r.end; }
     return { month: month, amount: Math.round(amount), from: from, to: to };
   }
+
+  // الباقي من شهر معين للمستأجر (المستحق ناقص المحصل عنه)
+  function monthRemaining(item, key) { return Math.max(0, (item.dues[key] || 0) - ((item.ledger && item.ledger.byMonth[key]) || 0)); }
 
   // ---------- قيود الخزينة ----------
   function validateEntry(e, today) {
@@ -471,23 +483,44 @@
     for (var i = 0; i < c['فئة'].length; i++) {
       if (str(c['فئة'][i]) !== 'سداد ايجار') continue;
       var u = str(c['كود'][i]), m = num(c['شهر'][i]); if (!u || !m) continue;
-      if (!out[u] || m >= out[u].m) out[u] = { m: m, amt: num(c['مصروف'][i]) || (out[u] && out[u].m === m ? out[u].amt : 0) };
+      var e = effEnd(c, i), amt = num(c['مصروف'][i]), k = keyOf(m), prev = out[u];
+      var byMonth = prev ? prev.byMonth : {}; if (k) byMonth[k] = (byMonth[k] || 0) + amt;
+      var part = isPartialRow(c, i);
+      if (!prev || m > prev.m) out[u] = { m: m, amt: part ? (prev ? prev.amt : 0) : amt, end: e || (prev ? prev.end : 0), byMonth: byMonth, onlyPartial: part };
+      else if (m === prev.m) { if (e > prev.end) prev.end = e; if (!part) { prev.onlyPartial = false; if (amt > prev.amt) prev.amt = amt; } }
     }
     return out;
   }
   // اقتراح سداد المالك: الشهر اللي بعد آخر شهر اتسدد، ومبلغه من أعمدة شهور عقد المالك
+  // اقتراح سداد المالك: الفترة بتبدأ من اليوم اللي بعد نهاية آخر سداد (مش من أول الشهر)،
+  // ولو الشهر الأخير اتدفع منه جزء بس، نكمل نفس الشهر بالباقي
   function ownerSuggest(unit, ownerMonths, paid, today, count) {
     today = today || L.todayUTC();
-    var lp = paid[unit.code], last = lp ? lp.m : null, first;
-    if (last) first = L.addMonths(new Date(Date.UTC(L.serialToDate(last).getUTCFullYear(), L.serialToDate(last).getUTCMonth(), 1)), 1);
-    else first = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    var lp = paid[unit.code], last = lp ? lp.m : null, firstKey, from = null;
+    var sheetAmt = function (key) { return ownerMonths && ownerMonths[key] ? num(ownerMonths[key][unit.idx]) : 0; };
+    var full = function (key) { return sheetAmt(key) || (lp && lp.amt) || unit.rent || 0; };
+    if (last) {
+      var lk = L.monthKey(L.serialToDate(last)), paidIn = lp.byMonth && lp.byMonth[lk] || 0;
+      // نكمل نفس الشهر بس لو آخر شهر اتسجل فيه دفعات جزئية بس (فترة يوم واحد)
+      firstKey = lp.onlyPartial && full(lk) - paidIn > 1 ? lk : L.monthKey(L.addMonths(L.serialToDate(last), 1));
+      if (lp.end) from = new Date(L.serialToDate(lp.end).getTime() + DAY);
+    } else firstKey = L.monthKey(today);
     var rows = [];
     for (var k = 0; k < (count || 1); k++) {
-      var m = L.addMonths(first, k), key = L.monthKey(m);
-      var amt = ownerMonths && ownerMonths[key] ? num(ownerMonths[key][unit.idx]) : 0;
-      rows.push({ key: key, from: m, to: new Date(L.addMonths(m, 1).getTime() - DAY), amount: amt || (lp && lp.amt) || unit.rent || 0, source: amt ? 'sheet' : lp && lp.amt ? 'last' : 'rent' });
+      var key = k === 0 ? firstKey : L.monthKey(L.addMonths(keyToDate(firstKey), k));
+      var f = from || keyToDate(key), to = new Date(L.addMonths(f, 1).getTime() - DAY);
+      var amt = full(key);
+      if (k === 0 && last && lp.onlyPartial && key === L.monthKey(L.serialToDate(last))) amt = Math.max(0, Math.round(amt - (lp.byMonth[key] || 0)));
+      var src = sheetAmt(key) ? 'sheet' : lp && lp.amt ? 'last' : 'rent';
+      rows.push({ key: key, from: f, to: to, fullTo: to, full: amt, amount: amt, source: src });
+      from = new Date(to.getTime() + DAY);
     }
     return { lastPaid: last ? L.serialToDate(last) : null, lastAmount: lp ? lp.amt : 0, rows: rows };
+  }
+  // دفعة أقل من المطلوب للدورة: تتسجل بفترة يوم واحد من بداية الدورة
+  function partialPeriod(from, to, amount, full) {
+    if (full > 1 && amount > 0 && amount < full - 0.5) return { from: from, to: from, partial: true };
+    return { from: from, to: to, partial: false };
   }
 
   // ---------- متابعة الملاك (زي شيت متابعة ملاك) ----------
@@ -502,7 +535,7 @@
       var g = agg[u] || (agg[u] = { byMonth: {}, m: 0, end: 0, date: 0, amt: 0, payments: [] });
       var k = keyOf(c['شهر'][i]);
       if (cat === 'رد ايجار من مالك') { if (k) g.byMonth[k] = (g.byMonth[k] || 0) - num(c['ايراد'][i]); continue; }
-      var out = num(c['مصروف'][i]), m = num(c['شهر'][i]), e = num(c['نهاية الايجار'][i]), dt = Math.floor(num(c['تاريخ'][i]));
+      var out = num(c['مصروف'][i]), m = num(c['شهر'][i]), e = effEnd(c, i), dt = Math.floor(num(c['تاريخ'][i]));
       if (k) g.byMonth[k] = (g.byMonth[k] || 0) + out;
       g.payments.push({ date: dt, amt: out });
       if (m > g.m) { g.m = m; g.end = e; g.date = dt; g.amt = out; }
@@ -623,7 +656,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,

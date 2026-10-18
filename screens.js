@@ -98,7 +98,7 @@
       $('arInfo').innerHTML = loadingHtml('بيعد السطور الفاضية…');
       return Promise.all([A.tableInfo('entry'), A.tableInfo('renter')]).then(function (l) {
         $('arInfo').innerHTML = '<div class="card">' + l.map(function (i) {
-          return '<div class="r2" style="margin:3px 0"><b>' + esc(i.title) + ':</b> ' + money(i.empty) + ' سطر فاضي من ' + money(i.total) + ' · ' +
+          return '<div class="r2" style="margin:3px 0"><b>' + esc(i.title) + ':</b> ' + money(i.empty) + ' سطر فاضي ' + (i.settle ? 'قبل سطور التسويات' : 'من ' + money(i.total)) + ' · ' +
             (i.protected ? '<span class="late">الشيت محمي</span>' : '<span class="okc">الحماية مفكوكة</span>') + '</div>';
         }).join('') + '</div>';
       }).catch(function (e) { $('arInfo').innerHTML = errHtml(e); });
@@ -110,7 +110,7 @@
       if (!(n >= 1 && n <= 2000)) { $('arMsg').innerHTML = '<div class="msg err">اكتب عدد من ١ لـ ٢٠٠٠.</div>'; return; }
       btn.disabled = true; btn.textContent = 'بيضيف…'; $('arMsg').innerHTML = '';
       A.addRows(name, n).then(function (r) {
-        $('arMsg').innerHTML = '<div class="msg ok">اتضاف ' + money(r.added) + ' سطر لجدول ' + esc(r.title) + '. فيه دلوقتي ' + money(r.empty) + ' سطر فاضي. متنساش ترجّع الحماية.</div>' +
+        $('arMsg').innerHTML = '<div class="msg ok">اتضاف ' + money(r.added) + ' سطر لجدول ' + esc(r.title) + '. فيه دلوقتي ' + money(r.empty) + ' سطر فاضي' + (r.settle ? ' فوق التسويات، والتسويات نزلت لتحت زي ما هي' : '') + '. متنساش ترجّع الحماية.</div>' +
           (r.fixedTotals ? '<div class="msg err">الإجماليات اللي تحت الجدول معادلاتها على نطاق ثابت، فمش هتحسب السطور الجديدة. وسّع نطاقها لحد آخر سطر في الجدول.</div>' : '');
         btn.disabled = false; btn.textContent = 'إضافة'; show();
       }).catch(function (e) { $('arMsg').innerHTML = errHtml(e); btn.disabled = false; btn.textContent = 'إضافة'; show(); });
@@ -264,7 +264,7 @@
       '<div id="cFxBox" class="hide"><label>المبلغ بالعملة</label><input id="cFx" class="ltr" inputmode="decimal"></div></div>' +
       '<label>عن شهر</label><select id="cMonth">' + keys.map(function (k) { return '<option value="' + k + '"' + (k === sg.month ? ' selected' : '') + '>' + L.monthLabel(k) + (x.dues[k] ? ' — ' + money(x.dues[k]) : '') + '</option>'; }).join('') + '</select>' +
       '<div class="grid2"><div><label>من</label><input type="date" id="cFrom" value="' + L.toISO(sg.from) + '"></div><div><label>إلى</label><input type="date" id="cTo" value="' + L.toISO(sg.to) + '"></div></div>' +
-      '<div class="grid2"><div><label>رقم المستند</label><input id="cDoc" class="ltr"></div><div><label>البيان</label><input id="cNote" value="' + esc(r.name) + '"></div></div>' +
+      '<div id="cPart"></div>'+'<div class="grid2"><div><label>رقم المستند</label><input id="cDoc" class="ltr"></div><div><label>البيان</label><input id="cNote" value="' + esc(r.name) + '"></div></div>' +
       '<div id="cMsg" style="margin-top:10px"></div>' +
       '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="cBack">رجوع</button><button class="btn ghost" id="cStmt">كشف حساب</button>' +
       (r.idx >= 0 ? '<button class="btn ghost" id="cGo">سطر العقد</button>' : '') + '<button class="btn primary" id="cSave">تسجيل</button></div>');
@@ -274,6 +274,14 @@
     $('cStmt').onclick = function () { openStatement('tenant', r.idx); };
     if ($('cGo')) $('cGo').onclick = function () { A.goToRow(r.idx); };
     var armed = false;
+    // دفعة جزئية: الفترة يوم واحد من بداية الدورة، عشان "مسدد حتى" ميتحركش
+    var syncPartial = function () {
+      var amt = Number(digits($('cAmt').value)) || 0, rem = F.monthRemaining(x, $('cMonth').value);
+      var p = F.partialPeriod(sg.from, sg.to, amt, rem);
+      $('cFrom').value = L.toISO(p.from); $('cTo').value = L.toISO(p.to);
+      $('cPart').innerHTML = p.partial ? '<div class="msg warn">دفعة جزئية (الباقي عن الشهر ' + money(rem) + '): الفترة هتتسجل يوم واحد ' + L.fmt(p.from) + '، و"مسدد حتى" مش هيتحرك.</div>' : '';
+    };
+    $('cAmt').addEventListener('input', syncPartial); $('cMonth').addEventListener('change', syncPartial);
     ['cDate', 'cAmt', 'cCash', 'cFx', 'cMonth', 'cFrom', 'cTo'].forEach(function (id) { $(id).addEventListener('input', function () { armed = false; $('cSave').textContent = 'تسجيل'; $('cMsg').innerHTML = ''; }); });
     $('cSave').onclick = function () {
       var e = {
@@ -690,6 +698,7 @@
       '<div id="ePeriod" class="hide"><label>عن شهر</label><select id="eMonth"></select><div class="grid2"><div><label>من</label><input type="date" id="eFrom"></div><div><label>إلى</label><input type="date" id="eTo"></div></div></div>' +
       '<div class="grid2"><div><label>التاريخ</label><input type="date" id="eDate" value="' + L.toISO(today()) + '" max="' + L.toISO(today()) + '"></div>' +
       '<div id="eAmtBox"><label>المبلغ بالجنيه <span class="req">*</span></label><input id="eAmt" class="ltr" inputmode="decimal"></div></div>' +
+      '<div id="ePart"></div>' +
       '<div class="grid2"><div><label>الخزينة</label><select id="eCash">' + cashOptions('جنيه  خزينة') + '</select></div><div id="eFxBox" class="hide"><label>المبلغ بالعملة</label><input id="eFx" class="ltr" inputmode="decimal"></div></div>' +
       '<div class="grid2"><div><label>رقم المستند</label><input id="eDoc" class="ltr"></div><div><label>البيان</label><input id="eNote"></div></div>' +
       '<details class="more"><summary>شيك وملاحظات</summary><div class="grid2"><div><label>رقم الشيك</label><input id="eChq" class="ltr"></div><div><label>تاريخ الشيك</label><input type="date" id="eChqD"></div></div><label>ملاحظات</label><input id="eNotes"></details>' +
@@ -710,6 +719,14 @@
     ['eDate', 'eAmt', 'eFx', 'eMonth', 'eFrom', 'eTo'].forEach(function (id) { $(id).addEventListener('input', disarm); });
     $('eBack').onclick = App.closeSheet;
     $('eSave').onclick = saveEntry;
+    var entryPartial = function () {
+      if (!EN.sg || EN.cat !== 'تحصيل ايجار' || !EN.item) return;
+      var amt = Number(digits($('eAmt').value)) || 0, rem = F.monthRemaining(EN.item, $('eMonth').value);
+      var p = F.partialPeriod(EN.sg.from, EN.sg.to, amt, rem);
+      $('eFrom').value = L.toISO(p.from); $('eTo').value = L.toISO(p.to);
+      $('ePart').innerHTML = p.partial ? '<div class="msg warn">دفعة جزئية (الباقي عن الشهر ' + money(rem) + '): الفترة هتتسجل يوم واحد ' + L.fmt(p.from) + '، و"مسدد حتى" مش هيتحرك.</div>' : '';
+    };
+    $('eAmt').addEventListener('input', entryPartial); $('eMonth').addEventListener('change', entryPartial);
     if (preset && preset.cat) {
       $('eCat').value = preset.cat; EN.cat = preset.cat; if (EN.sd[EN.cat]) setSide(EN.sd[EN.cat].side);
       if (preset.unit) { EN.unit = preset.unit; drawEntryUnit(); }
@@ -759,12 +776,14 @@
     var it = tenantItem(r);
     if (!it) { $('eMonth').innerHTML = monthOptions(recentKeys(), L.monthKey(today())); return; }
     var sg = F.suggestCollection(it, today());
+    EN.sg = sg; EN.item = it;
     var keys = Object.keys(it.dues).filter(function (k) { return F.cmpKey(k, F.FOLLOW_FROM) >= 0; });
     if (keys.indexOf(sg.month) === -1) keys.push(sg.month);
     keys.sort(F.cmpKey);
     $('eMonth').innerHTML = monthOptions(keys, sg.month);
     $('eFrom').value = L.toISO(sg.from); $('eTo').value = L.toISO(sg.to);
     if (EN.cat === 'تحصيل ايجار' && sg.amount && !$('eAmt').value) $('eAmt').value = sg.amount;
+    $('ePart').innerHTML = '';
     $('eNote').value = r.name || $('eNote').value;
   }
   function refreshOwner() {
@@ -773,10 +792,16 @@
     $('eOwnInfo').innerHTML = sg.lastPaid ? 'آخر شهر اتسدد: <b>' + L.monthLabel(L.monthKey(sg.lastPaid)) + '</b>' + (sg.lastAmount ? ' بمبلغ ' + money(sg.lastAmount) : '') : 'مفيش سداد ايجار متسجل للوحدة دي.';
     var src = { sheet: 'من عقد المالك', last: 'زي آخر سداد', rent: 'قيمة الإيجار' };
     $('eOwnRows').innerHTML = '<table class="sch">' + sg.rows.map(function (r, i) {
-      return '<tr><td class="m">' + L.monthLabel(r.key) + '<div class="note">' + L.fmt(r.from) + ' ← ' + L.fmt(r.to) + ' · ' + src[r.source] + '</div></td><td><input class="ltr" data-orow="' + i + '" value="' + (r.amount || '') + '"></td></tr>';
+      return '<tr><td class="m">' + L.monthLabel(r.key) + '<div class="note" data-onote="' + i + '">' + L.fmt(r.from) + ' ← ' + L.fmt(r.to) + ' · ' + src[r.source] + '</div></td><td><input class="ltr" data-orow="' + i + '" value="' + (r.amount || '') + '"></td></tr>';
     }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="eOwnTot">' + money(sg.rows.reduce(function (a, r) { return a + (Number(r.amount) || 0); }, 0)) + '</span></div>';
     document.querySelectorAll('#eOwnRows input[data-orow]').forEach(function (inp) {
-      inp.oninput = function () { EN.ownerRows[+inp.dataset.orow].amount = Number(digits(inp.value)) || 0; $('eOwnTot').textContent = money(EN.ownerRows.reduce(function (a, r) { return a + (Number(r.amount) || 0); }, 0)); disarm(); };
+      inp.oninput = function () {
+        var r = EN.ownerRows[+inp.dataset.orow]; r.amount = Number(digits(inp.value)) || 0;
+        var p = F.partialPeriod(r.from, r.fullTo, r.amount, r.full); r.to = p.to;
+        var nt = document.querySelector('#eOwnRows [data-onote="' + inp.dataset.orow + '"]');
+        if (nt) nt.innerHTML = L.fmt(r.from) + ' ← ' + L.fmt(r.to) + ' · ' + (p.partial ? '<b class="late">دفعة جزئية: يوم واحد، و"مسدد حتى" مش هيتحرك</b>' : src[r.source]);
+        $('eOwnTot').textContent = money(EN.ownerRows.reduce(function (a, r) { return a + (Number(r.amount) || 0); }, 0)); disarm();
+      };
     });
   }
   function saveEntry() {

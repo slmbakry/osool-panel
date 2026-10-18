@@ -179,6 +179,29 @@
   function holdCalc(ctx) {
     try { ctx.workbook.application.suspendApiCalculationUntilNextSync(); } catch (e) { /* نسخة أقدم */ }
   }
+  // الخزينة: بنكتب بعد آخر سطر فيه تاريخ. السطور اللي تحته من غير تاريخ (التسويات) مبنلمسهاش
+  var ENTRY_KEYS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'بيان'];
+  function entryGap(c) {
+    var len = c['تاريخ'].length, last = -1;
+    for (var i = len - 1; i >= 0; i--) { var d = c['تاريخ'][i]; if (d !== '' && d !== null) { last = i; break; } }
+    var start = last + 1, free = 0;
+    for (var k = start; k < len; k++) {
+      var busy = false; for (var j = 0; j < ENTRY_KEYS.length; j++) { var v = c[ENTRY_KEYS[j]][k]; if (v !== '' && v !== null) { busy = true; break; } }
+      if (busy) break; free++;
+    }
+    var toEnd = start + free === len;
+    // لو فيه تسويات تحت، نسيب سطر فاضي فاصل بينها وبين الحركات
+    return { start: start, free: toEnd ? free : Math.max(0, free - 1), toEnd: toEnd, len: len };
+  }
+  function entryFree(ctx, T, n) {
+    return readCols(ctx, T.t, T.H, ENTRY_KEYS).then(function (c) {
+      var g = entryGap(c);
+      if (g.free >= n) return { start: g.start, cols: c };
+      if (!g.toEnd)
+        throw { message: 'السطور الفاضية قبل سطور التسويات في الخزينة خلصت (فاضل ' + g.free + '). فك حماية شيت الخزينة، ومن الإعدادات ← إضافة سطور فاضية زوّد سطور، وهتتضاف فوق التسويات. وبعدين رجّع الحماية وجرب تاني.' };
+      return freeRows(ctx, T, ['تاريخ', 'ايراد', 'مصروف', 'فئة'], n);
+    });
+  }
   // أول سطر فاضي بعد آخر سطر مستخدم، ويزود سطور لو مفيش
   function freeRows(ctx, T, keyCols, n) {
     return readCols(ctx, T.t, T.H, keyCols).then(function (c) {
@@ -202,7 +225,7 @@
   function writeEntriesCtx(ctx, entries, skipped, log) {
     if (!entries.length) return Promise.resolve([]);
     var E;
-    return tableWithHeader(ctx, 'entry').then(function (e) { E = e; return freeRows(ctx, E, ['تاريخ', 'ايراد', 'مصروف', 'فئة'], entries.length); })
+    return tableWithHeader(ctx, 'entry').then(function (e) { E = e; return entryFree(ctx, E, entries.length); })
       .then(function (f) {
         var body = E.t.getDataBodyRange(); var pos = body.load('rowIndex');
         holdCalc(ctx);
@@ -317,15 +340,19 @@
   }
 
   // ---------- إضافة سطور فاضية (بعد ما المستخدم يفك الحماية) ----------
-  var ROW_KEYS = { entry: ['تاريخ', 'ايراد', 'مصروف', 'فئة'], renter: ['كود', 'كود المستأجر'] };
+  var ROW_KEYS = { entry: ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'بيان'], renter: ['كود', 'كود المستأجر'] };
   var TABLE_AR = { entry: 'الخزينة', renter: 'عقود المستأجرين' };
   function infoCtx(ctx, name) {
     var T;
     return tableWithHeader(ctx, name).then(function (x) { T = x; return readCols(ctx, T.t, T.H, ROW_KEYS[name]); }).then(function (c) {
       var keys = ROW_KEYS[name], len = c[keys[0]].length, last = -1;
       for (var i = len - 1; i >= 0 && last === -1; i--) for (var j = 0; j < keys.length; j++) { var v = c[keys[j]][i]; if (v !== '' && v !== null) { last = i; break; } }
+      var g = name === 'entry' ? entryGap(c) : null;
       var pr = T.t.worksheet.protection.load('protected');
-      return ctx.sync().then(function () { return { name: name, title: TABLE_AR[name], total: len, used: last + 1, empty: len - last - 1, protected: pr.protected, T: T }; });
+      return ctx.sync().then(function () {
+        if (g && !g.toEnd) return { name: name, title: TABLE_AR[name], total: len, used: g.start, empty: g.free, settle: true, insertAt: g.start, protected: pr.protected, T: T };
+        return { name: name, title: TABLE_AR[name], total: len, used: last + 1, empty: len - last - 1, protected: pr.protected, T: T };
+      });
     });
   }
   function tableInfo(name) {
@@ -339,7 +366,14 @@
       return infoCtx(ctx, name).then(function (info) {
         before = info;
         if (info.protected) throw { message: 'شيت ' + info.title + ' لسه محمي. فك الحماية الأول، وبعد الإضافة رجّعها.' };
-        var t = info.T.t, below = t.getRange().getRowsBelow(n).load('values');
+        var t = info.T.t;
+        if (info.settle) {
+          // فيه تسويات تحت: ندخّل السطور جوه الجدول فوقها، فتنزل التسويات لتحت زي ما هي
+          holdCalc(ctx);
+          t.getDataBodyRange().getRow(info.insertAt).getResizedRange(n - 1, 0).insert('Down');
+          return ctx.sync();
+        }
+        var below = t.getRange().getRowsBelow(n).load('values');
         t.load('showTotals');
         return ctx.sync().then(function () {
           var busy = below.values.some(function (r) { return r.some(function (v) { return v !== '' && v !== null; }); });
