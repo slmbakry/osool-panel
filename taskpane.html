@@ -243,7 +243,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
       </div>
 
       <div class="card">
-        <h3><span class="n">4</span>الفلوس</h3>
+        <h3><span class="n">4</span>الإيجار والتأمين</h3>
         <div id="rateBox"><label>سعر الليلة <span class="req">*</span></label><input id="rate" inputmode="decimal" class="ltr num"></div>
         <div id="rentBox"><label>الإيجار الشهري <span class="req">*</span></label><input id="rent" inputmode="decimal" class="ltr num"></div>
         <div class="grid2">
@@ -309,7 +309,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 <nav class="nav" id="nav">
   <button data-g="home" class="on"><svg><use href="#i-home"/></svg>الرئيسية</button>
   <button data-g="contracts"><svg><use href="#i-doc"/></svg>العقود</button>
-  <button data-g="money"><svg><use href="#i-cash"/></svg>الفلوس</button>
+  <button data-g="money"><svg><use href="#i-cash"/></svg>الخزينة</button>
   <button data-g="units"><svg><use href="#i-key"/></svg>الشقق</button>
 </nav>
 
@@ -363,7 +363,7 @@ function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option
 var GROUPS = {
   home: { title: '', sub: null },
   contracts: { title: 'العقود', sub: [['search','بحث'],['new','عقد جديد']] },
-  money: { title: 'الفلوس', sub: [['coll','المستأجرين'],['owners','الملاك'],['treas','الخزينة']] },
+  money: { title: 'الخزينة', sub: [['coll','المستأجرين'],['owners','الملاك'],['treas','الحركات']] },
   units: { title: 'الشقق', sub: null },
   review: { title: 'المراجعة', sub: null }
 };
