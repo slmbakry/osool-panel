@@ -291,6 +291,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   <section id="tab-owners" class="hide"></section>
   <section id="tab-review" class="hide"></section>
   <section id="tab-cmp" class="hide"></section>
+  <section id="tab-ownerc" class="hide"></section>
   <section id="tab-avail" class="hide"></section>
   <section id="tab-treas" class="hide"></section>
   <section id="tab-transfer" class="hide"></section>
@@ -365,13 +366,13 @@ function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option
 // ---------- التنقل: ٤ أقسام تحت، وأقسام فرعية فوق ----------
 var GROUPS = {
   home: { title: '', sub: null },
-  contracts: { title: 'العقود', sub: [['search','بحث'],['new','عقد جديد']] },
+  contracts: { title: 'العقود', sub: [['search','بحث'],['new','عقد جديد'],['ownerc','عقود الملاك']] },
   money: { title: 'الفلوس', sub: [['coll','المستأجرين'],['owners','الملاك'],['treas','الخزينة']] },
   units: { title: 'الشقق', sub: null },
   review: { title: 'المراجعة', sub: null }
 };
-var GROUP_OF = { cmp:'money', home:'home', search:'contracts', 'new':'contracts', transfer:'contracts', coll:'money', owners:'money', treas:'money', avail:'units', review:'review' };
-var ALL_TABS = ['cmp','home','new','search','coll','transfer','avail','treas','owners','review'];
+var GROUP_OF = { ownerc:'contracts', cmp:'money', home:'home', search:'contracts', 'new':'contracts', transfer:'contracts', coll:'money', owners:'money', treas:'money', avail:'units', review:'review' };
+var ALL_TABS = ['ownerc','cmp','home','new','search','coll','transfer','avail','treas','owners','review'];
 var LAST = { contracts:'search', money:'coll', units:'avail', home:'home' };
 // ---------- شاشة المقارنة: مخفية ومبتظهرش غير بعد كود على الجهاز ----------
 var CMP_KEY = 'osoolPanel.cmp';

@@ -661,6 +661,56 @@
     return Object.keys(g).map(function (k) { var a = g[k]; a.avg = Math.round(a.sum / a.n); return a; }).sort(function (a, b) { return a.beds - b.beds; });
   }
 
+  // ---------- عقود الملاك ----------
+  // الزيادة السنوية مكتوبة في الملف بأشكال مختلفة: 10 أو 0.1 أو "10%" → نسبة مئوية
+  function parseIncrease(v) {
+    var t = str(v).replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }), m = t.match(/[\d.]+/);
+    if (!m) return null;
+    var n = Number(m[0]); if (!(n > 0)) return null;
+    return n < 1 ? Math.round(n * 1000) / 10 : n;
+  }
+  // عدد الدورات الشهرية بين البداية والنهاية (عقد 15/10 → 14/10 السنة الجاية = 12)
+  function cyclesBetween(start, end) {
+    var e1 = new Date(end.getTime() + DAY), n = (e1.getUTCFullYear() - start.getUTCFullYear()) * 12 + (e1.getUTCMonth() - start.getUTCMonth());
+    if (e1.getUTCDate() < start.getUTCDate()) n--;
+    return Math.max(1, n + (e1.getUTCDate() > start.getUTCDate() ? 1 : 0));
+  }
+  // شهور عقد المالك: أول ١٢ شهر بالإيجار، وبعدين الزيادة كل سنة (زيادة على الزيادة) لحد النهاية
+  // inc: {pct} نسبة أو {amt} مبلغ ثابت كل سنة. الشهر بياخد مفتاح شهر بداية الدورة
+  function planOwnerMonths(start, end, rent, inc, firstYear) {
+    var n = cyclesBetween(start, end), out = [], k0 = L.monthKey(start), y0 = firstYear || 0;
+    for (var i = 0; i < n; i++) {
+      var y = Math.floor(i / 12) + y0, v = rent;
+      if (inc && inc.pct) v = rent * Math.pow(1 + inc.pct / 100, y);
+      else if (inc && inc.amt) v = rent + inc.amt * y;
+      out.push({ key: L.monthKey(L.addMonths(keyToDate(k0), i)), amount: Math.round(v), year: y + 1 });
+    }
+    return out;
+  }
+  // كود الوحدة الجديدة: بيتعلم القاعدة من وحدات نفس الكمبوند (بادئة + رقم العمارة + رقم الشقة)
+  function suggestUnitCode(units, project, building, apt) {
+    // العمارة لو حرف لوحده (A أو B) بتتحول لرقمها (1 أو 2) زي بورتو
+    var dg = function (x) { var t = str(x), d = t.replace(/\D/g, ''); return d || (/^[A-Za-z]$/.test(t) ? String(t.toUpperCase().charCodeAt(0) - 64) : ''); }, pad = function (x, w) { while (x.length < w) x = '0' + x; return x; };
+    var p = str(project).toLowerCase(), same = units.filter(function (u) { return str(u.project).toLowerCase() === p; });
+    var votes = {};
+    same.forEach(function (u) {
+      var c = str(u.code), bd = dg(u.building), ad = dg(u.apt);
+      for (var wb = 0; wb <= 3; wb++) for (var wa = 1; wa <= 4; wa++) {
+        if (bd.length > wb || ad.length > wa || (wb && !bd)) continue;
+        var suf = (wb ? pad(bd, wb) : '') + pad(ad, wa);
+        if (c.length > suf.length && c.slice(-suf.length) === suf) { var k = c.slice(0, c.length - suf.length) + '|' + wb + '|' + wa; votes[k] = (votes[k] || 0) + 1; }
+      }
+    });
+    var best = Object.keys(votes).sort(function (a, b) { return votes[b] - votes[a] || b.split('|')[0].length - a.split('|')[0].length; })[0];
+    if (!best) return { code: '', rule: '' };
+    var pr = best.split('|'), wb2 = +pr[1], wa2 = +pr[2], bd2 = dg(building), ad2 = dg(apt);
+    var rule = 'بادئة ' + pr[0] + (wb2 ? ' + العمارة ' + wb2 + ' رقم' : '') + ' + الشقة ' + wa2 + ' رقم (من ' + votes[best] + ' وحدة)';
+    if (!ad2 || ad2.length > wa2 || (wb2 && (!bd2 || bd2.length > wb2))) return { code: '', rule: rule };
+    var code = pr[0] + (wb2 ? pad(bd2, wb2) : '') + pad(ad2, wa2);
+    var taken = units.some(function (u) { return str(u.code) === code; });
+    return { code: code, rule: rule, taken: taken };
+  }
+
   // ---------- مصروفات بالجملة ----------
   // كل سطر: كود الوحدة والمبلغ (وأي كلام زيادة يبقى بيان). بيقبل اللصق من الإكسيل أو الواتساب
   function parseBulk(text, units) {
@@ -713,7 +763,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,

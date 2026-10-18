@@ -10,7 +10,7 @@
   var RENTER_OPT = ['البروكر', 'قيمة الايجار', 'التأمين', 'موقف الاستلام'];
   var ENTRY_COLS = ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'شهر', 'نهاية الايجار', 'كود المستأجر', 'كاش', 'العملة'];
   var ENTRY_OPT = ['رقم المستند', 'كود', 'بيان', 'بداية الايجار', 'مراجعة'];
-  var TEXT_COLS = ['كود المستأجر', 'التليفون', 'رقم البطاقة - جواز السفر'];
+  var TEXT_COLS = ['كود المستأجر', 'التليفون', 'رقم البطاقة - جواز السفر', 'رقم البطاقة', 'Beneficiary Acc. No.'];
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
   var PER_SYNC = 3;            // أعمدة في كل طلب — عشان نفضل تحت حد حجم الطلب في الإكسيل أونلاين
   var SETTINGS_KEY = 'osoolPanel.scope';
@@ -25,7 +25,7 @@
     if (code === 'RequestPayloadSizeLimitExceeded' || code === 'ResponsePayloadSizeLimitExceeded') return 'البيانات أكبر من حد الإكسيل أونلاين في طلب واحد.';
     return (e && e.message) ? e.message : String(e);
   }
-  function fail(e) { throw new Error(friendly(e)); }
+  function fail(e) { var er = new Error(friendly(e)); if (e && e.missingMonths) er.missingMonths = e.missingMonths; throw er; }
 
   // يقرا أعمدة بالاسم على دفعات صغيرة
   function readCols(ctx, table, hdr, names, optional, perSync) {
@@ -339,6 +339,94 @@
     }).catch(fail);
   }
 
+  // ---------- عقود الملاك ----------
+  // يقرا سطر الوحدة كامل (كل الأعمدة) عشان التعديل والتجديد
+  function readOwnerRow(idx, code) {
+    return Excel.run(function (ctx) {
+      return tableWithHeader(ctx, 'owner').then(function (O) {
+        var r = O.t.getDataBodyRange().getRow(idx).load('values');
+        return ctx.sync().then(function () {
+          var v = r.values[0], out = {};
+          O.H.forEach(function (h, i) { if (h) out[h] = v[i]; });
+          if (String(out['كود']).trim() !== String(code)) throw { message: 'سطر الوحدة اتغير مكانه. اضغط تحديث وجرب تاني.' };
+          return { H: O.H, row: out };
+        });
+      });
+    }).catch(fail);
+  }
+  // تعليقات الإكسيل (Comments مش Notes): لو الخانة عليها تعليق بنضيف رد عليه
+  function addComments(ctx, body, H, row, list) {
+    if (!list || !list.length) return Promise.resolve({ ok: 0, failed: 0 });
+    if (!ctx.workbook.comments || !(root.Office && Office.context && Office.context.requirements && Office.context.requirements.isSetSupported('ExcelApi', '1.10')))
+      return Promise.resolve({ ok: 0, failed: list.length, unsupported: true });
+    var ok = 0, failed = 0, p = Promise.resolve();
+    list.forEach(function (c) {
+      p = p.then(function () {
+        var ci = H.indexOf(c.key); if (ci === -1) { failed++; return; }
+        var cell = body.getCell(row, ci), ex = ctx.workbook.comments.getItemByCell(cell); ex.load('id');
+        return ctx.sync().then(function () { ex.replies.add(c.text); return ctx.sync(); }, function () { ctx.workbook.comments.add(cell, c.text); return ctx.sync(); })
+          .then(function () { ok++; }, function () { failed++; });
+      });
+    });
+    return p.then(function () { return { ok: ok, failed: failed }; });
+  }
+  // plan: {idx (أو null لوحدة جديدة), code, fields:{عمود: قيمة}, months:{Oct-26: 60000}, comments:[{key, text}]}
+  function writeOwner(plan) {
+    return Excel.run(function (ctx) {
+      var O, row, res = { log: [], skipped: [] };
+      return tableWithHeader(ctx, 'owner').then(function (o) {
+        O = o;
+        var miss = Object.keys(plan.months || {}).filter(function (k) { return O.H.indexOf(k) === -1; });
+        if (miss.length) throw { message: 'أعمدة الشهور دي مش موجودة في جدول الملاك: ' + miss.slice(0, 6).join('، ') + (miss.length > 6 ? ' و' + (miss.length - 6) + ' غيرهم' : '') + '.', missingMonths: miss };
+        if (plan.idx === null || plan.idx === undefined) {
+          return readCols(ctx, O.t, O.H, ['كود']).then(function (c) {
+            if (c['كود'].some(function (v) { return String(v).trim() === String(plan.code); })) throw { message: 'الكود ' + plan.code + ' موجود قبل كده في جدول الملاك.' };
+            return freeRows(ctx, O, ['كود', 'المشروع', 'الاسم'], 1);
+          }).then(function (f) { row = f.start; });
+        }
+        var chk = O.t.getDataBodyRange().getRow(plan.idx).load('values');
+        return ctx.sync().then(function () {
+          if (String(chk.values[0][O.H.indexOf('كود')]).trim() !== String(plan.code)) throw { message: 'سطر الوحدة اتغير مكانه. اضغط تحديث وجرب تاني.' };
+          row = plan.idx;
+        });
+      }).then(function () {
+        var body = O.t.getDataBodyRange(); res.pos = body.load('rowIndex'); res.body = body;
+        holdCalc(ctx);
+        writeFields(body, O.H, row, plan.fields || {}, res.skipped, res.log);
+        writeFields(body, O.H, row, plan.months || {}, res.skipped, res.log);
+        if (plan.idx === null || plan.idx === undefined) { O.t.worksheet.activate(); body.getRow(row).select(); }
+        return ctx.sync();
+      }).then(function () { return verifyLog(ctx, res.log, res.pos.rowIndex + 1); }).then(function (bad) {
+        bad.forEach(function (b) { b.table = 'عقود الملاك'; });
+        res.bad = bad;
+        return addComments(ctx, res.body, O.H, row, plan.comments).catch(function () { return { ok: 0, failed: (plan.comments || []).length }; });
+      }).then(function (cm) {
+        return { idx: row, sheetRow: res.pos.rowIndex + row + 1, mismatch: res.bad, skipped: res.skipped, comments: cm };
+      });
+    }).catch(fail);
+  }
+
+  // يزوّد أعمدة شهور في آخر الجدول لحد آخر شهر مطلوب (بالترتيب ومن غير فجوات)
+  function addMonthColumns(name, upto) {
+    var F2 = root.OsoolFollow;
+    return Excel.run(function (ctx) {
+      return tableWithHeader(ctx, name).then(function (T) {
+        var pr = T.t.worksheet.protection.load('protected');
+        return ctx.sync().then(function () {
+          if (pr.protected) throw { message: 'الشيت محمي. فك الحماية الأول، وبعد إضافة الأعمدة رجّعها.' };
+          var last = T.H[T.H.length - 1];
+          if (!MONTH_RE.test(last)) throw { message: 'آخر عمود في الجدول مش عمود شهر (' + last + ')، فمش هقدر أزوّد شهور في الآخر. زوّدها بإيدك.' };
+          var keys = [], k = last;
+          while (F2.cmpKey(k, upto) < 0) { k = L.monthKey(L.addMonths(F2.keyToDate(k), 1)); keys.push(k); if (keys.length > 120) break; }
+          if (!keys.length) return [];
+          holdCalc(ctx);
+          keys.forEach(function (h) { T.t.columns.add(null, null, h); });
+          return ctx.sync().then(function () { return keys; });
+        });
+      });
+    }).catch(fail);
+  }
+
   // ---------- إضافة سطور فاضية (بعد ما المستخدم يفك الحماية) ----------
   var ROW_KEYS = { entry: ['تاريخ', 'ايراد', 'مصروف', 'فئة', 'بيان'], renter: ['كود', 'كود المستأجر'] };
   var TABLE_AR = { entry: 'الخزينة', renter: 'عقود المستأجرين' };
@@ -420,7 +508,7 @@
     loadAll: loadAll, loadTreasury: loadTreasury, readRenterRow: readRenterRow,
     getSettings: getSettings, saveSettings: saveSettings,
     writeContract: writeContract, writeEntries: writeEntries, writeTransfer: writeTransfer,
-    tableInfo: tableInfo, addRows: addRows, updateRenter: updateRenter,
+    tableInfo: tableInfo, addRows: addRows, readOwnerRow: readOwnerRow, writeOwner: writeOwner, addMonthColumns: addMonthColumns, updateRenter: updateRenter,
     goToRow: function (idx) { return goTo('renter', idx); }, goTo: goTo
   };
 })(this);
