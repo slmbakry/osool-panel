@@ -167,6 +167,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 .trial{background:linear-gradient(135deg,#2a2218,#1f1a14);color:#efe6d2;border-radius:14px;padding:11px 13px;margin-bottom:10px;border:1px solid rgba(201,162,74,.45)}.trial .tt{font-weight:700;color:var(--gold);font-size:14px}.trial .tl{font-size:12.5px;line-height:1.7;margin-top:2px}.trial .tl b{color:#e2c47c}.trial .link{color:#e2c47c;margin-top:4px;font-size:12.5px}
 .cmrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #f0e9da}.cmrow:first-child{border-top:0}.cmrow .t{flex:1;min-width:0}.cmrow .t b{display:block;font-weight:600;font-size:13px}.cmrow .t i{display:block;font-style:normal;font-size:11.5px;color:var(--muted)}.cmrow .nums{display:flex;flex-direction:column;align-items:flex-end;direction:ltr;font-size:12px;line-height:1.5;white-space:nowrap}.cmrow .nums b{font-size:13.5px}.cmrow small{font-size:11px;font-weight:500}
 .depbar{display:flex;justify-content:space-between;align-items:center;width:100%;border:1px solid #eadfc4;background:#faf6ec;border-radius:10px;padding:8px 11px;margin-bottom:8px;cursor:pointer;text-align:right}.depbar b{color:var(--brand);font-weight:600}.depbar span{font-size:12px;color:var(--muted)}
+.ocbar{display:block;height:6px;border-radius:3px;background:#efe8d8;overflow:hidden;margin-top:3px}.ocbar i{display:block;height:100%;background:var(--gold);border-radius:3px}
 </style>
 </head>
 <body>
@@ -293,6 +294,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   <section id="tab-review" class="hide"></section>
   <section id="tab-cmp" class="hide"></section>
   <section id="tab-ownerc" class="hide"></section>
+  <section id="tab-occ" class="hide"></section>
   <section id="tab-avail" class="hide"></section>
   <section id="tab-treas" class="hide"></section>
   <section id="tab-transfer" class="hide"></section>
@@ -369,11 +371,11 @@ var GROUPS = {
   home: { title: '', sub: null },
   contracts: { title: 'العقود', sub: [['search','بحث'],['new','عقد جديد']] },
   money: { title: 'الفلوس', sub: [['coll','المستأجرين'],['owners','الملاك'],['treas','الخزينة']] },
-  units: { title: 'الشقق', sub: null },
+  units: { title: 'الشقق', sub: [['avail','المتاح']] },
   review: { title: 'المراجعة', sub: null }
 };
-var GROUP_OF = { ownerc:'contracts', cmp:'money', home:'home', search:'contracts', 'new':'contracts', transfer:'contracts', coll:'money', owners:'money', treas:'money', avail:'units', review:'review' };
-var ALL_TABS = ['ownerc','cmp','home','new','search','coll','transfer','avail','treas','owners','review'];
+var GROUP_OF = { occ:'units', ownerc:'contracts', cmp:'money', home:'home', search:'contracts', 'new':'contracts', transfer:'contracts', coll:'money', owners:'money', treas:'money', avail:'units', review:'review' };
+var ALL_TABS = ['occ','ownerc','cmp','home','new','search','coll','transfer','avail','treas','owners','review'];
 var LAST = { contracts:'search', money:'coll', units:'avail', home:'home' };
 // ---------- شاشة المقارنة: مخفية ومبتظهرش غير بعد كود على الجهاز ----------
 var CMP_KEY = 'osoolPanel.cmp';
@@ -381,7 +383,7 @@ function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null
 function lsSet(k,v){ try { if (v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); } catch(e){} }
 function cmpOn(){ return lsGet(CMP_KEY)==='1'; }
 // الأقسام المخفية: المقارنة (الفلوس) وعقود الملاك (العقود)، والتأمينات جوه المستأجرين
-var HIDDEN_TABS = [['money','cmp','المقارنة'],['contracts','ownerc','عقود الملاك']];
+var HIDDEN_TABS = [['money','cmp','المقارنة'],['contracts','ownerc','عقود الملاك'],['units','occ','الإشغال']];
 function cmpSync(){
   HIDDEN_TABS.forEach(function(h){
     var g = GROUPS[h[0]], has = g.sub.some(function(x){ return x[0]===h[1]; });
@@ -415,7 +417,7 @@ function showTab(t){
   $('crumb').classList.toggle('hide', isHome);
   $('crumb').textContent = GROUPS[g].title;
   var sub = GROUPS[g].sub;
-  $('subnav').classList.toggle('hide', !sub);
+  $('subnav').classList.toggle('hide', !sub || sub.length < 2);
   if (sub) $('subnav').innerHTML = sub.map(function(x){ return '<button data-t="'+x[0]+'"'+((x[0]===t||(t==='transfer'&&x[0]==='search'))?' class="on"':'')+'>'+x[1]+'</button>'; }).join('');
   $('bar').classList.toggle('hide', t!=='new' || !$('doneView').classList.contains('hide'));
   window.scrollTo(0,0);

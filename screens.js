@@ -1052,6 +1052,77 @@
     }
   }
 
+  // ======================= الإشغال (مخفي) =======================
+  var OCC = { from: null, to: null, grp: '', proj: '', beds: '', set: '', sort: 'pct', dir: 'asc' };
+  function occPreset(k) {
+    var t = today(), y = t.getUTCFullYear(), m = t.getUTCMonth(), D = function (a, b, c) { return new Date(Date.UTC(a, b, c)); };
+    return k === 'm0' ? [D(y, m, 1), t] : k === 'm1' ? [D(y, m - 1, 1), D(y, m, 0)] : k === 'm3' ? [D(y, m - 3, 1), D(y, m, 0)] : k === 'y0' ? [D(y, 0, 1), t] : [D(y - 1, 0, 1), D(y - 1, 11, 31)];
+  }
+  function renderOcc() {
+    var box = $('tab-occ'); if (!box) return;
+    if (!App.cmpOn()) { box.innerHTML = '<div class="empty">الشاشة دي مقفولة على الجهاز ده.</div>'; return; }
+    if (!OCC.from) { var p0 = occPreset('m1'); OCC.from = p0[0]; OCC.to = p0[1]; }
+    ensureSettings().then(function () {
+      var st = S.settings || F.DEFAULT_SETTINGS, base = S.units.filter(function (u) { return F.inScope(u, st) && String(u.settle || '').toUpperCase() !== 'OUT'; });
+      var grps = F.groupsIn(base), projs = {}, beds = {}, sets = {};
+      base.forEach(function (u) { if (u.project) projs[u.project] = 1; beds[Number(u.bedrooms) || 0] = 1; sets[u.settle || ''] = 1; });
+      var opt = function (v, l, sel) { return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc(l) + '</option>'; };
+      box.innerHTML = '<div class="card" style="padding:10px"><div class="grid2"><div><label>من</label><input type="date" id="ocF" value="' + L.toISO(OCC.from) + '"></div><div><label>إلى</label><input type="date" id="ocT" value="' + L.toISO(OCC.to) + '"></div></div>' +
+        '<div class="tgs" id="ocPre" style="margin-top:6px">' + [['m0', 'الشهر ده'], ['m1', 'الشهر اللي فات'], ['m3', 'آخر ٣ شهور'], ['y0', 'السنة دي'], ['y1', 'السنة اللي فاتت']].map(function (x) { return '<button class="tg" data-p="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>' +
+        '<div class="filters"><select id="ocG">' + opt('', 'كل الأماكن', OCC.grp) + grps.map(function (g) { return opt(g, GRP_AR[g] || g, OCC.grp); }).join('') + '</select>' +
+        '<select id="ocPj">' + opt('', 'كل المشاريع', OCC.proj) + Object.keys(projs).sort().map(function (p) { return opt(p, p, OCC.proj); }).join('') + '</select></div>' +
+        '<div class="filters"><select id="ocB">' + opt('', 'كل الغرف', OCC.beds) + Object.keys(beds).sort(function (a, b) { return a - b; }).map(function (b) { return opt(b, b === '0' ? 'غرف مش متسجلة' : b + ' غرف', OCC.beds); }).join('') + '</select>' +
+        '<select id="ocS">' + opt('', 'كل التسويات', OCC.set) + Object.keys(sets).sort().map(function (x) { return opt(x || '__none', x || 'بدون', OCC.set); }).join('') + '</select></div>' +
+        '<div id="ocOut"></div>';
+      var go = function () { OCC.from = L.parseISO($('ocF').value) || OCC.from; OCC.to = L.parseISO($('ocT').value) || OCC.to; drawOcc(base); };
+      $('ocF').onchange = go; $('ocT').onchange = go;
+      document.querySelectorAll('#ocPre .tg').forEach(function (b) { b.onclick = function () { var p1 = occPreset(b.dataset.p); $('ocF').value = L.toISO(p1[0]); $('ocT').value = L.toISO(p1[1]); go(); }; });
+      $('ocG').onchange = function () { OCC.grp = this.value; drawOcc(base); }; $('ocPj').onchange = function () { OCC.proj = this.value; drawOcc(base); };
+      $('ocB').onchange = function () { OCC.beds = this.value; drawOcc(base); }; $('ocS').onchange = function () { OCC.set = this.value; drawOcc(base); };
+      drawOcc(base);
+    }).catch(function (e) { box.innerHTML = errHtml(e); });
+  }
+  function drawOcc(base) {
+    var out = $('ocOut'); if (!out) return;
+    if (!OCC.from || !OCC.to || OCC.to < OCC.from) { out.innerHTML = '<div class="msg err">الفترة مش مظبوطة.</div>'; return; }
+    var st = S.settings || F.DEFAULT_SETTINGS;
+    var keep = function (u) { return (!OCC.grp || F.groupOf(u.project) === OCC.grp) && (!OCC.proj || u.project === OCC.proj) && (OCC.beds === '' || String(Number(u.bedrooms) || 0) === OCC.beds) && (!OCC.set || (OCC.set === '__none' ? !u.settle : u.settle === OCC.set)); };
+    var units = base.filter(keep);
+    var rows = F.occupancy(units, S.renters, OCC.from, OCC.to, st), sm = F.occSum(rows);
+    var pc = function (x) { return Math.round(x * 1000) / 10 + '%'; };
+    var bar = function (x) { return '<span class="ocbar"><i style="width:' + Math.round(x * 100) + '%"></i></span>'; };
+    var groupBy = function (key, label) {
+      var g = {}; rows.forEach(function (x) { var k = key(x); (g[k] = g[k] || []).push(x); });
+      var ks = Object.keys(g); if (ks.length < 2) return '';
+      return '<div class="card" style="padding:8px 10px"><h3 style="margin:0 0 4px">' + label + '</h3><table class="mt">' + ks.sort().map(function (k) { var s2 = F.occSum(g[k]); return '<tr><td>' + esc(k) + '</td><td class="n">' + s2.units + ' وحدة</td><td style="width:38%">' + bar(s2.pct) + '</td><td class="n"><b>' + pc(s2.pct) + '</b></td></tr>'; }).join('') + '</table></div>';
+    };
+    // الشهور جوه الفترة
+    var months = [], m0 = new Date(Date.UTC(OCC.from.getUTCFullYear(), OCC.from.getUTCMonth(), 1));
+    while (m0 <= OCC.to && months.length < 36) { var a = m0 < OCC.from ? OCC.from : m0, e = new Date(Date.UTC(m0.getUTCFullYear(), m0.getUTCMonth() + 1, 0)); if (e > OCC.to) e = OCC.to; months.push([L.monthKey(m0), a, e]); m0 = new Date(Date.UTC(m0.getUTCFullYear(), m0.getUTCMonth() + 1, 1)); }
+    var monthHtml = months.length > 1 ? '<div class="card" style="padding:8px 10px"><h3 style="margin:0 0 4px">شهر بشهر</h3><table class="mt">' + months.map(function (mm) { var s3 = F.occSum(F.occupancy(units, S.renters, mm[1], mm[2], st)); return '<tr><td>' + L.monthLabel(mm[0]) + '</td><td style="width:45%">' + bar(s3.pct) + '</td><td class="n"><b>' + pc(s3.pct) + '</b></td><td class="n r2">' + money(s3.idle) + ' يوم فاضي</td></tr>'; }).join('') + '</table></div>' : '';
+    var val = function (x) { return OCC.sort === 'pct' ? x.pct : OCC.sort === 'idle' ? x.idle : OCC.sort === 'beds' ? x.beds : x.contracts; };
+    rows.sort(function (a, b) { var d = val(a) - val(b) || a.pct - b.pct; return OCC.dir === 'asc' ? d : -d; });
+    S.occView = rows;
+    out.innerHTML = '<div class="sum"><div class="box"><div class="v">' + pc(sm.pct) + '</div><div class="k">نسبة الإشغال</div></div><div class="box"><div class="v">' + sm.units + '</div><div class="k">وحدة</div></div>' +
+      '<div class="box"><div class="v okc">' + money(sm.occ) + '</div><div class="k">يوم مشغول</div></div><div class="box"><div class="v late">' + money(sm.idle) + '</div><div class="k">يوم فاضي</div></div></div>' +
+      '<div class="r2" style="margin:-2px 0 8px">من ' + L.fmt(OCC.from) + ' لـ ' + L.fmt(OCC.to) + ' · الأيام المتاحة بتبدأ من بداية عقد المالك وبتخلص بنهايته، ومن غير فترات خارج التشغيل.</div>' +
+      monthHtml + groupBy(function (x) { return GRP_AR[x.group] || x.group; }, 'حسب المكان') + groupBy(function (x) { return x.unit.project || '—'; }, 'حسب المشروع') + groupBy(function (x) { return x.beds ? x.beds + ' غرف' : 'غرف مش متسجلة'; }, 'حسب عدد الغرف') +
+      '<div class="filters" style="margin-top:8px"><select id="ocSo">' + [['pct', 'ترتيب: الإشغال'], ['idle', 'ترتيب: الأيام الفاضية'], ['beds', 'ترتيب: عدد الغرف'], ['contracts', 'ترتيب: عدد العقود']].map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === OCC.sort ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' +
+      '<button class="btn ghost" id="ocD" style="flex:0 0 auto;padding:6px 12px">' + (OCC.dir === 'asc' ? '↑ تصاعدي' : '↓ تنازلي') + '</button></div>' + exportBar('ocExp') +
+      (rows.length ? '<div class="card" style="padding:4px 10px">' + rows.map(function (x) {
+        return '<div class="cmrow"><div class="t"><b>' + esc(App.unitTitle(x.unit) || x.unit.code) + '</b><i>' + esc(x.unit.code) + (x.beds ? ' · ' + x.beds + ' غرف' : '') + ' · ' + x.contracts + ' عقد</i>' + bar(x.pct) + '</div>' +
+          '<div class="nums"><b class="' + (x.pct < 0.5 ? 'late' : x.pct >= 0.9 ? 'okc' : '') + '">' + pc(x.pct) + '</b><small class="r2">' + x.idle + ' يوم فاضي من ' + x.avail + '</small></div></div>';
+      }).join('') + '</div>' : '<div class="empty">مفيش وحدات بالفلاتر دي.</div>');
+    $('ocSo').onchange = function () { OCC.sort = this.value; drawOcc(base); };
+    $('ocD').onclick = function () { OCC.dir = OCC.dir === 'asc' ? 'desc' : 'asc'; drawOcc(base); };
+    bindExport('ocExp', function () {
+      var l = S.occView || [], lbl = fileName('الإشغال', OCC.grp ? grpName([OCC.grp]) : scopeName(), OCC.proj, OCC.beds ? OCC.beds + ' غرف' : '', 'من ' + fdate(OCC.from), 'لـ ' + fdate(OCC.to));
+      return { name: lbl, title: fileName('الإشغال', OCC.grp ? grpName([OCC.grp]) : scopeName(), OCC.proj, OCC.beds ? OCC.beds + ' غرف' : ''), sheet: 'الإشغال', sub: 'من ' + L.fmt(OCC.from) + ' لـ ' + L.fmt(OCC.to) + ' · الإجمالي ' + pc(sm.pct), sums: [5, 6, 7],
+        kinds: ['text', 'text', 'text', 'text', 'num', 'num', 'num', 'num', 'text', 'num'], headers: ['المكان', 'المشروع', 'الوحدة', 'كود', 'غرف', 'أيام متاحة', 'أيام مشغولة', 'أيام فاضية', 'الإشغال', 'عدد العقود'],
+        rows: l.map(function (x) { return [GRP_AR[x.group] || x.group, x.unit.project, App.unitTitle(x.unit), x.unit.code, x.beds || '', x.avail, x.occ, x.idle, pc(x.pct), x.contracts]; }) };
+    });
+  }
+
   // ======================= تأمينات لسه مترجعتش =======================
   var DP = { b: '' };
   var DP_B = [['', 'الكل'], ['m1', 'أقل من شهر'], ['m3', '١ لـ ٣ شهور'], ['y1', '٣ لـ ١٢ شهر'], ['old', 'أكتر من سنة']];
@@ -1688,7 +1759,7 @@
   }
 
   window.OsoolScreens = {
-    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); },
+    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); else if (t === 'occ') renderOcc(); },
     startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
     ensureTreasury: ensureTreasury, openBulk: openBulk, openDeposits: openDeposits, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
     setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }

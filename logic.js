@@ -79,6 +79,7 @@
         apt: str(c['شقة'][i]),
         owner: str(c['الاسم'][i]),
         ownerEnd: serialToDate(c['نهاية العقد'][i]),
+        ownerStart: c['بداية العقد'] ? serialToDate(c['بداية العقد'][i]) : null,
         bedrooms: str(c['Bedrooms'][i]),
         settle: c['تسويات'] ? str(c['تسويات'][i]) : '',
         info: c['Info'] ? str(c['Info'][i]) : '',

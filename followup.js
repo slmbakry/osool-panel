@@ -661,6 +661,44 @@
     return Object.keys(g).map(function (k) { var a = g[k]; a.avg = Math.round(a.sum / a.n); return a; }).sort(function (a, b) { return a.beds - b.beds; });
   }
 
+  // ---------- الإشغال ----------
+  // لكل وحدة في الفترة: الأيام المتاحة (عقد المالك ساري، ومش خارج التشغيل) والأيام المشغولة من عقود المستأجرين.
+  // عقود الليالي (أقل من ٣٠ يوم): يوم الخروج مش محسوب ليلة. العقود الملغية مش محسوبة.
+  function occupancy(units, renters, from, to, settings) {
+    var F0 = Math.floor(from.getTime() / DAY), T0 = Math.floor(to.getTime() / DAY);
+    var byU = {}; renters.forEach(function (r) { if (r.unit && r.start && r.end && !/ملغ[يى]/.test(str(r.name))) (byU[r.unit] = byU[r.unit] || []).push(r); });
+    var out = [];
+    units.forEach(function (u) {
+      if (!inScope(u, settings) || str(u.settle).toUpperCase() === 'OUT') return;
+      var a0 = F0, a1 = T0;
+      if (u.ownerStart) a0 = Math.max(a0, Math.floor(u.ownerStart.getTime() / DAY));
+      if (u.ownerEnd) a1 = Math.min(a1, Math.floor(u.ownerEnd.getTime() / DAY));
+      if (a1 < a0) return;
+      var iv = [], blk = [];
+      (byU[u.code] || []).forEach(function (r) {
+        var s0 = Math.floor(r.start.getTime() / DAY), e0 = Math.floor(r.end.getTime() / DAY);
+        if (r.end.getUTCFullYear() >= 2090) { blk.push([s0, a1]); return; }
+        if (e0 - s0 < 30) e0 -= 1;
+        if (e0 < s0) return;
+        iv.push([Math.max(s0, a0), Math.min(e0, a1)]);
+      });
+      var merge = function (l) { l = l.filter(function (x) { return x[1] >= x[0]; }).sort(function (x, y) { return x[0] - y[0]; }); var m = []; l.forEach(function (x) { var t = m[m.length - 1]; if (t && x[0] <= t[1] + 1) t[1] = Math.max(t[1], x[1]); else m.push([x[0], x[1]]); }); return m; };
+      var bl = merge(blk.map(function (x) { return [Math.max(x[0], a0), Math.min(x[1], a1)]; })), blocked = 0;
+      bl.forEach(function (x) { blocked += x[1] - x[0] + 1; });
+      var avail = a1 - a0 + 1 - blocked; if (avail <= 0) return;
+      var oc = merge(iv), occ = 0;
+      oc.forEach(function (x) {   // الأيام المشغولة اللي مش جوه فترة خارج التشغيل
+        var d = x[1] - x[0] + 1;
+        bl.forEach(function (b) { var o = Math.min(x[1], b[1]) - Math.max(x[0], b[0]) + 1; if (o > 0) d -= o; });
+        occ += Math.max(0, d);
+      });
+      out.push({ unit: u, group: groupOf(u.project), beds: num(u.bedrooms) || 0, avail: avail, occ: Math.min(occ, avail), idle: avail - Math.min(occ, avail), pct: Math.min(occ, avail) / avail,
+        contracts: (byU[u.code] || []).filter(function (r) { var s0 = Math.floor(r.start.getTime() / DAY), e0 = Math.floor(r.end.getTime() / DAY); return r.end.getUTCFullYear() < 2090 && s0 <= a1 && e0 >= a0; }).length });
+    });
+    return out;
+  }
+  function occSum(rows) { var a = 0, o = 0; rows.forEach(function (x) { a += x.avail; o += x.occ; }); return { units: rows.length, avail: a, occ: o, idle: a - o, pct: a ? o / a : 0 }; }
+
   // ---------- تأمينات لسه مترجعتش ----------
   // عقود خلصت وصافي التأمين (تحصيل - رد) لسه موجب في أي خزينة
   function heldDeposits(units, renters, ledger, settings, today) {
@@ -781,7 +819,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, occupancy: occupancy, occSum: occSum, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
