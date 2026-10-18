@@ -631,12 +631,39 @@
     return out;
   }
 
+  // ---------- مصروفات بالجملة ----------
+  // كل سطر: كود الوحدة والمبلغ (وأي كلام زيادة يبقى بيان). بيقبل اللصق من الإكسيل أو الواتساب
+  function parseBulk(text, units) {
+    var byCode = {}; (units || []).forEach(function (u) { byCode[str(u.code)] = u; });
+    var ar = function (x) { return String(x).replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }).replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }).replace(/٫/g, '.'); };
+    var out = [];
+    String(text || '').split(/\r?\n/).forEach(function (line, li) {
+      var raw = line.trim(); if (!raw) return;
+      var t = ar(raw).replace(/(\d)[,٬،](?=\d{3}(\D|$))/g, '$1');
+      var toks = t.split(/[\t,;|،]+|\s+/).filter(Boolean), unit = null, amount = null, words = [];
+      toks.forEach(function (k) {
+        var clean = k.replace(/^[^\d]+|[^\d.]+$/g, '');
+        if (!unit && byCode[clean]) { unit = byCode[clean]; return; }
+        if (amount === null && /^\d+(\.\d+)?$/.test(clean) && (unit || !byCode[clean]) && !(!unit && clean.length >= 6)) { amount = Number(clean); return; }
+        if (/[\u0600-\u06FFa-zA-Z0-9]/.test(k)) words.push(k);
+      });
+      var guess = '';
+      if (!unit) words = words.filter(function (w) { var d = w.replace(/\D/g, ''); if (!guess && d.length >= 5 && d === w) { guess = d; return false; } return true; });
+      var row = { line: li + 1, raw: raw, unit: unit, code: unit ? unit.code : guess, amount: amount || 0, note: words.join(' ').trim(), err: '' };
+      if (!unit) row.err = 'مش لاقي كود الوحدة';
+      else if (!(row.amount > 0)) row.err = 'مفيش مبلغ';
+      out.push(row);
+    });
+    return out;
+  }
+
   // بيانات تحويل الإيجار للمالك (للبنك أو المحاسب)
   function ownerTransfer(x) {
     var u = x.unit;
     var unit = [u.project, u.building, u.apt].filter(function (v) { return str(v) && str(v) !== '0'; }).join(' - ');
     return {
-      name: u.benName || u.owner || '', acc: u.benAcc || '', // لو مفيش مستفيد، المالك نفسه هو المستفيد bank: u.bank || '', method: u.payMethod || '', amount: Math.round(x.required || 0),
+      // لو مفيش مستفيد، المالك نفسه هو المستفيد
+      name: u.benName || u.owner || '', acc: u.benAcc || '', bank: u.bank || '', method: u.payMethod || '', amount: Math.round(x.required || 0),
       text: ['المستفيد: ' + (u.benName || u.owner || '-'), 'رقم الحساب: ' + (u.benAcc || '-'), 'البنك: ' + (u.bank || '-'), 'طريقة الدفع: ' + (u.payMethod || '-'),
         'المبلغ: ' + nf(x.required || 0) + ' EGP', 'عن: ' + (x.every || 1) + ' شهر', 'الوحدة: ' + (unit || u.code) + ' · كود ' + u.code, 'المالك: ' + (u.owner || '-')].join('\n')
     };
@@ -656,7 +683,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
