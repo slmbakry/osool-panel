@@ -79,7 +79,10 @@
 
   // ---------- الكروت ----------
   function go(tab, fn) { return function () { if (fn) fn(); App.showTab(tab); }; }
+  var DEPS = null;
+  function deps() { if (!DEPS) DEPS = F.heldDeposits(S.units, S.renters, S.ledger || {}, S.settings || F.DEFAULT_SETTINGS, today()); return DEPS; }
   var CARDS = {
+    deposits: { t: 'تأمينات لسه مترجعتش', icon: 'clock', cls: 'r', sub: function () { return 'عقود خلصت · ' + money(deps().reduce(function (a, x) { return a + x.total; }, 0)) + ' ج'; }, n: function () { return deps().length; }, go: function () { SC().openDeposits(); } },
     coll_due: { t: 'تحصيلات مستحقة', icon: 'down', sub: function (D) { return 'متأخر ومستحق خلال ' + D.cd + ' يوم · ' + money(Math.round(D.lateAmt + D.soonAmt)); }, n: function (D) { return D.late.length + D.soon.length; }, go: go('coll', function () { SC().setColl('due'); }) },
     late: { t: 'المتأخرين', icon: 'clock', cls: 'r', sub: function (D) { return 'الأكتر تأخير الأول · ' + money(Math.round(D.lateAmt)); }, n: function (D) { return D.late.length; }, go: go('coll', function () { SC().setColl('late'); }) },
     soon: { t: 'المستحقين', icon: 'cal', sub: function (D) { return 'خلال ' + D.cd + ' يوم · ' + money(Math.round(D.soonAmt)); }, n: function (D) { return D.soon.length; }, go: go('coll', function () { SC().setColl('soon'); }) },
@@ -173,6 +176,7 @@
     $('trX').onclick = App.closeSheet;
   }
   function render() {
+    DEPS = null;
     var box = $('tab-home'); if (!box || S.tab !== 'home') return;
     hero(null);
     if (!role()) { box.innerHTML = ''; pickRole(true); return; }

@@ -661,6 +661,24 @@
     return Object.keys(g).map(function (k) { var a = g[k]; a.avg = Math.round(a.sum / a.n); return a; }).sort(function (a, b) { return a.beds - b.beds; });
   }
 
+  // ---------- تأمينات لسه مترجعتش ----------
+  // عقود خلصت وصافي التأمين (تحصيل - رد) لسه موجب في أي خزينة
+  function heldDeposits(units, renters, ledger, settings, today) {
+    today = today || L.todayUTC();
+    var ub = {}; units.forEach(function (u) { ub[u.code] = u; });
+    var out = [];
+    renters.forEach(function (r) {
+      if (!r.code || !r.end || r.end >= today || r.end.getUTCFullYear() >= 2090) return;
+      var u = ub[r.unit]; if (!inScope(u, settings)) return;
+      var g = ledger[r.code]; if (!g || !g.deposits) return;
+      var list = [], egp = 0;
+      Object.keys(g.deposits).forEach(function (c) { var d = g.deposits[c]; if (d.egp > 0.5 || d.fx > 0.5) { list.push({ cash: c, egp: Math.round(d.egp), fx: Math.round(d.fx) }); egp += d.egp; } });
+      if (!list.length) return;
+      out.push({ r: r, unit: u, list: list, total: Math.round(egp), days: L.daysBetween(r.end, today), received: isReceived(r) });
+    });
+    return out.sort(function (a, b) { return b.days - a.days; });
+  }
+
   // ---------- عقود الملاك ----------
   // الزيادة السنوية مكتوبة في الملف بأشكال مختلفة: 10 أو 0.1 أو "10%" → نسبة مئوية
   function parseIncrease(v) {
@@ -763,7 +781,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,

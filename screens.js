@@ -158,6 +158,7 @@
       '<div class="box"><div class="v">' + soon.length + '</div><div class="k">مستحقين خلال ' + daysSelect('collDays', C.days) + ' يوم</div></div>' +
       '<div class="box"><div class="v">' + money(soon.reduce(function (a, x) { return a + x.exp.amount; }, 0)) + '</div><div class="k">المتوقع تحصيله</div></div></div>' +
       '<div class="r2" style="margin-bottom:8px">' + esc(scopeText(S.settings)) + ' · <button class="link" id="chgScope">تغيير</button></div>' +
+      (function () { var h = F.heldDeposits(S.units, S.renters, S.ledger || {}, S.settings || F.DEFAULT_SETTINGS, today()); return h.length ? '<button class="depbar" id="depOpen"><b>' + h.length + ' تأمين لسه مترجعش</b><span>' + money(h.reduce(function (a, x) { return a + x.total; }, 0)) + ' ج · عقود خلصت</span></button>' : ''; })() +
       stSeg('stSeg', C.st) + grpChips('cGrp', F.groupsIn(items.map(function (x) { return x.unit || {}; })), C.grp) +
       '<div class="seg" id="vSeg" style="grid-template-columns:repeat(4,1fr);font-size:12px"><button data-v="due">متأخر ومستحق</button><button data-v="late">المتأخرين</button><button data-v="soon">المستحقين</button><button data-v="all">الأرصدة (' + bal.length + ')</button></div>' +
       '<div class="filters"><select id="fOp"><option value="">كل المسؤولين</option>' + Object.keys(ops).sort().map(function (o) { return '<option' + (o === C.op ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' +
@@ -178,6 +179,7 @@
     $('fSort').onchange = function () { C.sort = this.value; drawList(); };
     $('fQ').oninput = function () { C.q = this.value; drawList(); };
     $('chgScope').onclick = openSettings;
+    if ($('depOpen')) $('depOpen').onclick = openDeposits;
     bindExport('collExp', function () {
       var list = S.collView || [];
       var nm = ({ due: 'المتأخرين والمستحقين ', late: 'المتأخرات ', soon: 'المتوقع تحصيله ', all: 'الأرصدة ' })[C.view] + ({ live: 'ساري ', ended: 'منتهي ', all: '' })[C.st];
@@ -742,7 +744,10 @@
       $('eCat').value = preset.cat; EN.cat = preset.cat; if (EN.sd[EN.cat]) setSide(EN.sd[EN.cat].side);
       if (preset.unit) { EN.unit = preset.unit; drawEntryUnit(); }
       if (preset.n) { EN.ownerN = preset.n; $('eOwnN').value = preset.n; }
+      EN.presetTenant = preset.tenant || '';
       refreshEntry();
+      if (preset.amount) $('eAmt').value = preset.amount;
+      if (preset.cash) { $('eCash').value = preset.cash; $('eCash').onchange(); }
     }
   }
   function disarm() { if (EN) { EN.armed = false; $('eSave').textContent = 'تسجيل'; } }
@@ -768,7 +773,7 @@
       var list = S.renters.filter(function (r) { return r.unit === EN.unit.code && r.code; }).sort(function (a, b) { return (b.start || 0) - (a.start || 0); });
       var t = today(), cur = list.filter(function (r) { return r.start <= t && r.end >= t; })[0];
       $('eTenant').innerHTML = list.length ? list.slice(0, 30).map(function (r) {
-        return '<option value="' + esc(r.code) + '"' + (cur && r.code === cur.code ? ' selected' : '') + '>' + esc((r.name || '—') + ' · ' + r.code + ' · ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end)) + '</option>';
+        return '<option value="' + esc(r.code) + '"' + ((EN.presetTenant ? r.code === EN.presetTenant : cur && r.code === cur.code) ? ' selected' : '') + '>' + esc((r.name || '—') + ' · ' + r.code + ' · ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end)) + '</option>';
       }).join('') : '<option value="">مفيش عقود على الوحدة دي</option>';
       if (!$('eNote').value && cur) $('eNote').value = cur.name;
       refreshTenant();
@@ -1045,6 +1050,45 @@
           '<div class="nums"><b>' + money(x.owner) + (x.assumed ? '<sup>*</sup>' : '') + '</b><small class="' + (d > 0.15 ? 'late' : d < -0.15 ? 'okc' : 'r2') + '">' + (d === null ? '' : pctTxt(d) + ' عن متوسط ' + (x.beds || '؟') + ' غرف') + '</small></div></div>';
       }).join('') + '</div>' : '<div class="empty">مفيش وحدات.</div>';
     }
+  }
+
+  // ======================= تأمينات لسه مترجعتش =======================
+  var DP = { b: '' };
+  var DP_B = [['', 'الكل'], ['m1', 'أقل من شهر'], ['m3', '١ لـ ٣ شهور'], ['y1', '٣ لـ ١٢ شهر'], ['old', 'أكتر من سنة']];
+  function dpIn(x, b) { return !b || (b === 'm1' ? x.days < 30 : b === 'm3' ? x.days >= 30 && x.days < 90 : b === 'y1' ? x.days >= 90 && x.days < 365 : x.days >= 365); }
+  function openDeposits() {
+    var all = F.heldDeposits(S.units, S.renters, S.ledger || {}, S.settings || F.DEFAULT_SETTINGS, today());
+    App.openSheet('<h2>تأمينات لسه مترجعتش</h2><div class="r2" style="margin:-4px 0 8px">عقود خلصت، وصافي التأمين (المحصل ناقص المردود) لسه موجود في الخزينة.</div>' +
+      '<div class="tgs" id="dpB">' + DP_B.map(function (b) { return '<button class="tg' + (DP.b === b[0] ? ' on' : '') + '" data-b="' + b[0] + '">' + b[1] + ' (' + all.filter(function (x) { return dpIn(x, b[0]); }).length + ')</button>'; }).join('') + '</div>' +
+      '<div id="dpSum" style="margin:8px 0"></div>' + exportBar('dpExp') + '<div id="dpList"></div>' +
+      '<button class="btn ghost" id="dpX" style="width:100%;margin-top:8px">رجوع</button>');
+    var draw = function () {
+      var l = all.filter(function (x) { return dpIn(x, DP.b); }); S.dpView = l;
+      var byCash = {}; l.forEach(function (x) { x.list.forEach(function (d) { var c = byCash[d.cash] || (byCash[d.cash] = { egp: 0, fx: 0 }); c.egp += d.egp; c.fx += d.fx; }); });
+      $('dpSum').innerHTML = '<div class="card" style="padding:8px 10px"><b>' + l.length + ' مستأجر · ' + money(l.reduce(function (a, x) { return a + x.total; }, 0)) + ' ج</b>' +
+        Object.keys(byCash).map(function (c) { return '<div class="r2">' + esc(c) + ': ' + money(byCash[c].egp) + ' ج' + (byCash[c].fx ? ' (' + money(byCash[c].fx) + ' بالعملة)' : '') + '</div>'; }).join('') + '</div>';
+      $('dpList').innerHTML = l.length ? l.map(function (x, i) {
+        return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(x.r.name || '—') + '</div><div class="r2" dir="ltr" style="text-align:right">' + esc(x.r.code) + '</div></div>' +
+          '<span class="badge ' + (x.days >= 365 ? 'done' : x.days >= 90 ? 'book' : 'live') + '">من ' + x.days + ' يوم</span></div>' +
+          '<dl class="kv"><dt>الوحدة</dt><dd>' + esc(x.unit ? App.unitTitle(x.unit) : x.r.unit) + '</dd><dt>العقد خلص</dt><dd>' + L.fmt(x.r.end) + (x.received ? ' · اتستلمت' : ' · <span class="late">لسه متستلمتش</span>') + '</dd>' +
+          '<dt>التأمين</dt><dd>' + x.list.map(function (d) { return money(d.egp) + ' ج' + (d.fx ? ' (' + money(d.fx) + ' بالعملة)' : '') + ' في ' + esc(d.cash); }).join('<br>') + '</dd></dl>' +
+          '<div style="display:flex;gap:14px;margin-top:6px"><button class="link" data-dpr="' + i + '">تسجيل رد التأمين</button><button class="link" data-dps="' + i + '">كشف حساب</button></div></div>';
+      }).join('') : '<div class="empty">مفيش.</div>';
+      $('dpList').onclick = function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.dpr !== undefined) { var x = l[+b.dataset.dpr], d = x.list[0]; App.closeSheet(); setTimeout(function () { openEntry({ cat: F.CAT.depBack, unit: x.unit, tenant: x.r.code, amount: d.fx && F.isForeign(d.cash) ? '' : d.egp, cash: d.cash }); }, 50); }
+        else if (b.dataset.dps !== undefined) { var y = l[+b.dataset.dps]; openStatement('tenant', y.r.idx); }
+      };
+    };
+    document.querySelectorAll('#dpB .tg').forEach(function (b) { b.onclick = function () { DP.b = b.dataset.b; document.querySelectorAll('#dpB .tg').forEach(function (z) { z.classList.toggle('on', z === b); }); draw(); }; });
+    $('dpX').onclick = App.closeSheet;
+    bindExport('dpExp', function () {
+      var l = S.dpView || [], b = DP_B.filter(function (x) { return x[0] === DP.b; })[0][1], ttl = fileName('تأمينات لسه مترجعتش', scopeName(), DP.b ? b : '');
+      var rows = []; l.forEach(function (x) { x.list.forEach(function (d) { rows.push([x.r.name || '', x.r.code, x.unit ? App.unitTitle(x.unit) : x.r.unit, x.r.end, x.days, x.received ? 'اتستلمت' : 'لسه', d.cash, d.egp, d.fx || '']); }); });
+      return { name: fileName(ttl, fdate()), title: ttl, sheet: 'التأمينات', sub: '', sums: [7, 8], kinds: ['text', 'text', 'text', 'date', 'num', 'text', 'text', 'money', 'money'],
+        headers: ['المستأجر', 'الكود', 'الوحدة', 'نهاية العقد', 'أيام من الخروج', 'الاستلام', 'الخزينة', 'التأمين بالجنيه', 'بالعملة'], rows: rows };
+    });
+    draw();
   }
 
   // ======================= عقود الملاك: وحدة جديدة، تجديد، تعديل =======================
@@ -1645,7 +1689,7 @@
   window.OsoolScreens = {
     onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); },
     startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
-    ensureTreasury: ensureTreasury, openBulk: openBulk, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
+    ensureTreasury: ensureTreasury, openBulk: openBulk, openDeposits: openDeposits, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
     setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }
   };
 })();
