@@ -688,7 +688,7 @@
     var top = Object.keys(sd).sort(function (a, b) { return sd[b].n - sd[a].n; }).slice(0, 10);
     EN = { side: 'out', cat: '', unit: null, sd: sd, ownerN: 1, ownerRows: [] };
     var opt = function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; };
-    App.openSheet('<h2 style="display:flex;align-items:baseline">حركة خزينة جديدة<button class="link" id="eBulk" style="margin-inline-start:auto;font-size:13px">وحدات كتير؟ بالجملة</button></h2>' +
+    App.openSheet('<h2 style="display:flex;align-items:baseline">حركة خزينة جديدة<button class="link" id="eBulk" style="margin-inline-start:auto;font-size:13px">لأكتر من وحدة؟</button></h2>' +
       '<div class="seg" id="eSide"><button data-s="in">وارد</button><button data-s="out" class="on">منصرف</button></div>' +
       '<label>الفئة <span class="req">*</span></label><select id="eCat"><option value="">اختار الفئة…</option><optgroup label="الأكثر استخدام">' + top.map(opt).join('') + '</optgroup><optgroup label="كل الفئات">' + cats.map(opt).join('') + '</optgroup></select>' +
       '<label>الوحدة <span class="r2" id="eUnitHint">(سيبها فاضية للمصروفات العامة)</span></label>' +
@@ -846,7 +846,7 @@
     }).catch(function (err) { btn.disabled = false; btn.textContent = 'تأكيد التسجيل'; $('eMsg').innerHTML = errHtml(err); });
   }
 
-  // ======================= مصروفات بالجملة =======================
+  // ======================= حركة لأكتر من وحدة =======================
   // بند واحد وتاريخ وخزينة، وقايمة وحدات بمبالغ مختلفة (زي يوم شحن الكهرباء)
   var BK = null;
   function openBulk() {
@@ -857,15 +857,15 @@
     var blocked = F.TENANT_CATS.concat(F.OWNER_CATS);
     var opt = function (c) { return blocked.indexOf(c) !== -1 ? '' : '<option value="' + esc(c) + '">' + esc(c) + '</option>'; };
     BK = { side: 'out', rows: [], armed: false };
-    App.openSheet('<h2>مصروفات بالجملة</h2><div class="r2" style="margin:-4px 0 8px">بند واحد لوحدات كتير بمبالغ مختلفة، زي يوم شحن الكهرباء.</div>' +
+    App.openSheet('<h2>حركة لأكتر من وحدة</h2><div class="r2" style="margin:-4px 0 8px">نفس البند لكذا وحدة، وكل وحدة بمبلغها. زي يوم شحن الكهرباء.</div>' +
       '<div class="seg" id="bSide"><button data-s="in">وارد</button><button data-s="out" class="on">منصرف</button></div>' +
       '<label>البند <span class="req">*</span></label><select id="bCat"><option value="">اختار البند…</option><optgroup label="الأكثر استخدام">' + top.map(opt).join('') + '</optgroup><optgroup label="كل البنود">' + cats.map(opt).join('') + '</optgroup></select>' +
       '<div class="grid2"><div><label>التاريخ</label><input type="date" id="bDate" value="' + L.toISO(today()) + '" max="' + L.toISO(today()) + '"></div>' +
       '<div><label>الخزينة</label><select id="bCash">' + cashOptions('جنيه  خزينة') + '</select></div></div>' +
-      '<div class="grid2"><div><label>رقم المستند (للكل)</label><input id="bDoc" class="ltr"></div><div><label>البيان (للكل)</label><input id="bNote" placeholder="لو فاضي هيتكتب اسم البند"></div></div>' +
-      '<label style="margin-top:10px">الصق الوحدات هنا: كود الوحدة والمبلغ في كل سطر</label>' +
+      '<div class="grid2"><div><label>رقم المستند</label><input id="bDoc" class="ltr"></div><div><label>البيان</label><input id="bNote" placeholder="لو فاضي هيتكتب اسم البند"></div></div>' +
+      '<label style="margin-top:10px">الوحدات: الصق كود الوحدة والمبلغ في كل سطر، أو ضيفهم واحدة واحدة</label>' +
       '<textarea id="bPaste" rows="5" class="ltr" placeholder="70002102   1500&#10;70002107   2000&#10;…" style="width:100%;font-family:inherit"></textarea>' +
-      '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="bRead">اقرا الوحدات</button><button class="btn ghost" id="bAdd">+ سطر فاضي</button><button class="link" id="bClear" style="margin-inline-start:auto">مسح الكل</button></div>' +
+      '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="bRead">ضيف اللي لصقته</button><button class="btn ghost" id="bAdd">+ وحدة</button><button class="link" id="bClear" style="margin-inline-start:auto">مسح الكل</button></div>' +
       '<div id="bRows" style="margin-top:10px"></div>' +
       '<div id="bMsg" style="margin-top:10px"></div><div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="bBack">رجوع</button><button class="btn primary" id="bSave">تسجيل</button></div>');
     var setSide = function (x) { BK.side = x; document.querySelectorAll('#bSide button').forEach(function (b) { b.classList.toggle('on', b.dataset.s === x); }); };
@@ -894,9 +894,10 @@
     BK.rows.forEach(function (r) { checkRow(r); if (r.err === 'فاضي') empty++; else if (r.err) bad++; else { total += r.amount; if (seen[r.code]) dups++; seen[r.code] = 1; } });
     return { n: BK.rows.length - empty, ok: BK.rows.length - empty - bad, bad: bad, total: total, dups: dups, seen: seen };
   }
+  function unitsTxt(n) { return n === 1 ? 'وحدة واحدة' : n === 2 ? 'وحدتين' : n <= 10 ? n + ' وحدات' : n + ' وحدة'; }
   function headHtml(sm) {
-    return '<b>' + sm.n + ' وحدة</b><span class="r2">الإجمالي</span><b dir="ltr">' + money(Math.round(sm.total * 100) / 100) + '</b>' +
-      (sm.bad ? '<span class="late" style="margin-inline-start:auto">' + sm.bad + ' محتاجين تصليح</span>' : '');
+    return '<b>' + unitsTxt(sm.n) + '</b><span class="r2">الإجمالي</span><b dir="ltr">' + money(Math.round(sm.total * 100) / 100) + '</b>' +
+      (sm.bad ? '<span class="late" style="margin-inline-start:auto">' + sm.bad + ' محتاجة تتظبط</span>' : '');
   }
   function drawBulk() {
     var sm = bulkSummary(), cnt = {};
@@ -906,10 +907,10 @@
       '<table class="sch" style="width:100%">' + BK.rows.map(function (r, i) {
         return '<tr><td style="width:34%"><input class="ltr" data-bc="' + i + '" value="' + esc(r.code) + '" placeholder="كود الوحدة" inputmode="numeric"></td>' +
           '<td style="width:26%"><input class="ltr" data-ba="' + i + '" value="' + (r.amount || '') + '" placeholder="المبلغ" inputmode="decimal"></td>' +
-          '<td><div class="r2" data-bt="' + i + '" style="font-size:11.5px;line-height:1.4">' + (r.err === 'فاضي' ? '' : r.err ? '<span class="late">' + esc(r.err) + '</span>' : esc(App.unitTitle(r.unit) || r.code) + (cnt[r.code] > 1 ? ' · <span class="late">متكررة</span>' : '')) + '</div>' +
-          '<input data-bn="' + i + '" value="' + esc(r.note || '') + '" placeholder="بيان خاص (اختياري)" style="margin-top:3px;padding:3px 6px;font-size:12px"></td>' +
+          '<td><div class="r2" data-bt="' + i + '" style="font-size:11.5px;line-height:1.4">' + (r.err === 'فاضي' ? '' : r.err ? '<span class="late">' + esc(r.err) + '</span>' : esc(App.unitTitle(r.unit) || r.code) + (cnt[r.code] > 1 ? ' · <span class="late">مكتوبة مرتين</span>' : '')) + '</div>' +
+          '<input data-bn="' + i + '" value="' + esc(r.note || '') + '" placeholder="ملاحظة للوحدة دي (لو فيه)" style="margin-top:3px;padding:3px 6px;font-size:12px"></td>' +
           '<td style="width:24px"><button class="link" data-bx="' + i + '" title="شيل">×</button></td></tr>';
-      }).join('') + '</table></div>' : '<div class="r2">لسه مفيش وحدات.</div>';
+      }).join('') + '</table></div>' : '<div class="r2">لسه مفيش وحدات. الصقهم فوق أو دوس "+ وحدة".</div>';
     // اسم الوحدة بيظهر وإنت بتكتب الكود
     document.querySelectorAll('#bRows input[data-bc]').forEach(function (inp) {
       var i = +inp.dataset.bc, tip = document.querySelector('#bRows [data-bt="' + i + '"]');
@@ -938,9 +939,9 @@
     var cat = $('bCat').value, cash = $('bCash').value, date = L.parseISO($('bDate').value), sm = bulkSummary(), errs = [];
     if (!cat) errs.push('اختار البند.');
     if (!date) errs.push('حدد التاريخ.'); else if (date > today()) errs.push('التاريخ مينفعش يكون بعد النهارده.');
-    if (F.isForeign(cash)) errs.push('التسجيل بالجملة بالجنيه بس. للخزينة الأجنبية سجّل كل حركة لوحدها.');
+    if (F.isForeign(cash)) errs.push('الحركة لأكتر من وحدة بالجنيه بس. للخزينة الأجنبية سجّل كل وحدة لوحدها.');
     if (!sm.n) errs.push('ضيف الوحدات الأول.');
-    if (sm.bad) errs.push(sm.bad + ' سطر محتاجين تصليح (باللون الأحمر).');
+    if (sm.bad) errs.push(unitsTxt(sm.bad) + ' محتاجة تتظبط (اللي بالأحمر).');
     if (errs.length) { drawBulk(); $('bMsg').innerHTML = errs.map(function (m) { return '<div class="msg err">' + esc(m) + '</div>'; }).join(''); return; }
     var note = $('bNote').value.trim() || cat;
     var vals = BK.rows.filter(function (r) { return r.err !== 'فاضي'; }).map(function (r) {
@@ -949,16 +950,16 @@
     if (!BK.armed) {
       BK.armed = true; $('bSave').textContent = 'تأكيد التسجيل';
       var dupT = F.findDuplicates(S.treasury, vals);
-      $('bMsg').innerHTML = (dupT.length ? '<div class="msg err"><b>انتبه:</b> ' + dupT.length + ' وحدة ليها حركة بنفس البند والمبلغ والتاريخ متسجلة قبل كده. راجعهم قبل التأكيد.</div>' : '') +
-        (sm.dups ? '<div class="msg warn">فيه ' + sm.dups + ' وحدة متكررة في القايمة.</div>' : '') +
-        '<div class="msg warn">هيتسجل ' + sm.n + ' سطر بإجمالي ' + money(Math.round(sm.total * 100) / 100) + ' ج ' + (BK.side === 'in' ? 'وارد' : 'منصرف') + ' · ' + esc(cat) + ' · ' + esc(cash) + ' · ' + L.fmt(date) + '. اضغط تأكيد.</div>';
+      $('bMsg').innerHTML = (dupT.length ? '<div class="msg err"><b>انتبه:</b> ' + unitsTxt(dupT.length) + ' ليها نفس الحركة متسجلة قبل كده (نفس البند والمبلغ والتاريخ). راجعهم قبل التأكيد.</div>' : '') +
+        (sm.dups ? '<div class="msg warn">فيه ' + unitsTxt(sm.dups) + ' مكتوبة مرتين في القايمة.</div>' : '') +
+        '<div class="msg warn">هيتسجل ' + unitsTxt(sm.n) + ' بإجمالي ' + money(Math.round(sm.total * 100) / 100) + ' ج ' + (BK.side === 'in' ? 'وارد' : 'منصرف') + ' · ' + esc(cat) + ' · ' + esc(cash) + ' · ' + L.fmt(date) + '. اضغط تأكيد.</div>';
       return;
     }
-    var btn = $('bSave'); btn.disabled = true; btn.textContent = 'بيسجل ' + sm.n + ' سطر…';
+    var btn = $('bSave'); btn.disabled = true; btn.textContent = 'بيسجل ' + unitsTxt(sm.n) + '…';
     A.writeEntries(vals).then(function (res) {
       vals.forEach(appendTreasury);
       App.closeSheet();
-      TR.flash = 'اتسجل ' + vals.length + ' سطر ' + cat + ' بإجمالي ' + money(Math.round(sm.total * 100) / 100) + ' في الخزينة (من سطر ' + res.rows[0] + ' لـ ' + res.rows[res.rows.length - 1] + ').';
+      TR.flash = 'اتسجل ' + cat + ' لـ ' + unitsTxt(vals.length) + ' بإجمالي ' + money(Math.round(sm.total * 100) / 100) + ' في الخزينة (السطور من ' + res.rows[0] + ' لـ ' + res.rows[res.rows.length - 1] + ').';
       TR.check = App.checkHtml(res);
       if (S.tab === 'home' && window.OsoolHome) { OsoolHome.flash(TR.flash, TR.check); TR.flash = ''; TR.check = ''; OsoolHome.render(); }
       else renderTreas();
@@ -1242,7 +1243,7 @@
       var cats = {}; c['فئة'].forEach(function (v) { v = String(v || '').trim(); if (v) cats[v] = 1; });
       var cashes = {}; c['كاش'].forEach(function (v) { v = String(v || ''); if (v.trim()) cashes[v] = 1; });
       box.innerHTML = (TR.flash ? '<div class="msg ok">' + esc(TR.flash) + '</div>' + (TR.check || '') : '') + '<button class="btn primary addbtn" id="eNew">+ حركة خزينة جديدة</button>' +
-        '<div style="text-align:left;margin:-4px 2px 10px"><button class="link" id="bNew">+ مصروفات بالجملة لوحدات كتير</button></div>' +
+        '<div style="text-align:left;margin:-4px 2px 10px"><button class="link" id="bNew">+ حركة لأكتر من وحدة</button></div>' +
         '<div class="card"><h3>طباعة اليومية</h3><div style="display:flex;gap:8px;align-items:center"><input type="date" id="dDate" value="' + L.toISO(TR.day || today()) + '" max="' + L.toISO(today()) + '">' +
         '<button class="btn primary" id="dPdf" style="flex:0 0 auto;padding:8px 14px">PDF أو طباعة</button><button class="btn ghost" id="dXl">إكسيل</button></div><div class="r2" id="dMsg" style="margin-top:6px"></div></div>' +
         '<h3 style="font-size:13px;color:var(--muted);margin:4px 0">بحث في الحركات</h3>' +

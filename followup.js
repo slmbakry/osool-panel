@@ -650,8 +650,8 @@
       var guess = '';
       if (!unit) words = words.filter(function (w) { var d = w.replace(/\D/g, ''); if (!guess && d.length >= 5 && d === w) { guess = d; return false; } return true; });
       var row = { line: li + 1, raw: raw, unit: unit, code: unit ? unit.code : guess, amount: amount || 0, note: words.join(' ').trim(), err: '' };
-      if (!unit) row.err = 'مش لاقي كود الوحدة';
-      else if (!(row.amount > 0)) row.err = 'مفيش مبلغ';
+      if (!unit) row.err = 'مش لاقي الوحدة دي';
+      else if (!(row.amount > 0)) row.err = 'اكتب المبلغ';
       out.push(row);
     });
     return out;
