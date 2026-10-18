@@ -367,7 +367,7 @@ function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option
 // ---------- التنقل: ٤ أقسام تحت، وأقسام فرعية فوق ----------
 var GROUPS = {
   home: { title: '', sub: null },
-  contracts: { title: 'العقود', sub: [['search','بحث'],['new','عقد جديد'],['ownerc','عقود الملاك']] },
+  contracts: { title: 'العقود', sub: [['search','بحث'],['new','عقد جديد']] },
   money: { title: 'الفلوس', sub: [['coll','المستأجرين'],['owners','الملاك'],['treas','الخزينة']] },
   units: { title: 'الشقق', sub: null },
   review: { title: 'المراجعة', sub: null }
@@ -380,10 +380,14 @@ var CMP_KEY = 'osoolPanel.cmp';
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function lsSet(k,v){ try { if (v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); } catch(e){} }
 function cmpOn(){ return lsGet(CMP_KEY)==='1'; }
+// الأقسام المخفية: المقارنة (الفلوس) وعقود الملاك (العقود)، والتأمينات جوه المستأجرين
+var HIDDEN_TABS = [['money','cmp','المقارنة'],['contracts','ownerc','عقود الملاك']];
 function cmpSync(){
-  var sub = GROUPS.money.sub, has = sub.some(function(x){ return x[0]==='cmp'; });
-  if (cmpOn() && !has) sub.push(['cmp','المقارنة']);
-  if (!cmpOn() && has) GROUPS.money.sub = sub.filter(function(x){ return x[0]!=='cmp'; });
+  HIDDEN_TABS.forEach(function(h){
+    var g = GROUPS[h[0]], has = g.sub.some(function(x){ return x[0]===h[1]; });
+    if (cmpOn() && !has) g.sub.push([h[1],h[2]]);
+    if (!cmpOn() && has) g.sub = g.sub.filter(function(x){ return x[0]!==h[1]; });
+  });
 }
 function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); showTab('coll'); }
 (function(){

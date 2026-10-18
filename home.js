@@ -21,7 +21,7 @@
   function favs() {
     var r = role() || 'all', v = get('fav.' + r);
     try { v = v ? JSON.parse(v) : null; } catch (e) { v = null; }
-    return (v || ROLES[r].favs).filter(function (id) { return CARDS[id]; });
+    return (v || ROLES[r].favs).filter(function (id) { return CARDS[id] && (!CARDS[id].hidden || App.cmpOn()); });
   }
   function setFavs(list) { put('fav.' + (role() || 'all'), JSON.stringify(list)); }
 
@@ -82,7 +82,7 @@
   var DEPS = null;
   function deps() { if (!DEPS) DEPS = F.heldDeposits(S.units, S.renters, S.ledger || {}, S.settings || F.DEFAULT_SETTINGS, today()); return DEPS; }
   var CARDS = {
-    deposits: { t: 'تأمينات لسه مترجعتش', icon: 'clock', cls: 'r', sub: function () { return 'عقود خلصت · ' + money(deps().reduce(function (a, x) { return a + x.total; }, 0)) + ' ج'; }, n: function () { return deps().length; }, go: function () { SC().openDeposits(); } },
+    deposits: { hidden: true, t: 'تأمينات لسه مترجعتش', icon: 'clock', cls: 'r', sub: function () { return 'عقود خلصت · ' + money(deps().reduce(function (a, x) { return a + x.total; }, 0)) + ' ج'; }, n: function () { return deps().length; }, go: function () { SC().openDeposits(); } },
     coll_due: { t: 'تحصيلات مستحقة', icon: 'down', sub: function (D) { return 'متأخر ومستحق خلال ' + D.cd + ' يوم · ' + money(Math.round(D.lateAmt + D.soonAmt)); }, n: function (D) { return D.late.length + D.soon.length; }, go: go('coll', function () { SC().setColl('due'); }) },
     late: { t: 'المتأخرين', icon: 'clock', cls: 'r', sub: function (D) { return 'الأكتر تأخير الأول · ' + money(Math.round(D.lateAmt)); }, n: function (D) { return D.late.length; }, go: go('coll', function () { SC().setColl('late'); }) },
     soon: { t: 'المستحقين', icon: 'cal', sub: function (D) { return 'خلال ' + D.cd + ' يوم · ' + money(Math.round(D.soonAmt)); }, n: function (D) { return D.soon.length; }, go: go('coll', function () { SC().setColl('soon'); }) },
@@ -238,7 +238,7 @@
     if ($('rBack')) $('rBack').onclick = App.closeSheet;
   }
   function addSheet(fl) {
-    var rest = Object.keys(CARDS).filter(function (k) { return fl.indexOf(k) === -1; });
+    var rest = Object.keys(CARDS).filter(function (k) { return fl.indexOf(k) === -1 && (!CARDS[k].hidden || App.cmpOn()); });
     App.openSheet('<h2>زوّد للمفضلة</h2>' + (rest.length ? '<div class="flist">' + rest.map(function (k) {
       return '<div class="frow" data-add="' + k + '"><div class="fico ' + (CARDS[k].cls || '') + '">' + ico(CARDS[k].icon) + '</div><div class="t"><b>' + CARDS[k].t + '</b></div><span class="act">زوّد</span></div>';
     }).join('') + '</div>' : '<div class="r2">كل الكروت في المفضلة.</div>') + '<button class="btn ghost" id="aBack" style="width:100%;margin-top:10px">رجوع</button>');

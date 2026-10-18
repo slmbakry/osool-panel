@@ -158,7 +158,7 @@
       '<div class="box"><div class="v">' + soon.length + '</div><div class="k">مستحقين خلال ' + daysSelect('collDays', C.days) + ' يوم</div></div>' +
       '<div class="box"><div class="v">' + money(soon.reduce(function (a, x) { return a + x.exp.amount; }, 0)) + '</div><div class="k">المتوقع تحصيله</div></div></div>' +
       '<div class="r2" style="margin-bottom:8px">' + esc(scopeText(S.settings)) + ' · <button class="link" id="chgScope">تغيير</button></div>' +
-      (function () { var h = F.heldDeposits(S.units, S.renters, S.ledger || {}, S.settings || F.DEFAULT_SETTINGS, today()); return h.length ? '<button class="depbar" id="depOpen"><b>' + h.length + ' تأمين لسه مترجعش</b><span>' + money(h.reduce(function (a, x) { return a + x.total; }, 0)) + ' ج · عقود خلصت</span></button>' : ''; })() +
+      (function () { if (!App.cmpOn()) return ''; var h = F.heldDeposits(S.units, S.renters, S.ledger || {}, S.settings || F.DEFAULT_SETTINGS, today()); return h.length ? '<button class="depbar" id="depOpen"><b>' + h.length + ' تأمين لسه مترجعش</b><span>' + money(h.reduce(function (a, x) { return a + x.total; }, 0)) + ' ج · عقود خلصت</span></button>' : ''; })() +
       stSeg('stSeg', C.st) + grpChips('cGrp', F.groupsIn(items.map(function (x) { return x.unit || {}; })), C.grp) +
       '<div class="seg" id="vSeg" style="grid-template-columns:repeat(4,1fr);font-size:12px"><button data-v="due">متأخر ومستحق</button><button data-v="late">المتأخرين</button><button data-v="soon">المستحقين</button><button data-v="all">الأرصدة (' + bal.length + ')</button></div>' +
       '<div class="filters"><select id="fOp"><option value="">كل المسؤولين</option>' + Object.keys(ops).sort().map(function (o) { return '<option' + (o === C.op ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' +
@@ -1100,6 +1100,7 @@
   function ocIncOf(v) { var s0 = String(v === null || v === undefined ? '' : v); if (/جنيه|ج\b/.test(s0)) { var a = Number(s0.replace(/[^\d.]/g, '')); return a ? { amt: a } : null; } var p = F.parseIncrease(v); return p ? { pct: p } : null; }
   function renderOwnerC() {
     var box = $('tab-ownerc'); if (!box) return;
+    if (!App.cmpOn()) { box.innerHTML = '<div class="empty">الشاشة دي مقفولة على الجهاز ده.</div>'; return; }
     var t = today(), lim = new Date(t.getTime() + 90 * 864e5), cur = L.monthKey(t);
     box.innerHTML = '<button class="btn primary addbtn" id="ocNew">+ وحدة جديدة وعقد مالك</button>' +
       '<input id="ocQ" placeholder="ابحث بالكود أو العمارة أو اسم المالك" value="' + esc(OC.q) + '" autocomplete="off" style="margin:4px 0 10px">' +
