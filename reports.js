@@ -133,6 +133,8 @@
       var b = bal[k] || { egp: 0, fx: 0 }; totalEgp += b.egp;
       return '<tr><td>' + esc(k) + '</td><td class="n">' + money(Math.round(b.fx * 100) / 100) + '</td><td class="n">' + money(Math.round(b.egp * 100) / 100) + '</td></tr>';
     }).join('');
+    // الفئات مترتبة بحجم المبلغ (وارد + منصرف) من الكبير للصغير
+    catOrder.sort(function (a, b) { return (cats[b].in + cats[b].out) - (cats[a].in + cats[a].out); });
     var catRows = catOrder.map(function (k) { return '<tr><td>' + esc(k) + '</td><td class="n g">' + money(cats[k].in) + '</td><td class="n r">' + money(cats[k].out) + '</td></tr>'; }).join('');
     var mv = rows.map(function (i) {
       var u = ub[String(g('كود', i))] || {};
