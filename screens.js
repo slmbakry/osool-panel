@@ -32,6 +32,15 @@
   function loadingHtml(t) { return '<div class="loading"><div class="spin"></div>' + t + '</div>'; }
   function errHtml(e) { return '<div class="msg err">' + esc(e.message || e) + '</div>'; }
   function ctx() { return { units: S.units, renters: S.renters, months: S.months, ledger: S.ledger }; }
+  // ---------- أسامي ملفات التصدير: التقرير + الفلتر + التاريخ ----------
+  var GRP_AR = { Mivida: 'ميفيدا', Village: 'فيلدج', Porto: 'بورتو', 'الخارج': 'الخارج' };
+  function grpName(list) { return (list || []).map(function (g) { return GRP_AR[g] || g; }).join(' و'); }
+  function scopeName() {
+    var st = S.settings || F.DEFAULT_SETTINGS, gs = F.groupsIn(S.units.filter(function (u) { return F.inScope(u, st); }));
+    return gs.length >= F.GROUPS.length ? '' : grpName(gs);
+  }
+  function fdate(d) { d = d || today(); var p = function (n) { return (n < 10 ? '0' : '') + n; }; return p(d.getUTCDate()) + '-' + p(d.getUTCMonth() + 1) + '-' + d.getUTCFullYear(); }
+  function fileName() { return [].slice.call(arguments).filter(function (x) { return x; }).join(' '); }
   function unitOf(code) { return S.units.filter(function (u) { return u.code === String(code); })[0]; }
   function today() { return L.todayUTC(); }
 
@@ -171,8 +180,9 @@
     $('chgScope').onclick = openSettings;
     bindExport('collExp', function () {
       var list = S.collView || [];
-      var nm = ({ due: 'المتأخرين والمستحقين ', late: 'المتأخرات ', soon: 'المتوقع تحصيله ', all: 'الأرصدة ' })[C.view] + ({ live: 'ساري ', ended: 'منتهي ', all: '' })[C.st] + L.toISO(today());
-      return { name: nm, title: nm.replace(/ \d{4}-\d{2}-\d{2}$/, ''), sheet: 'التحصيلات', sub: (C.grp || 'كل الأماكن') + (C.op ? ' · ' + C.op : ''),
+      var nm = ({ due: 'المتأخرين والمستحقين ', late: 'المتأخرات ', soon: 'المتوقع تحصيله ', all: 'الأرصدة ' })[C.view] + ({ live: 'ساري ', ended: 'منتهي ', all: '' })[C.st];
+      var ttl = fileName(nm.trim(), C.grp ? grpName([C.grp]) : scopeName()); nm = fileName(ttl, fdate());
+      return { name: nm, title: ttl, sheet: 'التحصيلات', sub: (C.grp || 'كل الأماكن') + (C.op ? ' · ' + C.op : ''),
         kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'phone', 'text', 'money', 'date', 'date', 'num', 'date', 'date', 'money'], sums: [8],
         headers: ['الاسم', 'كود المستأجر', 'المشروع', 'عمارة', 'شقة', 'المسؤول', 'التليفون', 'الحالة', 'المطلوب', 'ميعاد القسط', 'مسدد لحد', 'أيام التأخير', 'بداية العقد', 'نهاية العقد', 'رصيد التأمين'],
         rows: list.map(function (x) { var u = x.unit || {}, sn = !x.late && x.exp;
@@ -498,7 +508,7 @@
       bindGrp('oGrp', function (g) { OW.grp = g; renderOwners(); });
       bindExport('owExp', function () {
         var l = S.owView || [];
-        return { name: 'سدادات الملاك ' + L.toISO(today()), title: 'سدادات الملاك', sheet: 'الملاك', sub: ({ due: 'متأخر ومستحق', late: 'المتأخرين', all: 'الكل' })[OW.view] + ' · ' + (OW.grp || 'كل الأماكن'),
+        return { name: fileName('سدادات الملاك', OW.grp ? grpName([OW.grp]) : scopeName(), fdate()), title: fileName('سدادات الملاك', OW.grp ? grpName([OW.grp]) : scopeName()), sheet: 'الملاك', sub: ({ due: 'متأخر ومستحق', late: 'المتأخرين', all: 'الكل' })[OW.view] + ' · ' + (OW.grp || 'كل الأماكن'),
           kinds: ['text', 'text', 'text', 'text', 'text', 'phone', 'text', 'num', 'money', 'date', 'date', 'money', 'text', 'text', 'text', 'text'], sums: [8],
           headers: ['المالك', 'كود الوحدة', 'المشروع', 'عمارة', 'شقة', 'التليفون', 'الحالة', 'يسدد كل', 'المطلوب', 'مسدد لحد', 'آخر سداد', 'مبلغ آخر سداد', 'المستفيد', 'رقم الحساب', 'البنك', 'طريقة الدفع'],
           rows: l.map(function (x) { var u = x.unit, t = F.ownerTransfer(x);
@@ -573,7 +583,7 @@
         name = o.owner || o.code;
         info = { title: 'كشف حساب مالك', who: name, lines: [['المالك', name], ['الوحدة', App.unitTitle(o) || o.code], ['كود الوحدة', o.code], ['يسدد كل', (o.every || 1) + ' شهر'], ['نهاية العقد', L.fmt(o.ownerEnd)]] };
       }
-      var bal = st.balance, fname = 'كشف حساب ' + name + ' ' + L.toISO(today());
+      var bal = st.balance, fname = fileName('كشف حساب', name, fdate());
       var summary = [info.title, info.lines.map(function (l) { return l[0] + ': ' + l[1]; }).join('\n'), '',
         'المستحق من ' + L.monthLabel(F.FOLLOW_FROM) + ': ' + money(st.due), 'المدفوع: ' + money(st.paid), (bal > 0 ? 'الباقي: ' : bal < 0 ? 'مدفوع زيادة: ' : 'الرصيد: ') + money(Math.abs(bal))].join('\n');
       App.openSheet('<h2>' + info.title + '</h2><div class="card"><div class="r1">' + esc(name) + '</div><div class="r2">' + esc(kind === 'tenant' ? info.lines[2][1] : info.lines[1][1]) + '</div>' +
@@ -1057,11 +1067,12 @@
         var txt = AV.projects.length === projects.length ? 'كل الأماكن' : AV.projects.join('، ');
         return R.availHtml(S.availView || [], today(), txt);
       };
-      $('avPdf').onclick = function () { R.openPrint(report(), 'المتاح ' + L.toISO(today())).then(function () { $('avMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
+      var avName = function () { return fileName('المتاح', AV.projects.length === projects.length ? '' : grpName(AV.projects), fdate()); };
+      $('avPdf').onclick = function () { R.openPrint(report(), avName()).then(function () { $('avMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
       $('avXl').onclick = function () {
         var l = S.availView || [];
         $('avMsg').textContent = 'بيجهز الإكسيل…';
-        R.downloadXlsx({ name: 'المتاح ' + L.toISO(today()), title: 'المتاح', sheet: 'المتاح', sub: AV.projects.join('، '), sums: [],
+        R.downloadXlsx({ name: avName(), title: fileName('المتاح', AV.projects.length === projects.length ? '' : grpName(AV.projects)), sheet: 'المتاح', sub: AV.projects.join('، '), sums: [],
           kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text'],
           headers: ['المكان', 'المشروع', 'كود الوحدة', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي'],
           rows: l.map(function (x) { var u = x.unit, c = x.current, n = x.next;
@@ -1261,16 +1272,16 @@
       $('tSide').onchange = function () { TR.side = this.value; drawTreas(); };
       var tm; $('tQ').oninput = function () { TR.q = this.value; clearTimeout(tm); tm = setTimeout(drawTreas, 200); };
       TR.flash = ''; TR.check = '';
-      bindExport('trExp', function () { return treasData(S.treasView || [], 'حركات الخزينة ' + L.toISO(TR.from || today()) + ' لـ ' + L.toISO(TR.to || today()), 'حركات الخزينة', L.fmt(TR.from) + ' ← ' + L.fmt(TR.to) + (TR.cat ? ' · ' + TR.cat : '') + (TR.cash ? ' · ' + TR.cash : '')); });
+      bindExport('trExp', function () { return treasData(S.treasView || [], fileName(scopeName() ? 'حركات خزينة ' + scopeName() : 'حركات الخزينة', 'من ' + fdate(TR.from || today()), 'لـ ' + fdate(TR.to || today())), scopeName() ? 'حركات خزينة ' + scopeName() : 'حركات الخزينة', L.fmt(TR.from) + ' ← ' + L.fmt(TR.to) + (TR.cat ? ' · ' + TR.cat : '') + (TR.cash ? ' · ' + TR.cash : '')); });
       $('eNew').onclick = openEntry;
       $('bNew').onclick = openBulk;
       var daily = function () { var dd = L.parseISO($('dDate').value) || today(); TR.day = dd; return { d: dd, html: R.dailyHtml(S.treasury, S.units, S.cash, dd) }; };
-      $('dPdf').onclick = function () { var x = daily(); R.openPrint(x.html, 'يومية الخزينة ' + L.fmt(x.d)).then(function () { $('dMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
+      $('dPdf').onclick = function () { var x = daily(); R.openPrint(x.html, fileName(scopeName() ? 'يومية خزينة ' + scopeName() : 'يومية الخزينة', fdate(x.d))).then(function () { $('dMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
       $('dXl').onclick = function () {
         var dd = L.parseISO($('dDate').value) || today(), ds = L.dateToSerial(dd), cc = S.treasury.cols, idx = [];
         for (var i = 0; i < cc['تاريخ'].length; i++) if (Math.floor(Number(cc['تاريخ'][i])) === ds) idx.push(i);
         $('dMsg').textContent = 'بيجهز الإكسيل…';
-        R.downloadXlsx(treasData(idx, 'يومية الخزينة ' + L.toISO(dd), 'يومية الخزينة', DAYS_AR[dd.getUTCDay()] + ' ' + L.fmt(dd)))
+        R.downloadXlsx(treasData(idx, fileName(scopeName() ? 'يومية خزينة ' + scopeName() : 'يومية الخزينة', fdate(dd)), scopeName() ? 'يومية خزينة ' + scopeName() : 'يومية الخزينة', DAYS_AR[dd.getUTCDay()] + ' ' + L.fmt(dd)))
           .then(function () { $('dMsg').textContent = idx.length + ' حركة'; }, function (e) { $('dMsg').textContent = e.message || 'التحميل مش متاح هنا.'; });
       };
       drawTreas();
