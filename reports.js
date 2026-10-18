@@ -141,7 +141,7 @@
       var a = L.serialToDate(g('بداية الايجار', i)), b = L.serialToDate(g('نهاية الايجار', i));
       return '<tr><td class="n g">' + money(g('ايراد', i)) + '</td><td class="n r">' + money(g('مصروف', i)) + '</td><td class="n">' + el(g('رقم المستند', i), 60) + '</td>' +
         '<td>' + el(unit, 140) + '</td><td>' + el(g('فئة', i), 110) + '</td><td>' + el(g('بيان', i), 210) + '</td>' +
-        '<td class="n">' + (g('شهر', i) ? esc(L.monthKey(L.serialToDate(g('شهر', i)))) : '') + '</td><td class="n">' + (a || b ? d2(a) + ' → ' + d2(b) : '') + '</td>' +
+        '<td class="n">' + (g('شهر', i) ? esc(L.monthKey(L.serialToDate(g('شهر', i)))) : '') + '</td><td class="n">' + (a || b ? '<span dir="rtl" style="unicode-bidi:isolate">' + d2(a) + ' ← ' + d2(b) + '</span>' : '') + '</td>' +
         '<td>' + (rev ? '<span class="chip soon">' + esc(rev) + '</span>' : '') + '</td><td>' + el(g('كاش', i), 95) + '</td></tr>';
     });
     if (!mv.length) mv = ['<tr><td colspan="10" class="muted">مفيش حركات في اليوم ده</td></tr>'];
