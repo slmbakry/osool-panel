@@ -147,6 +147,31 @@
       '<div class="hsay">' + (D ? say(D, r || 'all') : 'بيجهز ملخص النهارده…') + '</div>';
     $('hRole').onclick = pickRole;
   }
+  // ---------- الفترة التجريبية (دعابة) ----------
+  var TRIAL_END = '2026-10-22';
+  function trialHtml() {
+    var end = L.parseISO(TRIAL_END), d = L.daysBetween(today(), end);
+    var left = d > 2 ? 'فاضل <b>' + d + ' أيام</b>' : d === 2 ? 'فاضل <b>يومين</b>' : d === 1 ? '<b>بكرة آخر يوم</b>' : d === 0 ? '<b>النهارده آخر يوم</b>' : '';
+    var line = d >= 0 ? left + ' على نهاية الفترة التجريبية المجانية (الخميس ' + L.fmt(end) + ').'
+      : 'الفترة التجريبية <b>خلصت</b>، والبانل لسه شغال على حساب محمد لحد ما نتفق.';
+    return '<div class="trial"><div class="tt">نسخة تجريبية مجانية 🎁</div><div class="tl">' + line + '</div>' +
+      '<button class="link" id="hTrial">شوف باقات الاشتراك</button></div>';
+  }
+  function trialSheet() {
+    var pk = [
+      ['باقة الشاي', 'كوباية شاي لمحمد كل يوم الصبح', 'البانل شغال، والمتأخرين مترتبين'],
+      ['باقة الفطار', 'فطار يوم الخميس على حساب التيم', 'كل اللي فوق، ورسايل الأوبريشن جاهزة'],
+      ['باقة الشكر', 'كلمة شكر حلوة في جروب الشغل', 'كل اللي فوق، ومحمد يفضل يطور'],
+      ['الباقة المجانية', 'ولا مليم', 'ترجعوا تعدّوا المتأخرين على الآلة الحاسبة']
+    ];
+    App.openSheet('<h2>باقات الاشتراك</h2><div class="r2" style="margin:-4px 0 10px">اشتراكات الذكاء الاصطناعي اللي بنى البانل ده بيدفعها محمد من جيبه، والشركة والزملا بيستفيدوا ببلاش. فاختاروا باقتكم 😉</div>' +
+      pk.map(function (x, i) {
+        return '<div class="card" style="padding:10px 12px;margin-bottom:8px' + (i === 2 ? ';border-color:var(--gold);background:#fbf6ea' : '') + '"><div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:15px">' + x[0] + '</b>' +
+          (i === 2 ? '<span class="tagx soon">الأكثر طلبًا</span>' : '') + '</div><div style="font-weight:600;color:var(--brand);margin-top:2px">' + x[1] + '</div><div class="r2">' + x[2] + '</div></div>';
+      }).join('') +
+      '<div class="r2" style="margin:6px 0 10px">الدفع كاش، أو فودافون كاش، أو بدعوة حلوة. للاستفسار: مكتب الحسابات.</div><button class="btn primary" id="trX" style="width:100%">تمام، هفكر 😅</button>');
+    $('trX').onclick = App.closeSheet;
+  }
   function render() {
     var box = $('tab-home'); if (!box || S.tab !== 'home') return;
     hero(null);
@@ -156,7 +181,7 @@
       if (S.tab !== 'home') return;
       var D = compute(), r = role(), fl = favs();
       hero(D);
-      box.innerHTML = (H.flash ? '<div class="msg ok">' + esc(H.flash) + '</div>' + (H.check || '') : '') + focus(D, r) +
+      box.innerHTML = trialHtml() + (H.flash ? '<div class="msg ok">' + esc(H.flash) + '</div>' + (H.check || '') : '') + focus(D, r) +
         '<div class="lh">مفضلتي<button class="link" id="hEdit">' + (H.edit ? 'تمام' : 'ترتيب') + '</button></div>' +
         (fl.length ? '<div class="flist">' + fl.map(function (id, i) {
           var c = CARDS[id], n = c.n(D), nc = c.nc ? c.nc(D) : c.cls === 'r' && n ? 'r' : c.cls === 'g' ? 'g' : '';
@@ -182,6 +207,7 @@
       };
     });
     $('hEdit').onclick = function () { H.edit = !H.edit; render(); };
+    if ($('hTrial')) $('hTrial').onclick = trialSheet;
     $('hAdd').onclick = function () { addSheet(fl); };
     box.querySelectorAll('.kgrid button[data-k]').forEach(function (b) { b.onclick = function () { CARDS[b.dataset.k].go(); }; });
     if ($('hNewE')) $('hNewE').onclick = function () { SC().openEntry({}); };
