@@ -976,6 +976,77 @@
     }).catch(function (err) { btn.disabled = false; btn.textContent = 'تأكيد التسجيل'; $('bMsg').innerHTML = errHtml(err); });
   }
 
+  // ======================= مقارنة المالك والمستأجر (مقفولة بكود) =======================
+  var CM = { key: null, view: 'pair', grp: '', beds: '', sort: 'diff', dir: 'asc' };
+  function renderCmp() {
+    var box = $('tab-cmp'); if (!box) return;
+    if (!App.cmpOn()) { box.innerHTML = '<div class="empty">الشاشة دي مقفولة على الجهاز ده.</div>'; return; }
+    box.innerHTML = loadingHtml('بيحسب…');
+    ensureSettings().then(function () {
+      var keys = Object.keys(S.ownerMonths || {}).sort(F.cmpKey);
+      if (!CM.key) { var cur = L.monthKey(today()); CM.key = keys.indexOf(cur) !== -1 ? cur : keys[keys.length - 1]; }
+      var opt = function (v, l, sel) { return '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' + esc(l) + '</option>'; };
+      var all = F.compareMonth(S.units, S.renters, S.months, S.ownerMonths, CM.key, S.settings || F.DEFAULT_SETTINGS);
+      var grps = F.groupsIn(all.map(function (x) { return x.unit; }));
+      var beds = {}; all.forEach(function (x) { beds[x.beds] = 1; });
+      box.innerHTML = '<div class="seg" id="cmV"><button data-v="pair"' + (CM.view === 'pair' ? ' class="on"' : '') + '>المالك والمستأجر</button><button data-v="owner"' + (CM.view === 'owner' ? ' class="on"' : '') + '>إيجارات الملاك</button></div>' +
+        '<div class="filters"><select id="cmK">' + keys.map(function (k) { return opt(k, L.monthLabel(k), CM.key); }).join('') + '</select>' +
+        '<select id="cmG">' + opt('', 'كل الأماكن', CM.grp) + grps.map(function (g) { return opt(g, GRP_AR[g] || g, CM.grp); }).join('') + '</select></div>' +
+        '<div class="filters"><select id="cmB">' + opt('', 'كل الغرف', CM.beds) + Object.keys(beds).sort(function (a, b) { return a - b; }).map(function (b) { return opt(b, b === '0' ? 'غرف مش متسجلة' : b + ' غرف', CM.beds); }).join('') + '</select>' +
+        '<select id="cmS">' + (CM.view === 'pair' ? [['diff', 'الفرق'], ['pct', 'النسبة'], ['tenant', 'إيجار المستأجر'], ['owner', 'إيجار المالك'], ['beds', 'عدد الغرف']] : [['owner', 'إيجار المالك'], ['beds', 'عدد الغرف']]).map(function (x) { return opt(x[0], 'ترتيب: ' + x[1], CM.sort); }).join('') + '</select>' +
+        '<button class="btn ghost" id="cmD" style="flex:0 0 auto;padding:6px 12px" title="اقلب الترتيب">' + (CM.dir === 'asc' ? '↑ تصاعدي' : '↓ تنازلي') + '</button></div>' +
+        '<div id="cmSum"></div>' + exportBar('cmExp') + '<div id="cmList"></div>' +
+        '<div style="text-align:center;margin:14px 0"><button class="link" id="cmLock" style="color:var(--muted);font-size:12px">اقفل الشاشة دي على الجهاز ده</button></div>';
+      document.querySelectorAll('#cmV button').forEach(function (b) { b.onclick = function () { CM.view = b.dataset.v; if (CM.view === 'owner' && ['diff', 'pct', 'tenant'].indexOf(CM.sort) !== -1) CM.sort = 'owner'; renderCmp(); }; });
+      $('cmK').onchange = function () { CM.key = this.value; renderCmp(); };
+      $('cmG').onchange = function () { CM.grp = this.value; drawCmp(all); };
+      $('cmB').onchange = function () { CM.beds = this.value; drawCmp(all); };
+      $('cmS').onchange = function () { CM.sort = this.value; drawCmp(all); };
+      $('cmD').onclick = function () { CM.dir = CM.dir === 'asc' ? 'desc' : 'asc'; this.textContent = CM.dir === 'asc' ? '↑ تصاعدي' : '↓ تنازلي'; drawCmp(all); };
+      $('cmLock').onclick = function () { App.cmpLock(); };
+      bindExport('cmExp', function () {
+        var l = S.cmpView || [], lbl = fileName(CM.view === 'pair' ? 'مقارنة المالك والمستأجر' : 'إيجارات الملاك', CM.grp ? grpName([CM.grp]) : scopeName(), L.monthLabel(CM.key));
+        if (CM.view === 'pair') return { name: fileName(lbl, fdate()), title: lbl, sheet: 'المقارنة', sub: CM.beds ? CM.beds + ' غرف' : '', sums: [5, 6, 7],
+          kinds: ['text', 'text', 'text', 'text', 'num', 'money', 'money', 'money', 'text', 'text'],
+          headers: ['المكان', 'الوحدة', 'كود', 'المالك', 'غرف', 'إيجار المستأجر', 'إيجار المالك', 'الفرق', 'النسبة', 'ملاحظة'],
+          rows: l.map(function (x) { return [GRP_AR[x.group] || x.group, App.unitTitle(x.unit), x.unit.code, x.unit.owner || '', x.beds || '', x.tenant, x.owner, x.diff, x.pct === null ? '' : Math.round(x.pct * 100) + '%', (x.assumed ? 'المالك مفترض من آخر شهر' : '') + (!x.tenant ? (x.assumed ? ' · ' : '') + 'مفيش مستأجر' : '')]; }) };
+        return { name: fileName(lbl, fdate()), title: lbl, sheet: 'إيجارات الملاك', sub: '', sums: [5],
+          kinds: ['text', 'text', 'text', 'text', 'num', 'money', 'text'], headers: ['المكان', 'الوحدة', 'كود', 'المالك', 'غرف', 'إيجار المالك', 'ملاحظة'],
+          rows: l.filter(function (x) { return x.owner; }).map(function (x) { return [GRP_AR[x.group] || x.group, App.unitTitle(x.unit), x.unit.code, x.unit.owner || '', x.beds || '', x.owner, x.assumed ? 'مفترض من آخر شهر' : '']; }) };
+      });
+      drawCmp(all);
+    }).catch(function (e) { box.innerHTML = errHtml(e); });
+  }
+  function drawCmp(all) {
+    var l = all.filter(function (x) { return (!CM.grp || x.group === CM.grp) && (CM.beds === '' || String(x.beds) === CM.beds) && (CM.view === 'pair' || x.owner); });
+    var val = function (x) { return CM.sort === 'pct' ? (x.pct === null ? -Infinity : x.pct) : x[CM.sort] || 0; };
+    l.sort(function (a, b) { var d = val(a) - val(b); if (!d) d = a.diff - b.diff; return CM.dir === 'asc' ? d : -d; });
+    S.cmpView = l;
+    var T = 0, O = 0; l.forEach(function (x) { T += x.tenant; O += x.owner; });
+    var pctTxt = function (p) { return p === null || !isFinite(p) ? '—' : (p > 0 ? '+' : '') + Math.round(p * 100) + '%'; };
+    if (CM.view === 'pair') {
+      var neg = l.filter(function (x) { return x.diff < 0; }).length, empty = l.filter(function (x) { return !x.tenant; }).length;
+      $('cmSum').innerHTML = '<div class="sum"><div class="box"><div class="v okc">' + money(T) + '</div><div class="k">مستحق المستأجرين</div></div><div class="box"><div class="v late">' + money(O) + '</div><div class="k">مستحق الملاك</div></div>' +
+        '<div class="box"><div class="v ' + (T - O < 0 ? 'late' : 'okc') + '">' + money(T - O) + '</div><div class="k">الفرق · <span dir="ltr">' + pctTxt(O ? (T - O) / O : null) + '</span></div></div><div class="box"><div class="v">' + l.length + '</div><div class="k">' + neg + ' بخسارة · ' + empty + ' من غير مستأجر</div></div></div>';
+      $('cmList').innerHTML = l.length ? '<div class="card" style="padding:4px 10px">' + l.map(function (x) {
+        return '<div class="cmrow"><div class="t"><b>' + esc(App.unitTitle(x.unit) || x.unit.code) + '</b><i>' + esc(x.unit.code) + (x.beds ? ' · ' + x.beds + ' غرف' : '') + (x.unit.owner ? ' · ' + esc(x.unit.owner) : '') + '</i></div>' +
+          '<div class="nums"><span class="okc">' + (x.tenant ? money(x.tenant) : '<span class="r2">مفيش مستأجر</span>') + '</span><span class="late">' + money(x.owner) + (x.assumed ? '<sup title="مفترض من آخر شهر">*</sup>' : '') + '</span>' +
+          '<b class="' + (x.diff < 0 ? 'late' : 'okc') + '">' + money(x.diff) + ' <small>' + pctTxt(x.pct) + '</small></b></div></div>';
+      }).join('') + '</div><div class="r2" style="margin-top:6px">الأخضر مستحق المستأجر، والأحمر مستحق المالك. * يعني مفترض من آخر شهر متسجل.</div>' : '<div class="empty">مفيش وحدات.</div>';
+    } else {
+      var bb = F.ownerByBeds(l);
+      $('cmSum').innerHTML = '<div class="card" style="padding:8px 10px"><table class="mt"><tr><th>الغرف</th><th class="n">وحدات</th><th class="n">المتوسط</th><th class="n">أقل</th><th class="n">أعلى</th></tr>' +
+        bb.map(function (a) { return '<tr><td>' + (a.beds ? a.beds + ' غرف' : 'مش متسجل') + '</td><td class="n">' + a.n + '</td><td class="n"><b>' + money(a.avg) + '</b></td><td class="n">' + money(a.min) + '</td><td class="n">' + money(a.max) + '</td></tr>'; }).join('') +
+        '<tr><td><b>الكل</b></td><td class="n">' + l.length + '</td><td class="n"><b>' + money(l.length ? Math.round(O / l.length) : 0) + '</b></td><td></td><td></td></tr></table></div>';
+      var avg = {}; bb.forEach(function (a) { avg[a.beds] = a.avg; });
+      $('cmList').innerHTML = l.length ? '<div class="card" style="padding:4px 10px">' + l.map(function (x) {
+        var a = avg[x.beds || 0], d = a ? (x.owner - a) / a : null;
+        return '<div class="cmrow"><div class="t"><b>' + esc(App.unitTitle(x.unit) || x.unit.code) + '</b><i>' + esc(x.unit.code) + (x.beds ? ' · ' + x.beds + ' غرف' : '') + (x.unit.owner ? ' · ' + esc(x.unit.owner) : '') + '</i></div>' +
+          '<div class="nums"><b>' + money(x.owner) + (x.assumed ? '<sup>*</sup>' : '') + '</b><small class="' + (d > 0.15 ? 'late' : d < -0.15 ? 'okc' : 'r2') + '">' + (d === null ? '' : pctTxt(d) + ' عن متوسط ' + (x.beds || '؟') + ' غرف') + '</small></div></div>';
+      }).join('') + '</div>' : '<div class="empty">مفيش وحدات.</div>';
+    }
+  }
+
   // ======================= التصدير =======================
   function exportBar(id) {
     return '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px"><button class="link" id="' + id + '">إكسيل</button><button class="link" id="' + id + 'P">PDF</button>' +
@@ -1327,7 +1398,7 @@
   }
 
   window.OsoolScreens = {
-    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); },
+    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); },
     startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
     ensureTreasury: ensureTreasury, openBulk: openBulk, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
     setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }

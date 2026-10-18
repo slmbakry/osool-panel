@@ -631,6 +631,36 @@
     return out;
   }
 
+  // ---------- مقارنة المالك والمستأجر (مستحق) ----------
+  // لكل وحدة في شهر: مستحق المستأجرين (مجموعهم) قصاد مستحق المالك.
+  // خانة المالك الفاضية: آخر قيمة متسجلة قبل الشهر ده (مفترضة).
+  function compareMonth(units, renters, rMonths, oMonths, key, settings) {
+    var ks = Object.keys(oMonths || {}).sort(cmpKey), ki = ks.indexOf(key), mStart = keyToDate(key);
+    var mEnd = new Date(L.addMonths(mStart, 1).getTime() - DAY);
+    var ten = {}, cnt = {}, rm = (rMonths || {})[key] || [];
+    renters.forEach(function (r) { if (!r.code || r.idx < 0) return; var v = num(rm[r.idx]); if (!v) return; ten[r.unit] = (ten[r.unit] || 0) + v; cnt[r.unit] = (cnt[r.unit] || 0) + 1; });
+    var out = [];
+    units.forEach(function (u) {
+      if (!inScope(u, settings) || str(u.settle).toUpperCase() === 'OUT') return;
+      if (u.ownerEnd && u.ownerEnd < mStart) return;
+      var o = num(((oMonths || {})[key] || [])[u.idx]), assumed = false;
+      if (!o && ki > 0) {
+        for (var j = ki - 1; j >= 0; j--) { var v = num((oMonths[ks[j]] || [])[u.idx]); if (v) { o = v; assumed = true; break; } }
+      }
+      var t = ten[u.code] || 0;
+      if (!o && !t) return;
+      out.push({ unit: u, group: groupOf(u.project), beds: num(u.bedrooms) || 0, tenant: Math.round(t), tenants: cnt[u.code] || 0, owner: Math.round(o), assumed: assumed,
+        diff: Math.round(t - o), pct: o ? (t - o) / o : null });
+    });
+    return out;
+  }
+  // ملخص إيجارات الملاك حسب عدد الغرف
+  function ownerByBeds(rows) {
+    var g = {};
+    rows.forEach(function (x) { if (!x.owner) return; var b = x.beds || 0, a = g[b] || (g[b] = { beds: b, n: 0, sum: 0, min: Infinity, max: 0 }); a.n++; a.sum += x.owner; a.min = Math.min(a.min, x.owner); a.max = Math.max(a.max, x.owner); });
+    return Object.keys(g).map(function (k) { var a = g[k]; a.avg = Math.round(a.sum / a.n); return a; }).sort(function (a, b) { return a.beds - b.beds; });
+  }
+
   // ---------- مصروفات بالجملة ----------
   // كل سطر: كود الوحدة والمبلغ (وأي كلام زيادة يبقى بيان). بيقبل اللصق من الإكسيل أو الواتساب
   function parseBulk(text, units) {
@@ -683,7 +713,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
