@@ -102,7 +102,7 @@
       this.disabled = true;
       A.saveSettings(obj).then(function () {
         S.settings = obj; S.settingsLoaded = true; App.closeSheet();
-        if (S.tab === 'coll') drawColl();
+        App.showTab(S.tab || 'home'); // النطاق الجديد يتطبق على الشاشة المفتوحة
       }).catch(function (e) { $('setMsg').innerHTML = errHtml(e); $('setSave').disabled = false; });
     };
   }
@@ -1550,15 +1550,14 @@
     var box = $('tab-avail');
     box.innerHTML = loadingHtml('بيحسب الوحدات…');
     ensureSettings().then(function () {
-      var list = F.availability(S.units, S.renters, 'all', today());
+      var list = F.availability(S.units, S.renters, S.settings || F.DEFAULT_SETTINGS, today());
       S.availAll = list;
       var projects = {}, settles = {};
       list.forEach(function (x) { settles[x.unit.settle || ''] = 1; });
       projects = F.groupsIn(list.map(function (x) { return x.unit; })); settles = Object.keys(settles).sort();
-      if (!AV.projects) {
-        var st = S.settings || F.DEFAULT_SETTINGS, lst = st.projects.map(function (x) { return x.trim().toLowerCase(); });
-        AV.projects = F.groupsIn(S.units.filter(function (u) { return F.inScope(u, st); }));
-      }
+      // الأماكن اللي في نطاق الملف بس، ولو النطاق اتغير نرجع للكل
+      AV.projects = (AV.projects || projects).filter(function (g) { return projects.indexOf(g) !== -1; });
+      if (!AV.projects.length) AV.projects = projects.slice();
       if (!AV.settles) AV.settles = settles.slice();
       var chips = function (group, vals, sel, label) {
         return '<div class="tgs">' + vals.map(function (v) { return '<button class="tg' + (sel.indexOf(v) !== -1 ? ' on' : '') + '" data-g="' + group + '" data-v="' + esc(v) + '">' + esc(label ? label(v) : v) + '</button>'; }).join('') + '</div>';
@@ -1755,7 +1754,7 @@
           r.receipt = F.RECEIVED; EX.confirm = null;
           EX.flash = 'اتسجل استلام ' + (App.unitTitle(unitOf(r.unit)) || r.unit) + ' في السطر ' + res.sheetRow + '.';
           EX.check = App.checkHtml(res);
-          S.availAll = F.availability(S.units, S.renters, 'all', today());
+          S.availAll = F.availability(S.units, S.renters, S.settings || F.DEFAULT_SETTINGS, today());
           drawExits(); drawAvail();
         }).catch(function (e) { b.disabled = false; b.textContent = 'تأكيد الاستلام'; alert(e.message || e); });
       };
