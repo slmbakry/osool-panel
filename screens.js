@@ -79,7 +79,7 @@
       }).join('') + '</div></div>' +
       '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
       '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen !== false ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
-      '<details class="more" style="margin:0 0 12px"><summary>أسماء الموظفين (' + ((cur.people || []).length) + ')</summary><div class="r2" style="margin:6px 0 4px">اسم في كل سطر، أو الصق عمود الأسامي من الإكسيل. بتظهر في خانة "موظف" في أي حركة خزينة.</div><textarea id="setPeople" style="min-height:120px">' + esc((cur.people || []).join('\n')) + '</textarea></details>' +
+      (!App.cmpOn() ? '' : '<details class="more" style="margin:0 0 12px"><summary>أسماء الموظفين (' + ((cur.people || []).length) + ')</summary><div class="r2" style="margin:6px 0 4px">اسم في كل سطر، أو الصق عمود الأسامي من الإكسيل. بتظهر في خانة "موظف" في أي حركة خزينة.</div><textarea id="setPeople" style="min-height:120px">' + esc((cur.people || []).join('\n')) + '</textarea></details>') +
       '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>' +
       '<button class="btn ghost" id="setRole" style="width:100%;margin-top:10px">دور الجهاز ده: ' + esc(window.OsoolHome ? OsoolHome.roleName() : '') + '</button>' +
       '<button class="btn ghost" id="setReview" style="width:100%;margin-top:8px">المراجعة</button>' +
@@ -99,7 +99,9 @@
       var mode = document.querySelector('input[name=mode]:checked').value;
       var list = pjs().filter(function (b) { return b.classList.contains('on'); }).map(function (b) { return b.dataset.pj; });
       if (mode === 'only' && !list.length) { $('setMsg').innerHTML = '<div class="msg err">اختار مشروع واحد على الأقل.</div>'; return; }
-      var people = []; $('setPeople').value.split(/\n/).forEach(function (x) { x = x.trim(); if (x && people.indexOf(x) === -1) people.push(x); });
+      // القايمة بتتعدل من الجزء المخفي بس، وغير كده بتفضل زي ما هي
+      var people = (cur.people || []).slice();
+      if ($('setPeople')) { people = []; $('setPeople').value.split(/\n/).forEach(function (x) { x = x.trim(); if (x && people.indexOf(x) === -1) people.push(x); }); }
       var obj = { mode: mode, projects: list, autoOpen: $('setAuto').checked, people: people };
       this.disabled = true;
       A.saveSettings(obj).then(function () {
@@ -793,7 +795,7 @@
     $('eGenM').classList.toggle('hide', !!needPeriod || (ownerMonthly && !!EN.unit));
     if (!$('eWho').options.length) {
       var ppl = peopleList();
-      $('eWho').innerHTML = '<option value="">' + (ppl.length ? '—' : '— القايمة فاضية: ضيف الأسامي من الإعدادات ⚙️') + '</option>' + ppl.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join('') + '<option value="__new">اسم تاني…</option>';
+      $('eWho').innerHTML = '<option value="">' + (ppl.length ? '—' : '— القايمة فاضية: ضيف الأسامي من الإعدادات ⚙️') + '</option>' + ppl.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join('') + (App.cmpOn() || !ppl.length ? '<option value="__new">اسم تاني…</option>' : '');
     }
     if (isTen && EN.unit) {
       var list = S.renters.filter(function (r) { return r.unit === EN.unit.code && r.code; }).sort(function (a, b) { return (b.start || 0) - (a.start || 0); });
