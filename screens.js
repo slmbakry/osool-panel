@@ -67,13 +67,16 @@
     var cur = S.settings || F.DEFAULT_SETTINGS;
     var projects = F.projectsOf(S.units);
     App.openSheet('<h2>نطاق الملف ده</h2><p class="r2">المتابعة هتحسب الوحدات اللي جوه النطاق بس. الإعداد بيتحفظ جوه الملف، فكل الفريق هيشوف نفس النطاق.</p>' +
+      '<div class="unit" style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="flex:1;min-width:0"><div class="r2">ده ملف</div><b style="font-size:17px">' + esc(scopeName() || 'كل المشاريع') + '</b>' +
+      '<div class="r2" style="margin-top:2px">' + esc(scopeText(cur)) + '</div></div><button class="act" id="setEditBtn">تعديل</button></div>' +
+      '<div id="setEdit" class="hide">' +
       '<label class="radio"><input type="radio" name="mode" value="exclude"' + (cur.mode !== 'only' ? ' checked' : '') + '> كل المشاريع ما عدا اللي هتختارها</label>' +
       '<label class="radio"><input type="radio" name="mode" value="only"' + (cur.mode === 'only' ? ' checked' : '') + '> المشاريع اللي هتختارها بس</label>' +
       '<div style="display:flex;gap:12px;margin:6px 0 6px"><button class="link" id="setAll">اختار الكل</button><button class="link" id="setNone">شيل الكل</button><span class="r2" id="setCnt" style="margin-inline-start:auto"></span></div>' +
       '<div class="tgs" id="setPj">' + projects.map(function (p) {
         var on = cur.projects.some(function (x) { return x.trim().toLowerCase() === p.toLowerCase(); });
         return '<button type="button" class="tg' + (on ? ' on' : '') + '" data-pj="' + esc(p) + '">' + esc(p) + '</button>';
-      }).join('') + '</div>' +
+      }).join('') + '</div></div>' +
       '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
       '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen !== false ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
       '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>' +
@@ -86,6 +89,7 @@
     $('setAll').onclick = function () { pjs().forEach(function (b) { b.classList.add('on'); }); cnt(); };
     $('setNone').onclick = function () { pjs().forEach(function (b) { b.classList.remove('on'); }); cnt(); };
     cnt();
+    $('setEditBtn').onclick = function () { var on = $('setEdit').classList.toggle('hide'); this.textContent = on ? 'تعديل' : 'خلاص'; };
     $('setBack').onclick = App.closeSheet;
     $('setRows').onclick = openAddRows;
     $('setRole').onclick = function () { if (window.OsoolHome) OsoolHome.pickRole(); };
