@@ -79,6 +79,7 @@
       }).join('') + '</div></div>' +
       '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
       '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen !== false ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
+      '<details class="more" style="margin:0 0 12px"><summary>أسماء أصحاب السلف (' + ((cur.people || []).length) + ')</summary><div class="r2" style="margin:6px 0 4px">اسم في كل سطر. بتظهر كقايمة في السلف والمرتبات والقروض.</div><textarea id="setPeople" style="min-height:120px">' + esc((cur.people || []).join('\n')) + '</textarea></details>' +
       '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>' +
       '<button class="btn ghost" id="setRole" style="width:100%;margin-top:10px">دور الجهاز ده: ' + esc(window.OsoolHome ? OsoolHome.roleName() : '') + '</button>' +
       '<button class="btn ghost" id="setReview" style="width:100%;margin-top:8px">المراجعة</button>' +
@@ -98,7 +99,8 @@
       var mode = document.querySelector('input[name=mode]:checked').value;
       var list = pjs().filter(function (b) { return b.classList.contains('on'); }).map(function (b) { return b.dataset.pj; });
       if (mode === 'only' && !list.length) { $('setMsg').innerHTML = '<div class="msg err">اختار مشروع واحد على الأقل.</div>'; return; }
-      var obj = { mode: mode, projects: list, autoOpen: $('setAuto').checked };
+      var people = []; $('setPeople').value.split(/\n/).forEach(function (x) { x = x.trim(); if (x && people.indexOf(x) === -1) people.push(x); });
+      var obj = { mode: mode, projects: list, autoOpen: $('setAuto').checked, people: people };
       this.disabled = true;
       A.saveSettings(obj).then(function () {
         S.settings = obj; S.settingsLoaded = true; App.closeSheet();
@@ -723,6 +725,8 @@
       '<div id="eAmtBox"><label>المبلغ بالجنيه <span class="req">*</span></label><input id="eAmt" class="ltr" inputmode="decimal"></div></div>' +
       '<div id="ePart"></div>' +
       '<div class="grid2"><div><label>الخزينة</label><select id="eCash">' + cashOptions('جنيه  خزينة') + '</select></div><div id="eFxBox" class="hide"><label>المبلغ بالعملة</label><input id="eFx" class="ltr" inputmode="decimal"></div></div>' +
+      '<div id="eWhoBox" class="hide"><label>اسم صاحب السلفة <span class="req">*</span></label><select id="eWho"></select><input id="eWhoNew" class="hide" placeholder="اكتب الاسم" style="margin-top:6px"></div>' +
+      '<div id="eGenM"><label>عن شهر <span class="r2">(اختياري)</span></label><select id="eGenMonth"></select></div>' +
       '<div class="grid2"><div><label>رقم المستند</label><input id="eDoc" class="ltr"></div><div><label>البيان</label><input id="eNote"></div></div>' +
       '<details class="more"><summary>شيك وملاحظات</summary><div class="grid2"><div><label>رقم الشيك</label><input id="eChq" class="ltr"></div><div><label>تاريخ الشيك</label><input type="date" id="eChqD"></div></div><label>ملاحظات</label><input id="eNotes"></details>' +
       '<div id="eMsg" style="margin-top:10px"></div><div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="eBack">رجوع</button><button class="btn primary" id="eSave">تسجيل</button></div>');
@@ -740,6 +744,9 @@
     $('eOwnN').oninput = function () { EN.ownerN = Math.max(1, Math.min(24, parseInt(digits(this.value), 10) || 1)); refreshOwner(); };
     $('eCash').onchange = function () { $('eFxBox').classList.toggle('hide', !F.isForeign(this.value)); disarm(); };
     ['eDate', 'eAmt', 'eFx', 'eMonth', 'eFrom', 'eTo'].forEach(function (id) { $(id).addEventListener('input', disarm); });
+    $('eGenMonth').innerHTML = '<option value="">—</option>' + monthOptions(recentKeys(), '');
+    $('eWho').onchange = function () { $('eWhoNew').classList.toggle('hide', this.value !== '__new'); if (this.value === '__new') $('eWhoNew').focus(); disarm(); };
+    $('eWhoNew').addEventListener('input', disarm); $('eGenMonth').addEventListener('change', disarm);
     $('eBack').onclick = App.closeSheet;
     $('eSave').onclick = saveEntry;
     $('eBulk').onclick = function () { App.closeSheet(); setTimeout(openBulk, 50); };
@@ -761,6 +768,10 @@
       if (preset.cash) { $('eCash').value = preset.cash; $('eCash').onchange(); }
     }
   }
+  // بنود الموظفين اللي محتاجة اسم صاحب السلفة، والأسامي من إعداد الملف
+  var PERSON_CATS = ['سلفه', 'سلفة', 'مرتبات', 'قروض'];
+  function isPersonCat(c) { return PERSON_CATS.indexOf(String(c || '').trim()) !== -1; }
+  function peopleList() { var p = (S.settings && S.settings.people) || []; return p.slice().sort(function (a, b) { return a.localeCompare(b, 'ar'); }); }
   function disarm() { if (EN) { EN.armed = false; $('eSave').textContent = 'تسجيل'; } }
   function drawEntryUnit() {
     var u = EN.unit;
@@ -780,6 +791,14 @@
     $('eAmtBox').classList.toggle('hide', ownerMonthly && !!EN.unit);
     var needPeriod = (F.TENANT_MONTH.indexOf(cat) !== -1 || cat === 'رد ايجار من مالك') && EN.unit;
     $('ePeriod').classList.toggle('hide', !needPeriod);
+    // الشهر الاختياري للمصروفات العامة، واسم صاحب السلفة لبنود الموظفين
+    $('eGenM').classList.toggle('hide', !!needPeriod || (ownerMonthly && !!EN.unit));
+    var who = isPersonCat(cat);
+    $('eWhoBox').classList.toggle('hide', !who);
+    if (who && !$('eWho').options.length) {
+      var ppl = peopleList();
+      $('eWho').innerHTML = '<option value="">اختار الاسم…</option>' + ppl.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join('') + '<option value="__new">اسم تاني…</option>';
+    }
     if (isTen && EN.unit) {
       var list = S.renters.filter(function (r) { return r.unit === EN.unit.code && r.code; }).sort(function (a, b) { return (b.start || 0) - (a.start || 0); });
       var t = today(), cur = list.filter(function (r) { return r.start <= t && r.end >= t; })[0];
@@ -846,6 +865,13 @@
     } else {
       var extra = { amount: digits($('eAmt').value) };
       if (!$('ePeriod').classList.contains('hide')) { extra.month = $('eMonth').value; extra.from = L.parseISO($('eFrom').value); extra.to = L.parseISO($('eTo').value); }
+      else if ($('eGenMonth').value) extra.month = $('eGenMonth').value;
+      if (isPersonCat(cat)) {
+        var who = $('eWho').value === '__new' ? $('eWhoNew').value.trim() : $('eWho').value;
+        if (!who) { $('eMsg').innerHTML = '<div class="msg err">اختار اسم صاحب السلفة.</div>'; return; }
+        var nt = base.note.trim();
+        extra.note = nt.indexOf(who) !== -1 ? nt : (who + (nt ? ' - ' + nt : ''));
+      }
       if (F.TENANT_CATS.indexOf(cat) !== -1) { extra.tenantCode = EN.tenant ? EN.tenant.code : ''; if (EN.tenant && extra.month) extra.contractEnd = EN.tenant.end; }
       if (cat === 'رد ايجار من مالك' && EN.unit) extra.contractEnd = EN.unit.ownerEnd;
       list.push(clone(extra));
