@@ -1054,8 +1054,8 @@
 
   // ======================= ربحية الوحدة (مخفي) =======================
   var PF = { k1: null, k2: null, grp: '', proj: '', beds: '', sort: 'net', dir: 'asc', open: '' };
-  function pfSkip() { try { var v = JSON.parse(localStorage.getItem('osoolPanel.profSkip') || 'null'); if (v && v.length) return v; } catch (e) { } return F.PROFIT_SKIP.slice(); }
-  function pfSetSkip(v) { try { localStorage.setItem('osoolPanel.profSkip', JSON.stringify(v)); } catch (e) { } }
+  function pfSkip() { try { var v = JSON.parse(localStorage.getItem('osoolPanel.profSkip2') || 'null'); if (v && v.length) return v; } catch (e) { } return F.PROFIT_SKIP.slice(); }
+  function pfSetSkip(v) { try { localStorage.setItem('osoolPanel.profSkip2', JSON.stringify(v)); } catch (e) { } }
   function renderProf() {
     var box = $('tab-prof'); if (!box) return;
     if (!App.cmpOn()) { box.innerHTML = '<div class="empty">الشاشة دي مقفولة على الجهاز ده.</div>'; return; }
@@ -1123,7 +1123,7 @@
     App.openSheet('<h2>البنود المحسوبة في المصاريف</h2><div class="r2" style="margin:-4px 0 8px">علّم على البنود اللي تتحسب مصروف أو إيراد على الوحدة. اللي مش متعلم عليه (زي حركة الإيجار والتأمين والجاري) مش بيدخل الحساب.</div>' +
       '<div class="card" style="padding:6px 10px;max-height:52vh;overflow:auto">' + ks.map(function (k) { return '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid #f0e9da"><input type="checkbox" data-pc="' + esc(k) + '"' + (skip.indexOf(k) === -1 ? ' checked' : '') + ' style="width:auto"> ' + esc(k) + '<span class="r2" style="margin-inline-start:auto">' + (seen[k] || 0) + ' حركة</span></label>'; }).join('') + '</div>' +
       '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn ghost" id="pcReset">الافتراضي</button><button class="btn primary" id="pcSave">حفظ</button></div>');
-    $('pcReset').onclick = function () { try { localStorage.removeItem('osoolPanel.profSkip'); } catch (e) { } App.closeSheet(); drawProf(); };
+    $('pcReset').onclick = function () { try { localStorage.removeItem('osoolPanel.profSkip2'); } catch (e) { } App.closeSheet(); drawProf(); };
     $('pcSave').onclick = function () { var sk = ['']; document.querySelectorAll('#sheet input[data-pc]').forEach(function (c) { if (!c.checked) sk.push(c.dataset.pc); }); pfSetSkip(sk); App.closeSheet(); drawProf(); };
   }
 
