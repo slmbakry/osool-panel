@@ -44,7 +44,7 @@
     '.rp td.n,.rp th.n{text-align:left;direction:ltr;white-space:nowrap}' +
     '.rp tfoot td{font-weight:700;background:#f1efe9;border-top:2px solid #cfcbbf}' +
     '.rp .chip{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;white-space:nowrap}' +
-    '.rp .chip.ok{background:#e6f4ea;color:#1f7a45}.rp .chip.soon{background:#fff4e0;color:#9a5b00}.rp .chip.out{background:#eee;color:#6b736f}.rp .chip.today{background:#c62828;color:#fff}.rp .chip.cls{background:#1f1a14;color:#e2c47c}' +
+    '.rp .chip.ok{background:#e6f4ea;color:#1f7a45}.rp .chip.soon{background:#fff4e0;color:#9a5b00}.rp .chip.out{background:#eee;color:#6b736f}.rp .chip.today{background:#c62828;color:#fff}.rp .chip.cls{background:#f6efdf;color:#a8915c;font-weight:500}' +
     '.rp .two{display:flex;gap:12px;margin-bottom:10px;align-items:flex-start}.rp .two>div{flex:1}' +
     '.rp h2{font-size:13px;margin:0 0 6px;color:#8c6b25}' +
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
