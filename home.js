@@ -169,11 +169,27 @@
     App.openSheet('<h2>ادعم البانل</h2>' +
       '<div class="r2" style="margin:-4px 0 12px;line-height:1.8">البانل ده مش مجرد أداة. ده تعب شهور من الشغل والاجتهاد: في ملف الإكسيل، وفي ترتيب منطق شغلنا كله خطوة بخطوة لحد ما بقى بيشتغل لوحده. فلو فرق معاك، اختار طريقتك 😉</div>' +
       pk.map(function (x, i) {
-        return '<div class="card" style="padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px' + (i === 2 ? ';border-color:var(--gold);background:#fbf6ea' : '') + '">' +
-          '<div style="font-size:26px;line-height:1">' + x[0] + '</div><div><b style="font-size:15px">' + x[1] + '</b><div class="r2">' + x[2] + '</div></div></div>';
+        return '<div class="card trpk" data-tp="' + i + '" style="padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer">' +
+          '<div style="font-size:26px;line-height:1">' + x[0] + '</div><div style="flex:1"><b style="font-size:15px">' + x[1] + '</b><div class="r2">' + x[2] + '</div></div>' +
+          '<div class="trck" style="width:24px;height:24px;border-radius:12px;border:1.5px solid var(--gold);color:#fff;font-size:14px;font-weight:700;text-align:center;line-height:21px;flex:none"></div></div>';
       }).join('') +
-      '<button class="btn primary" id="trX" style="width:100%;margin-top:4px">حاضر، من عنيا 😅</button>');
-    $('trX').onclick = App.closeSheet;
+      '<div class="r2" id="trSay" style="min-height:20px;margin:2px 0 8px;text-align:center"></div>' +
+      '<div style="display:flex;gap:8px"><button class="btn primary" id="trAll" style="flex:1">اختار الكل 🤝</button>' +
+      '<button class="btn" id="trOk" style="flex:1">تمام</button></div>');
+    var sel = {};
+    function draw() {
+      document.querySelectorAll('.trpk').forEach(function (el) {
+        var on = !!sel[el.dataset.tp];
+        el.style.borderColor = on ? 'var(--gold)' : ''; el.style.background = on ? '#fbf6ea' : '';
+        var ck = el.querySelector('.trck'); ck.textContent = on ? '✓' : ''; ck.style.background = on ? 'var(--gold)' : 'transparent';
+      });
+      var n = Object.keys(sel).filter(function (k) { return sel[k]; }).length;
+      $('trSay').textContent = n === 3 ? 'الباقة الكاملة! ربنا يكرمك 🤲' : n ? 'اخترت ' + n + ' من 3، ولسه فيه مكان 😉' : 'اختار واحدة أو أكتر';
+    }
+    document.querySelectorAll('.trpk').forEach(function (el) { el.onclick = function () { sel[el.dataset.tp] = !sel[el.dataset.tp]; draw(); }; });
+    $('trAll').onclick = function () { pk.forEach(function (x, i) { sel[i] = true; }); draw(); };
+    $('trOk').onclick = App.closeSheet;
+    draw();
   }
   function render() {
     DEPS = null;
