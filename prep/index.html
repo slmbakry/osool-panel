@@ -33,7 +33,7 @@ main{padding:12px;max-width:900px;margin:0 auto}
 .tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
 .item{border-top:1px solid #f0e9da;padding:7px 0;font-size:13px}.item:first-child{border-top:0}
 .item b{font-weight:600}.item .c{display:inline-block;font-size:11px;border-radius:6px;padding:0 6px;margin-inline-start:6px}
-.c.fix{background:#fff2cc;color:#7a5c00}.c.review{background:var(--errbg);color:var(--err)}.c.note{background:#e8eefc;color:#2b4a8a}.c.new{background:var(--okbg);color:var(--ok)}.c.skip{background:#eee;color:#555}
+.c.fix{background:#fff2cc;color:#7a5c00}.c.review{background:var(--errbg);color:var(--err)}.c.note{background:#e8eefc;color:#2b4a8a}.c.new{background:var(--okbg);color:var(--ok)}.c.skip{background:#eee;color:#555}.c.flag{background:#f8cbad;color:#7a3300}
 .ltr{direction:ltr;unicode-bidi:isolate}
 .spin{width:22px;height:22px;border:3px solid var(--soft);border-top-color:var(--brand);border-radius:50%;display:inline-block;vertical-align:middle;animation:s .8s linear infinite;margin-inline-end:8px}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -61,21 +61,23 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   </div>
   <div class="card hide" id="dl">
     <h3><span class="n">3</span>الملف بعد التعديل</h3>
-    <div class="r2">الخانات اللي اتصححت بالأصفر وعليها ملاحظة بالسبب، والسطور الجديدة بالأخضر، وشيت "تغييرات MBM" فيه كل حاجة.</div>
+    <div class="r2">التصحيحات بالأصفر، والإيجار والزيادات بالبرتقالي من غير ما تتغير (للمراجعة)، والسطور الجديدة بالأخضر. وفيه شيت "كشف المستحقات" وشيت "تغييرات MBM".</div>
     <button class="btn" id="save" style="margin-top:8px">حمّل ملف المطور بعد التعديل</button>
+    <button class="btn" id="saveRev" style="margin-top:8px;background:#fff;color:var(--ink,#333);border:1px solid #ccc">حمّل ملف مراجعة المستحقات</button>
     <div id="saveMsg"></div>
   </div>
 </main>
 <script src="../logic.js"></script>
 <script src="../followup.js"></script>
 <script src="leases.js"></script>
+<script src="book.js"></script>
 <script>
 (function () {
   'use strict';
   var L = window.OsoolLogic, F = window.OsoolFollow, P = window.OsoolPrep;
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var S = { settings: null, dev: null, devBuf: null, devName: '', data: null, res: null, view: 'fix' };
+  var S = { settings: null, dev: null, devBuf: null, devName: '', data: null, res: null, view: 'dues' };
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
   var OWNER = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'بداية العقد', 'نهاية العقد', 'قيمة الايجار', 'يسدد كل', 'التأمين', 'الدفع', 'تسويات'];
   var ENTRY = ['تاريخ', 'ايراد', 'مصروف', 'كود', 'فئة', 'شهر', 'بداية الايجار', 'نهاية الايجار'];
@@ -140,44 +142,9 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   var DATE_COLS = ['تاريخ الإنهاء', 'تاريخ التوقيع', 'بداية العقد', 'نهاية العقد', 'تاريخ أول دفعة', 'مسدد حتى'];
   function out(col, v) { if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.serialToDate(v); return v === '' ? null : v; }
   function shown(col, v) { if (v === null || v === undefined || v === '') return '—'; if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.fmt(L.serialToDate(v)); return typeof v === 'number' ? v.toLocaleString('en-US') : String(v); }
-  function buildFile() {
-    var d = S.dev, R = S.res, wb = d.wb, ws = wb.getWorksheet(SHEET), H = d.H;
-    var colOf = function (h) { return H.indexOf(h); };
-    R.changes.forEach(function (c) {
-      if (!c.col) return; var cell = ws.getRow(c.row).getCell(colOf(c.col));
-      cell.value = out(c.col, c.val); paint(cell, c.kind === 'note' ? BLUE : YELLOW, DATE_COLS.indexOf(c.col) !== -1);
-      cell.note = 'MBM: ' + c.why + '\nقبل: ' + shown(c.col, c.old);
-    });
-    var last = 2; ws.eachRow(function (row, i) { var v = row.getCell(1).value; if (v !== null && v !== undefined && String(cellVal(v)).trim()) last = i; });
-    R.newRows.forEach(function (n, k) {
-      var ri = last + 1 + k, row = ws.getRow(ri);
-      Object.keys(n.values).forEach(function (h) { var ci = colOf(h); if (ci < 1) return; var cell = row.getCell(ci); cell.value = out(h, n.values[h]); paint(cell, GREEN, DATE_COLS.indexOf(h) !== -1); });
-      var pc = colOf('قيمة الدفعة'); if (pc > 0) row.getCell(pc).value = { formula: 'IF(OR(L' + ri + '="",M' + ri + '=""),"",L' + ri + '*IFERROR(VLOOKUP(M' + ri + ',Lists!$G$2:$H$6,2,FALSE),1))' };
-      row.getCell(colOf('كود الوحدة')).note = 'MBM: ' + n.why;
-    });
-    var sk = wb.getWorksheet(SKIP);
-    if (sk && R.skipped.length) {
-      var sl = 2; sk.eachRow(function (row, i) { var v = row.getCell(1).value; if (v !== null && v !== undefined && String(cellVal(v)).trim()) sl = i; });
-      R.skipped.forEach(function (x, k) { var row = sk.getRow(sl + 1 + k); row.getCell(1).value = x.code; row.getCell(2).value = x.no || null; row.getCell(3).value = L.serialToDate(x.month); row.getCell(4).value = x.why; [1, 2, 3, 4].forEach(function (i) { paint(row.getCell(i), YELLOW, i === 3); }); });
-    }
-    // لو الملف ده خارج من ملف أصول تاني، نحتفظ بتغييراته ونزوّد عليها (من غير تكرار نفس الملف)
-    var old = wb.getWorksheet('تغييرات MBM'), keep = [], src0 = S.scopeName, dev1 = {};
-    R.devOnly.forEach(function (c) { dev1[c] = 1; });
-    if (old) {
-      old.eachRow(function (row, i) { if (i < 2) return; var v = []; for (var c = 1; c <= 8; c++) v.push(cellVal(row.getCell(c).value)); if (v[7] === src0) return; if (v[0] === 'مش عندنا' && !dev1[v[1]]) return; keep.push(v); });
-      wb.removeWorksheet(old.id);
-    }
-    var lg = wb.addWorksheet('تغييرات MBM', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] });
-    lg.columns = [{ header: 'النوع', width: 12 }, { header: 'كود الوحدة', width: 14 }, { header: 'رقم العقد', width: 14 }, { header: 'العمود', width: 26 }, { header: 'قبل', width: 22 }, { header: 'بعد', width: 22 }, { header: 'السبب', width: 70 }, { header: 'ملف أصول', width: 18 }];
-    var KIND = { fix: 'تصحيح', note: 'ملاحظة', review: 'محتاج قرار' }, src = S.scopeName;
-    R.changes.forEach(function (c) { lg.addRow([KIND[c.kind], c.code, c.no, c.col, c.col ? shown(c.col, c.old) : '', c.col ? shown(c.col, c.val) : '', c.why, src]); });
-    R.newRows.forEach(function (n) { lg.addRow(['سطر جديد', n.code, '', '', '', '', n.why, src]); });
-    R.skipped.forEach(function (x) { lg.addRow(['شهر ملغي', x.code, x.no, 'أشهر ملغاة', '', L.fmt(L.serialToDate(x.month)), x.why, src]); });
-    var had = {}; keep.forEach(function (v) { if (v[0] === 'مش عندنا') had[v[1]] = 1; lg.addRow(v); });
-    R.devOnly.forEach(function (c) { if (!had[c] && !keep.length) lg.addRow(['مش عندنا', c, '', '', '', '', 'الوحدة في ملف المطور ومش في شيت الملاك بتاع الملف ده', src]); });
-    lg.getRow(1).font = { bold: true }; lg.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5EEDC' } };
-    return wb.xlsx.writeBuffer();
-  }
+  // كل تحميل من نسخة نضيفة من ملف المطور، عشان الضغط مرتين ميكررش السطور
+  function buildFile() { return readDev(S.devBuf).then(function (d) { OsoolBook.applyDev(d.wb, S.res, S.scopeName); return d.wb.xlsx.writeBuffer(); }); }
+  function buildReview() { return OsoolBook.reviewBook(ExcelJS, [{ src: S.scopeName, R: S.res }]).xlsx.writeBuffer(); }
   function download(buf, name) {
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
@@ -192,8 +159,11 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   }
   function draw() {
     var R = S.res, c = R.counts, list;
-    var tabs = [['fix', 'تصحيحات', R.changes.filter(function (x) { return x.kind !== 'review'; }).length], ['review', 'محتاج قرار', c.review], ['new', 'سطور جديدة', R.newRows.length], ['skip', 'أشهر ملغاة', R.skipped.length], ['dev', 'عند المطور بس', R.devOnly.length]];
-    if (S.view === 'fix') list = R.changes.filter(function (x) { return x.kind !== 'review'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.col) + '<span class="c ' + x.kind + '">' + (x.kind === 'note' ? 'ملاحظة' : 'تصحيح') + '</span><div class="r2">' + esc(shown(x.col, x.old)) + ' ← <b>' + esc(shown(x.col, x.val)) + '</b> · ' + esc(x.why) + '</div></div>'; });
+    var bad = R.dues.filter(function (x) { return x.state !== 'مظبوط'; });
+    var tabs = [['dues', 'المستحقات', bad.length], ['flag', 'الإيجار للمراجعة', c.flagged], ['fix', 'تصحيحات', c.fixed], ['review', 'محتاج قرار', c.review], ['new', 'سطور جديدة', R.newRows.length], ['skip', 'أشهر ملغاة', R.skipped.length], ['dev', 'عند المطور بس', R.devOnly.length]];
+    if (S.view === 'dues') list = bad.sort(function (a, b) { return Math.abs(b.balance) - Math.abs(a.balance); }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.project) + '<span class="c ' + (x.balance > 0 ? 'review' : 'note') + '">' + esc(x.state) + '</span><div class="r2">مستحق ' + esc(shown('', x.due)) + ' · مدفوع ' + esc(shown('', x.paid)) + ' · الفرق <b>' + esc(shown('', x.balance)) + '</b>' + (x.first ? ' · من ' + esc(L.monthLabel(L.monthKey(L.serialToDate(x.first)))) : '') + '</div></div>'; });
+    else if (S.view === 'flag') list = R.changes.filter(function (x) { return x.kind === 'flag'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.col) + '<span class="c flag">مراجعة</span><div class="r2">المطور ' + esc(shown(x.col, x.old)) + ' · الشيت <b>' + esc(shown(x.col, x.val)) + '</b> · ' + esc(x.why) + '</div></div>'; });
+    else if (S.view === 'fix') list = R.changes.filter(function (x) { return x.kind === 'fix' || x.kind === 'note'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.col) + '<span class="c ' + x.kind + '">' + (x.kind === 'note' ? 'ملاحظة' : 'تصحيح') + '</span><div class="r2">' + esc(shown(x.col, x.old)) + ' ← <b>' + esc(shown(x.col, x.val)) + '</b> · ' + esc(x.why) + '</div></div>'; });
     else if (S.view === 'review') list = R.changes.filter(function (x) { return x.kind === 'review'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.no) + '<span class="c review">قرار</span><div class="r2">' + esc(x.why) + '</div></div>'; });
     else if (S.view === 'new') list = R.newRows.map(function (n) { var v = n.values; return '<div class="item"><b class="ltr">' + esc(n.code) + '</b> · ' + esc(v['المالك'] || '') + '<span class="c new">جديد</span><div class="r2">' + esc(shown('بداية العقد', v['بداية العقد'])) + ' ← ' + esc(shown('نهاية العقد', v['نهاية العقد'])) + ' · ' + esc(shown('', v['الإيجار الشهري (السنة الأولى)'])) + ' ج · ' + esc(n.why) + '</div></div>'; });
     else if (S.view === 'skip') list = R.skipped.map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(L.monthLabel(L.monthKey(L.serialToDate(x.month)))) + '<span class="c skip">ملغي</span><div class="r2">' + esc(x.no || 'عقد جديد') + '</div></div>'; });
@@ -202,6 +172,8 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       '<div class="box"><div class="v">' + R.scope + '</div><div class="k">وحدة في نطاق الملف</div></div>' +
       '<div class="box"><div class="v">' + c.matched + '</div><div class="k">عقد اتراجع</div></div>' +
       '<div class="box"><div class="v">' + c.fixed + '</div><div class="k">خانة اتصححت</div></div>' +
+      '<div class="box"><div class="v" style="color:#b45309">' + c.flagged + '</div><div class="k">إيجار للمراجعة</div></div>' +
+      '<div class="box"><div class="v" style="color:var(--err)">' + bad.length + '</div><div class="k">وحدة مستحقاتها فيها فرق</div></div>' +
       '<div class="box"><div class="v">' + R.newRows.length + '</div><div class="k">سطر جديد (منهم ' + c.renewals + ' تجديد)</div></div>' +
       '<div class="box"><div class="v" style="color:var(--err)">' + c.review + '</div><div class="k">محتاج قرار منك</div></div>' +
       '<div class="box"><div class="v">' + c.outSkipped + '</div><div class="k">OUT اتعدّت</div></div></div>' +
@@ -240,6 +212,15 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       var name = 'عقود الملاك للسيستم - ' + S.scopeName + ' - ' + p(t.getDate()) + '-' + p(t.getMonth() + 1) + '-' + t.getFullYear() + '.xlsx';
       download(buf, name); btn.disabled = false;
       $('saveMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. لو هتكمّل على ملف أصول تاني، ارفع الملف ده في الخطوة الأولى هناك.</div>';
+    }).catch(function (e) { btn.disabled = false; $('saveMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+  };
+  $('saveRev').onclick = function () {
+    var btn = this; btn.disabled = true; $('saveMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيجهز ملف المراجعة…</div>';
+    buildReview().then(function (buf) {
+      var t = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+      var name = 'مراجعة المستحقات - ' + S.scopeName + ' - ' + p(t.getDate()) + '-' + p(t.getMonth() + 1) + '-' + t.getFullYear() + '.xlsx';
+      download(buf, name); btn.disabled = false;
+      $('saveMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. ده ليك انت بس، مش للمطور.</div>';
     }).catch(function (e) { btn.disabled = false; $('saveMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   };
   function start() { S.settings = settings(); S.scopeName = scopeName(S.settings); $('scope').textContent = 'الملف ده: ' + S.scopeName; }

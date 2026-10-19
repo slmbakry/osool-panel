@@ -90,8 +90,10 @@
     // الكود بيتقارن من غير شَرطة أو مسافة: 60005-318 هي نفسها 60005318
     var ck = function (x) { return str(x).replace(/[\s\-_\/]/g, '').toUpperCase(); };
     dev.forEach(function (r) { var k = ck(r[C.code]); (byU[k] = byU[k] || []).push(r); });
-    var R = { changes: [], newRows: [], skipped: [], devOnly: [], counts: { matched: 0, fixed: 0, review: 0, renewals: 0, added: 0, outSkipped: 0 } };
+    var R = { changes: [], newRows: [], skipped: [], devOnly: [], counts: { matched: 0, fixed: 0, flagged: 0, review: 0, renewals: 0, added: 0, outSkipped: 0 } };
     var fix = function (r, col, oldV, newV, why, kind) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: col, old: oldV, val: newV, why: why, kind: kind || 'fix' }); };
+    // الإيجار والزيادات: منغيرش القيمة، بنعلّم الخانة ونكتب اقتراح الشيت جنبها للمراجعة
+    var flag = function (r, col, oldV, newV, why) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: col, old: oldV, val: newV, why: why, kind: 'flag' }); };
     var review = function (r, why) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: '', old: '', val: '', why: why, kind: 'review' }); };
 
     ours.forEach(function (u) {
@@ -106,7 +108,7 @@
         if (str(r[C.status]) === 'مسودة / Draft') return;
         R.counts.matched++;
         var isLast = ri === rows.length - 1, st = day(r[C.start]), en = day(r[C.end]);
-        rentFix(r, u, st, en, fix);
+        rentFix(r, u, st, en, flag);
         if (isLast) lastRow(r, u, st, en);
         addGaps(u, str(r[C.no]), st, isLast && u.end > en ? u.end : en);
       });
@@ -147,7 +149,9 @@
     var mine = {}; ours.forEach(function (u) { mine[u.code] = 1; });
     var all = {}; (o.owner.cols['كود'] || []).forEach(function (c) { all[ck(c)] = 1; });
     Object.keys(byU).forEach(function (k) { if (!all[k]) R.devOnly.push(str(byU[k][0][C.code])); });
-    R.counts.fixed = R.changes.filter(function (x) { return x.kind !== 'review'; }).length;
+    R.dues = duesAll(ours, byU, ck, o.treasury, today);
+    R.counts.flagged = R.changes.filter(function (x) { return x.kind === 'flag'; }).length;
+    R.counts.fixed = R.changes.filter(function (x) { return x.kind === 'fix' || x.kind === 'note'; }).length;
     R.counts.review = R.changes.filter(function (x) { return x.kind === 'review'; }).length;
     R.scope = ours.length;
     return R;
@@ -191,6 +195,80 @@
     }
   }
 
+  // ---------- كشف المستحقات ----------
+  // من أول آخر سنة في العقد (بالعد لورا من تاريخ النهاية)، وبشرط إنها تبدأ في 1/7/2026 أو قبله.
+  // المستحق من خانات الشهور، والمدفوع من الخزينة (سداد ايجار ناقص رد ايجار) حسب خانة الشهر.
+  var CUTOFF = L.dateToSerial(new Date(Date.UTC(2026, 6, 1)));
+  function treasuryByUnit(t) {
+    var c = t.cols, out = {}; if (!c['كود'] || !c['فئة']) return out;
+    for (var i = 0; i < c['فئة'].length; i++) {
+      var cat = str(c['فئة'][i]); if (cat !== 'سداد ايجار' && cat !== 'رد ايجار من مالك') continue;
+      var u = str(c['كود'][i]); if (!u) continue;
+      var g = out[u] || (out[u] = { m: {}, loose: 0, looseN: 0, list: [] });
+      var amt = cat === 'سداد ايجار' ? num(c['مصروف'][i]) : -num(c['ايراد'][i]);
+      var mv = num(c['شهر'] && c['شهر'][i]) || num(c['بداية الايجار'] && c['بداية الايجار'][i]);
+      if (mv) { var k = L.monthKey(L.serialToDate(mv)); g.m[k] = (g.m[k] || 0) + amt; } else { g.loose += amt; g.looseN++; g.list.push({ date: day(c['تاريخ'] && c['تاريخ'][i]), amt: amt }); }
+    }
+    return out;
+  }
+  function firstOf(s) { var d = L.serialToDate(s); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
+  function duesAll(ours, byU, ck, treasury, today) {
+    var T = treasuryByUnit(treasury || { cols: {} }), res = [], curM = firstOf(today);
+    ours.forEach(function (u) {
+      if (u.out) return;
+      var rows = (byU[ck(u.code)] || []).slice().sort(function (a, b) { return day(a[C.start]) - day(b[C.start]); });
+      var devEnd = rows.length ? day(rows[rows.length - 1][C.end]) : 0, E = u.end || devEnd; if (!E) return;
+      // أول آخر سنة: يوم بعد النهاية ناقص 12 شهر، ونرجع سنة سنة لحد ما تبقى في 1/7/2026 أو قبله
+      var S = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), -12));
+      while (S > CUTOFF) S = L.dateToSerial(L.addMonths(L.serialToDate(S), -12));
+      var g = T[u.code] || { m: {}, loose: 0, looseN: 0, list: [] };
+      // آخر الكشف: الشهر الحالي، أو شهر النهاية لو قبله، وبعدها أي شهر متدفع مقدم
+      var last = firstOf(Math.min(E, L.dateToSerial(curM)));
+      var lastSheet = null; for (var d0 = firstOf(E + 1); d0 <= curM; d0 = L.addMonths(d0, 1)) if (u.val(L.monthKey(d0))) lastSheet = d0;
+      if (lastSheet && lastSheet > last) last = lastSheet; // لسه بيتحسب بعد النهاية في الشيت
+      var paidMax = null; Object.keys(g.m).forEach(function (k) { var dk = F.keyToDate(k); if (dk > last && g.m[k] > 0 && (!paidMax || dk > paidMax)) paidMax = dk; });
+      var stop = paidMax || last, months = [], tDue = 0, tPaid = 0, under = 0, over = 0, ahead = 0, first = null, bal = 0;
+      for (var d = firstOf(S), i = 0; d <= stop; d = L.addMonths(d, 1), i++) {
+        var k = L.monthKey(d), future = d > last, due = u.val(k), paid = Math.round((g.m[k] || 0) * 100) / 100;
+        var no = ''; rows.forEach(function (r) { var a = day(r[C.start]), b = day(r[C.end]); if (a && L.dateToSerial(d) >= L.dateToSerial(firstOf(a)) && (!b || L.dateToSerial(d) <= b)) no = str(r[C.no]); });
+        if (!no && rows.length) no = str(rows[rows.length - 1][C.no]);
+        var inst = Math.floor(i / u.cycle) + 1, instDate = L.dateToSerial(L.addMonths(L.serialToDate(S), (inst - 1) * u.cycle));
+        var diff = future ? 0 : Math.round(due - paid), state;
+        if (future) { state = 'مقدم'; ahead += paid; }
+        else if (Math.abs(diff) <= 1) state = 'مظبوط';
+        else if (diff > 0) { state = 'ناقص'; under += diff; }
+        else { state = 'زايد'; over -= diff; }
+        if (!future) { tDue += due; tPaid += paid; bal += due - paid; }
+        if (!first && state !== 'مظبوط' && state !== 'مقدم') first = L.dateToSerial(d);
+        months.push({ key: k, month: L.dateToSerial(d), no: no, inst: inst, instDate: instDate, due: due, paid: paid, diff: diff, bal: Math.round(bal), state: state });
+      }
+      // سداد من غير شهر: يتوزع على أقدم شهور ناقصة من تاريخه، والباقي يفضل "من غير شهر"
+      var left = 0, spread = 0;
+      g.list.slice().sort(function (a, b) { return a.date - b.date; }).forEach(function (p) {
+        if (!p.date || p.date < S - 31 || p.amt <= 0) { if (p.date >= S - 31) left += p.amt; return; }
+        var rest = p.amt;
+        months.forEach(function (m) { if (rest <= 0 || m.state === 'مقدم') return; var need = m.due - m.paid; if (need <= 1) return; var t = Math.min(need, rest); m.paid += t; rest -= t; spread += t; m.loose = true; });
+        left += rest;
+      });
+      if (spread) { // نعيد الحساب بعد التوزيع
+        tPaid = 0; under = 0; over = 0; bal = 0; first = null;
+        months.forEach(function (m) {
+          if (m.state === 'مقدم') return;
+          m.diff = Math.round(m.due - m.paid); tPaid += m.paid; bal += m.due - m.paid; m.bal = Math.round(bal);
+          m.state = Math.abs(m.diff) <= 1 ? 'مظبوط' : m.diff > 0 ? 'ناقص' : 'زايد';
+          if (m.state === 'ناقص') under += m.diff; else if (m.state === 'زايد') over -= m.diff;
+          if (!first && m.state !== 'مظبوط') first = m.month;
+        });
+      }
+      g = { loose: left, looseN: left ? g.looseN : 0, spread: spread };
+      res.push({ code: u.code, project: u.project, owner: u.owner, title: u.unitTitle, no: rows.length ? str(rows[rows.length - 1][C.no]) : '', start: S, end: E, cycle: u.cycle,
+        months: months, due: Math.round(tDue), paid: Math.round(tPaid), balance: Math.round(tDue - tPaid), under: Math.round(under), over: Math.round(over), ahead: Math.round(ahead),
+        loose: Math.round(g.loose), looseN: g.looseN, spread: Math.round(g.spread), first: first, devPaid: rows.length ? day(rows[rows.length - 1][C.paid]) : 0, trPaid: u.paid,
+        state: Math.abs(tDue - tPaid) <= 1 && !under && !over ? 'مظبوط' : tDue - tPaid > 1 ? 'عليه ناقص' : tDue - tPaid < -1 ? 'مدفوع زيادة' : 'فيه فروق شهور' });
+    });
+    return res;
+  }
+
   // سطر جديد بنفس أعمدة المطور (من غير lease_id)
   function newRow(u, prev, st, en, today, why) {
     var v = {}, Y = yearsFor(u, st, en);
@@ -210,6 +288,6 @@
     return { code: u.code, values: v, why: why };
   }
 
-  var api = { reconcile: reconcile, ourContracts: ourContracts, COLS: C, YEARS: YEARS, CYCLE: CYCLE, INC: INC, ST: ST };
+  var api = { reconcile: reconcile, CUTOFF: CUTOFF, ourContracts: ourContracts, COLS: C, YEARS: YEARS, CYCLE: CYCLE, INC: INC, ST: ST };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.OsoolPrep = api;
 })(this);
