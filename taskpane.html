@@ -164,6 +164,8 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 .radio input,.chk input{width:auto}
 .chk{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
 .chks{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+.brand{white-space:nowrap;min-width:0}@media (max-width:460px){.brand .stat{display:none}}
+.trialpill{flex:none;border:1px solid rgba(226,196,124,.45);background:rgba(201,162,74,.12);color:#e2c47c;border-radius:20px;font-size:10.5px;padding:0 8px;line-height:18px;cursor:pointer;margin-inline-start:2px}.trialpill:hover{background:rgba(201,162,74,.25)}
 .trial{background:linear-gradient(135deg,#2a2218,#1f1a14);color:#efe6d2;border-radius:14px;padding:11px 13px;margin-bottom:10px;border:1px solid rgba(201,162,74,.45)}.trial .tt{font-weight:700;color:var(--gold);font-size:14px}.trial .tl{font-size:12.5px;line-height:1.7;margin-top:2px}.trial .tl b{color:#e2c47c}.trial .link{color:#e2c47c;margin-top:4px;font-size:12.5px}
 .cmrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #f0e9da}.cmrow:first-child{border-top:0}.cmrow .t{flex:1;min-width:0}.cmrow .t b{display:block;font-weight:600;font-size:13px}.cmrow .t i{display:block;font-style:normal;font-size:11.5px;color:var(--muted)}.cmrow .nums{display:flex;flex-direction:column;align-items:flex-end;direction:ltr;font-size:12px;line-height:1.5;white-space:nowrap}.cmrow .nums b{font-size:13.5px}.cmrow small{font-size:11px;font-weight:500}
 .depbar{display:flex;justify-content:space-between;align-items:center;width:100%;border:1px solid #eadfc4;background:#faf6ec;border-radius:10px;padding:8px 11px;margin-bottom:8px;cursor:pointer;text-align:right}.depbar b{color:var(--brand);font-weight:600}.depbar span{font-size:12px;color:var(--muted)}
@@ -248,7 +250,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 </defs></svg>
 <div class="top" id="top">
   <div class="brandrow">
-    <div class="brand"><span dir="ltr" class="mbm">MBM</span>لوحة أصول <span class="stat" id="stat">بيحمّل…</span></div>
+    <div class="brand"><span dir="ltr" class="mbm">MBM</span>لوحة أصول <span class="stat" id="stat">بيحمّل…</span><button class="trialpill" id="trialBtn" title="ادعم البانل">تجريبي</button></div>
     <button class="iconbtn" id="bigOpen" title="افتح في نافذة كبيرة" aria-label="افتح في نافذة كبيرة"><svg><use href="#i-big"/></svg></button>
     <button class="iconbtn" id="bigClose" title="اقفل النافذة" aria-label="اقفل النافذة"><svg><use href="#i-x"/></svg></button>
     <button class="iconbtn" id="hSearch" title="بحث" aria-label="بحث"><svg><use href="#i-search"/></svg></button>
@@ -523,6 +525,7 @@ function openBig(){
   }).catch(function(e){ btn.disabled = false; alert(e.message); });
 }
 $('bigOpen').addEventListener('click', openBig);
+$('trialBtn').addEventListener('click', function(){ if (window.OsoolHome) OsoolHome.trialSheet(); });
 $('bigClose').addEventListener('click', function(){ window.OsoolBig && window.OsoolBig.close(); });
 
 // ---------- الوحدة ----------

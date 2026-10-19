@@ -157,8 +157,7 @@
     var left = d > 2 ? 'فاضل <b>' + d + ' أيام</b>' : d === 2 ? 'فاضل <b>يومين</b>' : d === 1 ? '<b>بكرة آخر يوم</b>' : d === 0 ? '<b>النهارده آخر يوم</b>' : '';
     var line = d >= 0 ? left + ' على نهاية الفترة التجريبية المجانية (الخميس ' + L.fmt(end) + ').'
       : 'الفترة التجريبية <b>خلصت</b>، والبانل لسه شغال على حساب محمد لحد ما نتفق.';
-    return '<div class="trial"><div class="tt">نسخة تجريبية مجانية 🎁</div><div class="tl">' + line + '</div>' +
-      '<button class="link" id="hTrial">ادعم البانل</button></div>';
+    return '<div class="trial"><div class="tt">نسخة تجريبية مجانية 🎁</div><div class="tl">' + line + '</div></div>';
   }
   function trialSheet() {
     var pk = [
@@ -166,7 +165,7 @@
       ['🍳', 'فطار', 'للي عايز يقول شكرًا بجد'],
       ['🤲', 'دعوة بظهر الغيب', 'وهي أغلى واحدة فيهم']
     ];
-    App.openSheet('<h2>ادعم البانل</h2>' +
+    App.openSheet('<h2>ادعم البانل</h2>' + trialHtml() +
       '<div class="r2" style="margin:-4px 0 12px;line-height:1.8">البانل ده مش مجرد أداة. ده تعب شهور من الشغل والاجتهاد: في ملف الإكسيل، وفي ترتيب منطق شغلنا كله خطوة بخطوة لحد ما بقى بيشتغل لوحده. فلو فرق معاك، اختار طريقتك 😉</div>' +
       pk.map(function (x, i) {
         return '<div class="card trpk" data-tp="' + i + '" style="padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer">' +
@@ -201,7 +200,7 @@
       if (S.tab !== 'home') return;
       var D = compute(), r = role(), fl = favs();
       hero(D);
-      box.innerHTML = trialHtml() + (H.flash ? '<div class="msg ok">' + esc(H.flash) + '</div>' + (H.check || '') : '') + focus(D, r) +
+      box.innerHTML = (H.flash ? '<div class="msg ok">' + esc(H.flash) + '</div>' + (H.check || '') : '') + focus(D, r) +
         '<div class="lh">مفضلتي<button class="link" id="hEdit">' + (H.edit ? 'تمام' : 'ترتيب') + '</button></div>' +
         (fl.length ? '<div class="flist">' + fl.map(function (id, i) {
           var c = CARDS[id], n = c.n(D), nc = c.nc ? c.nc(D) : c.cls === 'r' && n ? 'r' : c.cls === 'g' ? 'g' : '';
@@ -227,7 +226,6 @@
       };
     });
     $('hEdit').onclick = function () { H.edit = !H.edit; render(); };
-    if ($('hTrial')) $('hTrial').onclick = trialSheet;
     $('hAdd').onclick = function () { addSheet(fl); };
     box.querySelectorAll('.kgrid button[data-k]').forEach(function (b) { b.onclick = function () { CARDS[b.dataset.k].go(); }; });
     if ($('hNewE')) $('hNewE').onclick = function () { SC().openEntry({}); };
@@ -280,7 +278,7 @@
   }
 
   window.OsoolHome = {
-    render: render, pickRole: pickRole,
+    render: render, pickRole: pickRole, trialSheet: trialSheet,
     roleName: function () { var r = role(); return r ? ROLES[r].name : 'مش محدد'; },
     flash: function (f, c) { H.flash = f; H.check = c; }
   };
