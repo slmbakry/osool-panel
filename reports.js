@@ -9,6 +9,13 @@
   function money(n) { n = Number(n) || 0; return n ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—'; }
   function d(v) { return v ? L.fmt(v) : ''; }
   function d2(v) { return v ? L.fmt(v).replace(/\/(\d{2})(\d{2})$/, '/$2') : ''; } // 05/10/26
+  // اسم الوحدة: P بارسل · B عمارة · U وحدة، والرموز خفيفة. الكل شمال ليمين عشان النص ميتلغبطش
+  function unitTag(u, w) {
+    var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
+    var parts = [['P', ok(u.block)], ['B', ok(u.building)], ['U', ok(u.apt)]].filter(function (x) { return x[1]; });
+    if (!parts.length) return '';
+    return '<span class="el ut" dir="ltr" style="--w:' + (w || 150) + 'px">' + parts.map(function (x) { return '<i>' + x[0] + '</i>' + esc(x[1]); }).join(' ') + '</span>';
+  }
   function el(t, w) { return '<span class="el" style="--w:' + w + 'px">' + esc(t) + '</span>'; }
   function nowText() {
     var n = new Date();
@@ -40,6 +47,7 @@
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
     '.rp .foot{display:flex;justify-content:space-between;color:#8a918d;font-size:10px;margin-top:10px;border-top:1px solid #e4e2db;padding-top:6px}' +
     '.rp .muted{color:#8a918d}' +
+    '.rp .ut{text-align:left;unicode-bidi:isolate}.rp .ut i{font-style:normal;font-size:.78em;color:#c3b9a6;font-weight:400;margin:0 2px 0 5px}.rp .ut i:first-child{margin-left:0}.rp .pj{color:#6b736f;font-size:.92em}' +
     /* مضغوط: صفوف أكتر في الصفحة ومقروءة */
     '.rp{font-size:10.5px;line-height:1.25;padding:14px 16px 30px}' +
     '.rp .band{padding:7px 12px;margin-bottom:7px;border-radius:8px}.rp .band h1{font-size:16px}.rp .band .sub{font-size:11px;margin-top:0}.rp .brand{font-size:11px;padding:2px 8px}' +
@@ -89,9 +97,8 @@
       else if (+c.end === +today) st = '<span class="chip today">' + d2(c.end) + '</span>';
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
       else st = d2(c.end);
-      var unit = [u.block, u.building, u.apt].filter(function (v) { return v && v !== '0'; }).join(' · ');
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + el(u.info && u.info !== '0' ? u.info : '', 80) + '</td>' +
-        '<td>' + el(unit, 130) + '</td><td>' + st + '</td>' +
+        '<td>' + unitTag(u, 130) + '</td><td>' + st + '</td>' +
         '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + (n ? d2(n.start) : '') + '</td><td class="n">' + (n ? d2(n.end) : '') + '</td><td>' + el(n ? n.name : '', 130) + '</td>' +
         '<td class="n">' + more + '</td><td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
@@ -140,10 +147,9 @@
     var mv = rows.map(function (i) {
       var u = ub[String(g('كود', i))] || {};
       var rev = String(g('مراجعة', i) || '');
-      var unit = [u.project, u.building, u.apt].filter(function (v) { return v && v !== '0'; }).join(' · ');
       var a = L.serialToDate(g('بداية الايجار', i)), b = L.serialToDate(g('نهاية الايجار', i));
       return '<tr><td class="n g">' + money(g('ايراد', i)) + '</td><td class="n r">' + money(g('مصروف', i)) + '</td><td class="n">' + el(g('رقم المستند', i), 60) + '</td>' +
-        '<td>' + el(unit, 140) + '</td><td>' + el(g('فئة', i), 110) + '</td><td>' + el(g('بيان', i), 210) + '</td>' +
+        '<td>' + (u.project ? '<span class="pj">' + esc(u.project) + '</span> ' : '') + unitTag(u, 110) + '</td><td>' + el(g('فئة', i), 110) + '</td><td>' + el(g('بيان', i), 210) + '</td>' +
         '<td class="n">' + (g('شهر', i) ? esc(L.monthKey(L.serialToDate(g('شهر', i)))) : '') + '</td><td class="n">' + (a || b ? '<span dir="rtl" style="unicode-bidi:isolate">' + d2(a) + ' ← ' + d2(b) + '</span>' : '') + '</td>' +
         '<td>' + (rev ? '<span class="chip soon">' + esc(rev) + '</span>' : '') + '</td><td>' + el(g('كاش', i), 95) + '</td></tr>';
     });
@@ -392,6 +398,6 @@
       tfoot: '<tfoot><tr><td></td><td>الإجمالي</td><td class="n">' + money(st.due) + '</td><td class="n">' + money(st.paid) + '</td><td class="n">' + money(bal) + '</td></tr></tfoot>' };
   }
 
-  window.OsoolReports = { BRAND: BRAND, statementReport: statementReport, availHtml: availHtml, dailyHtml: dailyHtml, paginate: paginate, toPdf: toPdf, printHtml: printHtml,
+  window.OsoolReports = { BRAND: BRAND, unitTag: unitTag, statementReport: statementReport, availHtml: availHtml, dailyHtml: dailyHtml, paginate: paginate, toPdf: toPdf, printHtml: printHtml,
     tableReport: tableReport, openPrint: openPrint, printDoc: printDoc, xlsxBlob: xlsxBlob, downloadXlsx: downloadXlsx, waUrl: waUrl };
 })();
