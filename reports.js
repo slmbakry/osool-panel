@@ -47,6 +47,7 @@
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
     '.rp .foot{display:flex;justify-content:space-between;color:#8a918d;font-size:10px;margin-top:10px;border-top:1px solid #e4e2db;padding-top:6px}' +
     '.rp .muted{color:#8a918d}' +
+    '.rp td.mx,.rp th.mx{color:#c3b9a6!important;font-size:.85em;font-weight:400}' +
     '.rp .ut{text-align:left;unicode-bidi:isolate}.rp .ut i{font-style:normal;font-size:.78em;color:#c3b9a6;font-weight:400;margin:0 2px 0 5px}.rp .ut i:first-child{margin-left:0}.rp .pj{color:#6b736f;font-size:.92em}' +
     /* مضغوط: صفوف أكتر في الصفحة ومقروءة */
     '.rp{font-size:10.5px;line-height:1.25;padding:14px 16px 30px}' +
@@ -70,7 +71,7 @@
   // ---------- المتاح ----------
   function maxText(today, end) {
     if (!end) return '';
-    if (end <= today) return 'منتهي';
+    if (end <= today) return '';
     var md = L.monthsAndDays(today, end), y = Math.floor(md.months / 12), m = md.months % 12;
     return ((y ? y + 'Y ' : '') + (m ? m + 'M' : '')).trim() || '0M';
   }
@@ -98,9 +99,9 @@
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
       else st = d2(c.end);
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + el(u.info && u.info !== '0' ? u.info : '', 80) + '</td>' +
-        '<td>' + unitTag(u, 130) + '</td><td>' + st + '</td>' +
+        '<td>' + unitTag(u, 175) + '</td><td>' + st + '</td>' +
         '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + (n ? d2(n.start) : '') + '</td><td class="n">' + (n ? d2(n.end) : '') + '</td><td>' + el(n ? n.name : '', 130) + '</td>' +
-        '<td class="n">' + more + '</td><td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
+        '<td class="n">' + more + '</td><td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n mx">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;
     var sub = DAYS[today.getUTCDay()] + ' ' + L.fmt(today) + (filterText ? ' · ' + filterText : '');
@@ -111,7 +112,7 @@
       '<div class="kpi"><div class="v">' + checkOut + '</div><div class="k">Check Out النهارده</div></div>' +
       '<div class="kpi"><div class="v">' + list.length + '</div><div class="k">إجمالي الوحدات</div></div></div></div>' +
       '<div style="flex:0 0 330px"><table><thead><tr><th>Location</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">Total</th></tr></thead><tbody>' + matrix + '</tbody></table></div></div>' +
-      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n">Max.</th></tr></thead>', rows: rows, tfoot: '' };
+      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n mx">Max.</th></tr></thead>', rows: rows, tfoot: '' };
   }
 
   // ---------- طباعة اليومية ----------
