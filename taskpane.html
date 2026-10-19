@@ -400,9 +400,19 @@ function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); showTab('coll'); }
     taps++; clearTimeout(tm); tm = setTimeout(function(){ taps = 0; }, 2500);
     if (taps < 5) return; taps = 0;
     if (cmpOn()) { showTab('cmp'); return; }
-    var c = window.prompt('الكود');
-    if (c === null) return;
-    if (String(c).trim() === '0000') { lsSet(CMP_KEY,'1'); cmpSync(); showTab('cmp'); }
+    // window.prompt مبيشتغلش جوه إضافات الأوفيس، فالكود بيتكتب في شاشة جوه البانل
+    $('sheet').innerHTML = '<h2>الجزء المخفي</h2><div class="r2" style="margin:-4px 0 10px">اكتب الكود</div>' +
+      '<input id="cmpCode" type="password" inputmode="numeric" autocomplete="off" style="width:100%;font-size:20px;text-align:center;letter-spacing:8px;padding:10px;border:1px solid var(--line,#ddd);border-radius:10px">' +
+      '<div id="cmpMsg" class="r2" style="min-height:20px;margin:6px 0;text-align:center;color:#a33"></div>' +
+      '<button class="btn primary" id="cmpGo" style="width:100%">فتح</button>';
+    $('ov').classList.add('on');
+    var inp = $('cmpCode'); setTimeout(function(){ inp.focus(); }, 50);
+    function go(){
+      if (String(inp.value).trim() === '0000') { lsSet(CMP_KEY,'1'); cmpSync(); $('ov').classList.remove('on'); showTab('cmp'); }
+      else { $('cmpMsg').textContent = 'الكود مش صح'; inp.value = ''; inp.focus(); }
+    }
+    $('cmpGo').onclick = go;
+    inp.onkeydown = function(ev){ if (ev.key === 'Enter') go(); };
   });
 })();
 cmpSync();
