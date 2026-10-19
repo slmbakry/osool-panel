@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MBM · تجهيز الداتا</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1f2623;--muted:#6b736f;--line:#e4e2db;--gold:#c9a24a;--night:#1f1a14;--brand:#8c6b25;--soft:#f5eedc;--ok:#1f7a45;--okbg:#e6f4ea;--err:#a3261b;--errbg:#fdecea;--warn:#9a5b00;--warnbg:#fff4e0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 "IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.top{background:var(--night);color:#efe6d2;padding:12px 14px}
+.brand{font-weight:600;color:var(--gold);display:flex;gap:6px;align-items:center}
+.mbm{background:var(--gold);color:var(--night);border-radius:5px;padding:0 6px;font-weight:700}
+.sub{font-size:12.5px;color:#a99d84;margin-top:2px}
+main{padding:12px;max-width:900px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.card h3{margin:0 0 8px;font-size:14px;display:flex;gap:8px;align-items:center}
+.n{background:var(--soft);color:var(--brand);border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:12px;font-weight:700}
+.btn{border:0;border-radius:9px;padding:10px 14px;font-weight:600;cursor:pointer;background:var(--brand);color:#fff;width:100%}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:var(--bg);color:var(--ink)}
+.r2{font-size:12.5px;color:var(--muted)}
+.msg{border-radius:8px;padding:8px 10px;font-size:13px;margin-top:8px}
+.msg.err{background:var(--errbg);color:var(--err)}.msg.ok{background:var(--okbg);color:var(--ok)}.msg.warn{background:var(--warnbg);color:var(--warn)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0}
+.box{background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 10px}.box .v{font-size:19px;font-weight:700}.box .k{font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.tab{border:1px solid var(--line);background:#fff;border-radius:16px;padding:3px 11px;font-size:12.5px;cursor:pointer}
+.tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.item{border-top:1px solid #f0e9da;padding:7px 0;font-size:13px}.item:first-child{border-top:0}
+.item b{font-weight:600}.item .c{display:inline-block;font-size:11px;border-radius:6px;padding:0 6px;margin-inline-start:6px}
+.c.fix{background:#fff2cc;color:#7a5c00}.c.review{background:var(--errbg);color:var(--err)}.c.note{background:#e8eefc;color:#2b4a8a}.c.new{background:var(--okbg);color:var(--ok)}.c.skip{background:#eee;color:#555}
+.ltr{direction:ltr;unicode-bidi:isolate}
+.spin{width:22px;height:22px;border:3px solid var(--soft);border-top-color:var(--brand);border-radius:50%;display:inline-block;vertical-align:middle;animation:s .8s linear infinite;margin-inline-end:8px}
+@keyframes s{to{transform:rotate(360deg)}}
+.hide{display:none!important}
+input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;padding:14px;background:#fffdf8;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><span class="mbm" dir="ltr">MBM</span>تجهيز الداتا للسيستم الجديد</div>
+  <div class="sub" id="scope">بيقرا الملف…</div>
+</div>
+<main>
+  <div class="card">
+    <h3><span class="n">1</span>ملف المطور: عقود الملاك</h3>
+    <div class="r2" style="margin-bottom:8px">ارفع ملف المطور. ولو ده مش أول ملف أصول، ارفع الملف اللي طلع من المرة اللي فاتت عشان نكمّل عليه.</div>
+    <input type="file" id="dev" accept=".xlsx">
+    <div id="devMsg"></div>
+  </div>
+  <div class="card">
+    <h3><span class="n">2</span>المراجعة</h3>
+    <div class="r2">بيقرا شيت الملاك والخزينة من الملف المفتوح ويقارنهم بملف المطور. مفيش أي حاجة بتتكتب في ملف أصول.</div>
+    <button class="btn" id="run" style="margin-top:8px" disabled>حلّل</button>
+    <div id="out"></div>
+  </div>
+  <div class="card hide" id="dl">
+    <h3><span class="n">3</span>الملف بعد التعديل</h3>
+    <div class="r2">الخانات اللي اتصححت بالأصفر وعليها ملاحظة بالسبب، والسطور الجديدة بالأخضر، وشيت "تغييرات MBM" فيه كل حاجة.</div>
+    <button class="btn" id="save" style="margin-top:8px">حمّل ملف المطور بعد التعديل</button>
+    <div id="saveMsg"></div>
+  </div>
+</main>
+<script src="../logic.js"></script>
+<script src="../followup.js"></script>
+<script src="leases.js"></script>
+<script>
+(function () {
+  'use strict';
+  var L = window.OsoolLogic, F = window.OsoolFollow, P = window.OsoolPrep;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var S = { settings: null, dev: null, devBuf: null, devName: '', data: null, res: null, view: 'fix' };
+  var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
+  var OWNER = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'بداية العقد', 'نهاية العقد', 'قيمة الايجار', 'يسدد كل', 'التأمين', 'الدفع', 'تسويات'];
+  var ENTRY = ['تاريخ', 'ايراد', 'مصروف', 'كود', 'فئة', 'شهر', 'بداية الايجار', 'نهاية الايجار'];
+
+  // ---------- قراية ملف أصول (على دفعات صغيرة عشان المتصفح مايتقلش) ----------
+  function readCols(ctx, t, H, names, say) {
+    var list = names.map(function (h) { return [h, H.indexOf(h)]; }).filter(function (x) { return x[1] !== -1; });
+    var out = {}, p = Promise.resolve(), done = 0;
+    for (var s = 0; s < list.length; s += 3) (function (batch) {
+      p = p.then(function () { return new Promise(function (ok) { setTimeout(ok, 40); }); }).then(function () {
+        var rs = batch.map(function (x) { return t.columns.getItemAt(x[1]).getDataBodyRange().load('values'); });
+        return ctx.sync().then(function () { batch.forEach(function (x, j) { out[x[0]] = rs[j].values.map(function (r) { return r[0]; }); }); done += batch.length; if (say) say(done, list.length); });
+      });
+    })(list.slice(s, s + 3));
+    return p.then(function () { return out; });
+  }
+  function head(ctx, name) { var t = ctx.workbook.tables.getItem(name); var h = t.getHeaderRowRange().load('values'); return ctx.sync().then(function () { return { t: t, H: h.values[0].map(function (x) { return String(x == null ? '' : x).trim(); }) }; }); }
+  function readBook(say) {
+    if (window.PrepMock) return window.PrepMock();
+    return Excel.run(function (ctx) {
+      var res = {};
+      return head(ctx, 'owner').then(function (O) {
+        return readCols(ctx, O.t, O.H, OWNER, function (a, b) { say('شيت الملاك: ' + a + '/' + b); }).then(function (c) {
+          res.owner = { cols: c };
+          return readCols(ctx, O.t, O.H, O.H.filter(function (h) { return MONTH_RE.test(h); }), function (a, b) { say('شهور الملاك: ' + a + '/' + b); });
+        }).then(function (m) { res.owner.months = m; });
+      }).then(function () { return head(ctx, 'entry'); }).then(function (E) {
+        return readCols(ctx, E.t, E.H, ENTRY, function (a, b) { say('الخزينة: ' + a + '/' + b); });
+      }).then(function (t) { res.treasury = { cols: t }; return res; });
+    });
+  }
+  function settings() {
+    if (window.PrepMock) return window.__settings || F.DEFAULT_SETTINGS;
+    try { var s = Office.context.document.settings.get('osoolPanel.scope'); return s ? JSON.parse(s) : F.DEFAULT_SETTINGS; } catch (e) { return F.DEFAULT_SETTINGS; }
+  }
+
+  // ---------- ExcelJS ----------
+  function loadExcelJS() {
+    if (window.ExcelJS) return Promise.resolve();
+    return new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = '../vendor/exceljs.min.js'; sc.onload = ok; sc.onerror = function () { no(new Error('مكتبة الإكسيل متحملتش.')); }; document.head.appendChild(sc); });
+  }
+  var SHEET = 'العقود Contracts', SKIP = 'أشهر ملغاة Skipped months';
+  function cellVal(v) { if (v && typeof v === 'object') { if (v.formula !== undefined || v.sharedFormula !== undefined) return v.result; if (v instanceof Date) return L.dateToSerial(v); if (v.richText) return v.richText.map(function (x) { return x.text; }).join(''); } return v; }
+  function readDev(buf) {
+    return loadExcelJS().then(function () {
+      var wb = new ExcelJS.Workbook();
+      return wb.xlsx.load(buf).then(function () {
+        var ws = wb.getWorksheet(SHEET); if (!ws) throw new Error('ده مش ملف عقود الملاك بتاع المطور (مفيش شيت "' + SHEET + '").');
+        var H = ws.getRow(1).values, rows = [];
+        ws.eachRow(function (row, i) {
+          if (i < 3) return; var o = { _row: i }, any = false;
+          H.forEach(function (h, c) { if (!h) return; var v = cellVal(row.getCell(c).value); if (v !== null && v !== undefined && v !== '') any = true; o[h] = v; });
+          if (any && o['كود الوحدة'] !== undefined && o['كود الوحدة'] !== null && String(o['كود الوحدة']).trim()) rows.push(o);
+        });
+        return { wb: wb, rows: rows, H: H };
+      });
+    });
+  }
+  var YELLOW = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE699' } }, GREEN = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F4EA' } }, BLUE = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEFC' } };
+  // كل خانة لازم ياخد ستايل لوحده، لأن ExcelJS بيشارك الستايل بين الخانات
+  function paint(cell, fill, date) { var st = JSON.parse(JSON.stringify(cell.style || {})); st.fill = JSON.parse(JSON.stringify(fill)); if (date) st.numFmt = 'dd/mm/yyyy'; cell.style = st; }
+  var DATE_COLS = ['تاريخ الإنهاء', 'تاريخ التوقيع', 'بداية العقد', 'نهاية العقد', 'تاريخ أول دفعة', 'مسدد حتى'];
+  function out(col, v) { if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.serialToDate(v); return v === '' ? null : v; }
+  function shown(col, v) { if (v === null || v === undefined || v === '') return '—'; if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.fmt(L.serialToDate(v)); return typeof v === 'number' ? v.toLocaleString('en-US') : String(v); }
+  function buildFile() {
+    var d = S.dev, R = S.res, wb = d.wb, ws = wb.getWorksheet(SHEET), H = d.H;
+    var colOf = function (h) { return H.indexOf(h); };
+    R.changes.forEach(function (c) {
+      if (!c.col) return; var cell = ws.getRow(c.row).getCell(colOf(c.col));
+      cell.value = out(c.col, c.val); paint(cell, c.kind === 'note' ? BLUE : YELLOW, DATE_COLS.indexOf(c.col) !== -1);
+      cell.note = 'MBM: ' + c.why + '\nقبل: ' + shown(c.col, c.old);
+    });
+    var last = 2; ws.eachRow(function (row, i) { var v = row.getCell(1).value; if (v !== null && v !== undefined && String(cellVal(v)).trim()) last = i; });
+    R.newRows.forEach(function (n, k) {
+      var ri = last + 1 + k, row = ws.getRow(ri);
+      Object.keys(n.values).forEach(function (h) { var ci = colOf(h); if (ci < 1) return; var cell = row.getCell(ci); cell.value = out(h, n.values[h]); paint(cell, GREEN, DATE_COLS.indexOf(h) !== -1); });
+      var pc = colOf('قيمة الدفعة'); if (pc > 0) row.getCell(pc).value = { formula: 'IF(OR(L' + ri + '="",M' + ri + '=""),"",L' + ri + '*IFERROR(VLOOKUP(M' + ri + ',Lists!$G$2:$H$6,2,FALSE),1))' };
+      row.getCell(colOf('كود الوحدة')).note = 'MBM: ' + n.why;
+    });
+    var sk = wb.getWorksheet(SKIP);
+    if (sk && R.skipped.length) {
+      var sl = 2; sk.eachRow(function (row, i) { var v = row.getCell(1).value; if (v !== null && v !== undefined && String(cellVal(v)).trim()) sl = i; });
+      R.skipped.forEach(function (x, k) { var row = sk.getRow(sl + 1 + k); row.getCell(1).value = x.code; row.getCell(2).value = x.no || null; row.getCell(3).value = L.serialToDate(x.month); row.getCell(4).value = x.why; [1, 2, 3, 4].forEach(function (i) { paint(row.getCell(i), YELLOW, i === 3); }); });
+    }
+    var old = wb.getWorksheet('تغييرات MBM'); if (old) wb.removeWorksheet(old.id);
+    var lg = wb.addWorksheet('تغييرات MBM', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] });
+    lg.columns = [{ header: 'النوع', width: 12 }, { header: 'كود الوحدة', width: 14 }, { header: 'رقم العقد', width: 14 }, { header: 'العمود', width: 26 }, { header: 'قبل', width: 22 }, { header: 'بعد', width: 22 }, { header: 'السبب', width: 70 }, { header: 'ملف أصول', width: 18 }];
+    var KIND = { fix: 'تصحيح', note: 'ملاحظة', review: 'محتاج قرار' }, src = S.scopeName;
+    R.changes.forEach(function (c) { lg.addRow([KIND[c.kind], c.code, c.no, c.col, c.col ? shown(c.col, c.old) : '', c.col ? shown(c.col, c.val) : '', c.why, src]); });
+    R.newRows.forEach(function (n) { lg.addRow(['سطر جديد', n.code, '', '', '', '', n.why, src]); });
+    R.skipped.forEach(function (x) { lg.addRow(['شهر ملغي', x.code, x.no, 'أشهر ملغاة', '', L.fmt(L.serialToDate(x.month)), x.why, src]); });
+    R.devOnly.forEach(function (c) { lg.addRow(['مش عندنا', c, '', '', '', '', 'الوحدة في ملف المطور ومش في شيت الملاك بتاع الملف ده', src]); });
+    lg.getRow(1).font = { bold: true }; lg.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5EEDC' } };
+    return wb.xlsx.writeBuffer();
+  }
+  function download(buf, name) {
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 3000); window.__lastBuf = buf; window.__lastName = name;
+  }
+
+  // ---------- الشاشة ----------
+  var GRP = { Mivida: 'ميفيدا', Village: 'فيلدج', Porto: 'بورتو', 'الخارج': 'الخارج' };
+  function scopeName(st) {
+    var p = st.projects || []; if (st.mode === 'only') return p.map(function (x) { return GRP[x] || x; }).join(' و');
+    return p.length ? 'كل المشاريع ما عدا ' + p.join('، ') : 'كل المشاريع';
+  }
+  function draw() {
+    var R = S.res, c = R.counts, list;
+    var tabs = [['fix', 'تصحيحات', R.changes.filter(function (x) { return x.kind !== 'review'; }).length], ['review', 'محتاج قرار', c.review], ['new', 'سطور جديدة', R.newRows.length], ['skip', 'أشهر ملغاة', R.skipped.length], ['dev', 'عند المطور بس', R.devOnly.length]];
+    if (S.view === 'fix') list = R.changes.filter(function (x) { return x.kind !== 'review'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.col) + '<span class="c ' + x.kind + '">' + (x.kind === 'note' ? 'ملاحظة' : 'تصحيح') + '</span><div class="r2">' + esc(shown(x.col, x.old)) + ' ← <b>' + esc(shown(x.col, x.val)) + '</b> · ' + esc(x.why) + '</div></div>'; });
+    else if (S.view === 'review') list = R.changes.filter(function (x) { return x.kind === 'review'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.no) + '<span class="c review">قرار</span><div class="r2">' + esc(x.why) + '</div></div>'; });
+    else if (S.view === 'new') list = R.newRows.map(function (n) { var v = n.values; return '<div class="item"><b class="ltr">' + esc(n.code) + '</b> · ' + esc(v['المالك'] || '') + '<span class="c new">جديد</span><div class="r2">' + esc(shown('بداية العقد', v['بداية العقد'])) + ' ← ' + esc(shown('نهاية العقد', v['نهاية العقد'])) + ' · ' + esc(shown('', v['الإيجار الشهري (السنة الأولى)'])) + ' ج · ' + esc(n.why) + '</div></div>'; });
+    else if (S.view === 'skip') list = R.skipped.map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(L.monthLabel(L.monthKey(L.serialToDate(x.month)))) + '<span class="c skip">ملغي</span><div class="r2">' + esc(x.no || 'عقد جديد') + '</div></div>'; });
+    else list = R.devOnly.map(function (x) { return '<div class="item"><b class="ltr">' + esc(x) + '</b><div class="r2">في ملف المطور ومش في شيت الملاك هنا، بنسيبه زي ما هو.</div></div>'; });
+    $('out').innerHTML = '<div class="sum">' +
+      '<div class="box"><div class="v">' + R.scope + '</div><div class="k">وحدة في نطاق الملف</div></div>' +
+      '<div class="box"><div class="v">' + c.matched + '</div><div class="k">عقد اتراجع</div></div>' +
+      '<div class="box"><div class="v">' + c.fixed + '</div><div class="k">خانة اتصححت</div></div>' +
+      '<div class="box"><div class="v">' + R.newRows.length + '</div><div class="k">سطر جديد (منهم ' + c.renewals + ' تجديد)</div></div>' +
+      '<div class="box"><div class="v" style="color:var(--err)">' + c.review + '</div><div class="k">محتاج قرار منك</div></div>' +
+      '<div class="box"><div class="v">' + c.outSkipped + '</div><div class="k">OUT اتعدّت</div></div></div>' +
+      '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (S.view === t[0] ? ' on' : '') + '" data-v="' + t[0] + '">' + t[1] + ' (' + t[2] + ')</button>'; }).join('') + '</div>' +
+      '<div class="card" style="max-height:60vh;overflow:auto;padding:4px 10px">' + (list.length ? list.slice(0, 400).join('') + (list.length > 400 ? '<div class="r2">ظاهر ٤٠٠ من ' + list.length + '، والكل في شيت التغييرات.</div>' : '') : '<div class="r2" style="padding:8px 0">مفيش.</div>') + '</div>';
+    document.querySelectorAll('.tab').forEach(function (b) { b.onclick = function () { S.view = b.dataset.v; draw(); }; });
+    $('dl').classList.remove('hide');
+  }
+  $('dev').onchange = function () {
+    var f = this.files[0]; if (!f) return; S.devName = f.name;
+    $('devMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيقرا ملف المطور…</div>';
+    f.arrayBuffer().then(function (buf) { S.devBuf = buf; return readDev(buf); }).then(function (d) {
+      S.dev = d; $('run').disabled = false;
+      $('devMsg').innerHTML = '<div class="msg ok">' + d.rows.length + ' عقد في ملف المطور.</div>';
+    }).catch(function (e) { $('devMsg').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>'; });
+  };
+  $('run').onclick = function () {
+    var btn = this; btn.disabled = true;
+    var say = function (t) { $('out').innerHTML = '<div class="msg"><span class="spin"></span>' + esc(t) + '</div>'; };
+    say('بيقرا ملف أصول…');
+    (S.data ? Promise.resolve(S.data) : readBook(say)).then(function (data) {
+      S.data = data; say('بيقارن…');
+      var cc = data.owner.cols, us = []; for (var i = 0; i < cc['كود'].length; i++) us.push({ project: cc['المشروع'] ? cc['المشروع'][i] : '', settle: cc['تسويات'] ? cc['تسويات'][i] : '' });
+      var gs = F.groupsIn(us.filter(function (u) { return u.project && F.inScope(u, S.settings); }));
+      if (gs.length && gs.length < F.GROUPS.length) { S.scopeName = gs.map(function (g) { return GRP[g] || g; }).join(' و'); $('scope').textContent = 'الملف ده: ' + S.scopeName; }
+      return readDev(S.devBuf).then(function (d) { S.dev = d; }); // نسخة نضيفة كل مرة
+    }).then(function () {
+      S.res = P.reconcile({ devRows: S.dev.rows, owner: S.data.owner, treasury: S.data.treasury, settings: S.settings });
+      btn.disabled = false; btn.textContent = 'حلّل تاني'; draw();
+    }).catch(function (e) { btn.disabled = false; $('out').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+  };
+  $('save').onclick = function () {
+    var btn = this; btn.disabled = true; $('saveMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيجهز الملف…</div>';
+    buildFile().then(function (buf) {
+      var t = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+      var name = 'عقود الملاك للسيستم - ' + S.scopeName + ' - ' + p(t.getDate()) + '-' + p(t.getMonth() + 1) + '-' + t.getFullYear() + '.xlsx';
+      download(buf, name); btn.disabled = false;
+      $('saveMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. لو هتكمّل على ملف أصول تاني، ارفع الملف ده في الخطوة الأولى هناك.</div>';
+    }).catch(function (e) { btn.disabled = false; $('saveMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+  };
+  function start() { S.settings = settings(); S.scopeName = scopeName(S.settings); $('scope').textContent = 'الملف ده: ' + S.scopeName; }
+  if (window.Office && Office.onReady && !window.PrepMock) Office.onReady(start); else start();
+})();
+</script>
+</body>
+</html>
