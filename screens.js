@@ -46,7 +46,7 @@
 
   function ensureSettings() {
     if (S.settingsLoaded) return Promise.resolve();
-    return A.getSettings().then(function (s) { S.settings = s; S.settingsLoaded = true; });
+    return A.getSettings().then(function (s) { S.settings = s; S.settingsLoaded = true; if (A.ensureAutoOpen) A.ensureAutoOpen(s); });
   }
   function ensureTreasury() {
     if (S.ledger) return Promise.resolve();
@@ -69,23 +69,30 @@
     App.openSheet('<h2>نطاق الملف ده</h2><p class="r2">المتابعة هتحسب الوحدات اللي جوه النطاق بس. الإعداد بيتحفظ جوه الملف، فكل الفريق هيشوف نفس النطاق.</p>' +
       '<label class="radio"><input type="radio" name="mode" value="exclude"' + (cur.mode !== 'only' ? ' checked' : '') + '> كل المشاريع ما عدا اللي هتختارها</label>' +
       '<label class="radio"><input type="radio" name="mode" value="only"' + (cur.mode === 'only' ? ' checked' : '') + '> المشاريع اللي هتختارها بس</label>' +
-      '<div class="chks">' + projects.map(function (p) {
+      '<div style="display:flex;gap:12px;margin:6px 0 6px"><button class="link" id="setAll">اختار الكل</button><button class="link" id="setNone">شيل الكل</button><span class="r2" id="setCnt" style="margin-inline-start:auto"></span></div>' +
+      '<div class="tgs" id="setPj">' + projects.map(function (p) {
         var on = cur.projects.some(function (x) { return x.trim().toLowerCase() === p.toLowerCase(); });
-        return '<label class="chk"><input type="checkbox" value="' + esc(p) + '"' + (on ? ' checked' : '') + '> ' + esc(p) + '</label>';
+        return '<button type="button" class="tg' + (on ? ' on' : '') + '" data-pj="' + esc(p) + '">' + esc(p) + '</button>';
       }).join('') + '</div>' +
       '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
-      '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
+      '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen !== false ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
       '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>' +
       '<button class="btn ghost" id="setRole" style="width:100%;margin-top:10px">دور الجهاز ده: ' + esc(window.OsoolHome ? OsoolHome.roleName() : '') + '</button>' +
       '<button class="btn ghost" id="setReview" style="width:100%;margin-top:8px">المراجعة</button>' +
       '<button class="btn ghost" id="setRows" style="width:100%;margin-top:8px">إضافة سطور فاضية للجداول</button>');
+    var pjs = function () { return Array.prototype.slice.call(document.querySelectorAll('#setPj .tg')); };
+    var cnt = function () { $('setCnt').textContent = 'مختار ' + pjs().filter(function (b) { return b.classList.contains('on'); }).length + ' من ' + projects.length; };
+    pjs().forEach(function (b) { b.onclick = function () { b.classList.toggle('on'); cnt(); }; });
+    $('setAll').onclick = function () { pjs().forEach(function (b) { b.classList.add('on'); }); cnt(); };
+    $('setNone').onclick = function () { pjs().forEach(function (b) { b.classList.remove('on'); }); cnt(); };
+    cnt();
     $('setBack').onclick = App.closeSheet;
     $('setRows').onclick = openAddRows;
     $('setRole').onclick = function () { if (window.OsoolHome) OsoolHome.pickRole(); };
     $('setReview').onclick = function () { App.closeSheet(); App.showTab('review'); };
     $('setSave').onclick = function () {
       var mode = document.querySelector('input[name=mode]:checked').value;
-      var list = Array.prototype.slice.call(document.querySelectorAll('.chks input:checked')).map(function (i) { return i.value; });
+      var list = pjs().filter(function (b) { return b.classList.contains('on'); }).map(function (b) { return b.dataset.pj; });
       if (mode === 'only' && !list.length) { $('setMsg').innerHTML = '<div class="msg err">اختار مشروع واحد على الأقل.</div>'; return; }
       var obj = { mode: mode, projects: list, autoOpen: $('setAuto').checked };
       this.disabled = true;

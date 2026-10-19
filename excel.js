@@ -122,6 +122,17 @@
     });
   }
 
+  // البانل يفتح لوحده مع الملف افتراضيًا، إلا لو حد قفلها من الإعدادات
+  function ensureAutoOpen(settings) {
+    try {
+      if (settings && settings.autoOpen === false) return;
+      var st = Office.context.document.settings;
+      if (st.get('Office.AutoShowTaskpaneWithDocument') === true) return;
+      st.set('Office.AutoShowTaskpaneWithDocument', true);
+      st.saveAsync(function () { });
+    } catch (e) { }
+  }
+
   // ---------- كتابة ----------
   // قيمة جاهزة للكتابة كـ formulas (أرقام، نص، أو معادلة) من غير تغيير تنسيق
   function cellValue(key, v, isMonth) {
@@ -506,7 +517,7 @@
 
   root.OsoolExcel = {
     loadAll: loadAll, loadTreasury: loadTreasury, readRenterRow: readRenterRow,
-    getSettings: getSettings, saveSettings: saveSettings,
+    getSettings: getSettings, ensureAutoOpen: ensureAutoOpen, saveSettings: saveSettings,
     writeContract: writeContract, writeEntries: writeEntries, writeTransfer: writeTransfer,
     tableInfo: tableInfo, addRows: addRows, readOwnerRow: readOwnerRow, writeOwner: writeOwner, addMonthColumns: addMonthColumns, updateRenter: updateRenter,
     goToRow: function (idx) { return goTo('renter', idx); }, goTo: goTo
