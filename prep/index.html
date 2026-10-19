@@ -160,14 +160,21 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       var sl = 2; sk.eachRow(function (row, i) { var v = row.getCell(1).value; if (v !== null && v !== undefined && String(cellVal(v)).trim()) sl = i; });
       R.skipped.forEach(function (x, k) { var row = sk.getRow(sl + 1 + k); row.getCell(1).value = x.code; row.getCell(2).value = x.no || null; row.getCell(3).value = L.serialToDate(x.month); row.getCell(4).value = x.why; [1, 2, 3, 4].forEach(function (i) { paint(row.getCell(i), YELLOW, i === 3); }); });
     }
-    var old = wb.getWorksheet('تغييرات MBM'); if (old) wb.removeWorksheet(old.id);
+    // لو الملف ده خارج من ملف أصول تاني، نحتفظ بتغييراته ونزوّد عليها (من غير تكرار نفس الملف)
+    var old = wb.getWorksheet('تغييرات MBM'), keep = [], src0 = S.scopeName, dev1 = {};
+    R.devOnly.forEach(function (c) { dev1[c] = 1; });
+    if (old) {
+      old.eachRow(function (row, i) { if (i < 2) return; var v = []; for (var c = 1; c <= 8; c++) v.push(cellVal(row.getCell(c).value)); if (v[7] === src0) return; if (v[0] === 'مش عندنا' && !dev1[v[1]]) return; keep.push(v); });
+      wb.removeWorksheet(old.id);
+    }
     var lg = wb.addWorksheet('تغييرات MBM', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] });
     lg.columns = [{ header: 'النوع', width: 12 }, { header: 'كود الوحدة', width: 14 }, { header: 'رقم العقد', width: 14 }, { header: 'العمود', width: 26 }, { header: 'قبل', width: 22 }, { header: 'بعد', width: 22 }, { header: 'السبب', width: 70 }, { header: 'ملف أصول', width: 18 }];
     var KIND = { fix: 'تصحيح', note: 'ملاحظة', review: 'محتاج قرار' }, src = S.scopeName;
     R.changes.forEach(function (c) { lg.addRow([KIND[c.kind], c.code, c.no, c.col, c.col ? shown(c.col, c.old) : '', c.col ? shown(c.col, c.val) : '', c.why, src]); });
     R.newRows.forEach(function (n) { lg.addRow(['سطر جديد', n.code, '', '', '', '', n.why, src]); });
     R.skipped.forEach(function (x) { lg.addRow(['شهر ملغي', x.code, x.no, 'أشهر ملغاة', '', L.fmt(L.serialToDate(x.month)), x.why, src]); });
-    R.devOnly.forEach(function (c) { lg.addRow(['مش عندنا', c, '', '', '', '', 'الوحدة في ملف المطور ومش في شيت الملاك بتاع الملف ده', src]); });
+    var had = {}; keep.forEach(function (v) { if (v[0] === 'مش عندنا') had[v[1]] = 1; lg.addRow(v); });
+    R.devOnly.forEach(function (c) { if (!had[c] && !keep.length) lg.addRow(['مش عندنا', c, '', '', '', '', 'الوحدة في ملف المطور ومش في شيت الملاك بتاع الملف ده', src]); });
     lg.getRow(1).font = { bold: true }; lg.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5EEDC' } };
     return wb.xlsx.writeBuffer();
   }

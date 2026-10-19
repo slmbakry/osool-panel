@@ -74,8 +74,9 @@
     var out = []; if (!start || !end) return out;
     var d = L.serialToDate(start), last = L.serialToDate(Math.min(end, today));
     d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
-    while (d <= last) { var k = L.monthKey(d); if (u.has(k) && !u.val(k)) out.push(L.dateToSerial(d)); d = L.addMonths(d, 1); }
-    return out;
+    var seen = 0;
+    while (d <= last) { var k = L.monthKey(d); if (u.has(k)) { seen++; if (!u.val(k)) out.push(L.dateToSerial(d)); } d = L.addMonths(d, 1); }
+    out.seen = seen; return out;
   }
   function methodOf(v) { v = str(v); if (!v) return ''; for (var i = 0; i < METHOD.length; i++) if (METHOD[i][0].test(v)) return METHOD[i][1]; return ''; }
   function cycleOf(label) { label = str(label); for (var k in CYCLE) if (CYCLE[k] === label) return Number(k); return 0; }
@@ -86,13 +87,15 @@
     var paid = F.ownerPaid(o.treasury);
     var ours = ourContracts(o.owner, o.settings, paid);
     var dev = o.devRows, byU = {};
-    dev.forEach(function (r) { var k = str(r[C.code]); (byU[k] = byU[k] || []).push(r); });
+    // الكود بيتقارن من غير شَرطة أو مسافة: 60005-318 هي نفسها 60005318
+    var ck = function (x) { return str(x).replace(/[\s\-_\/]/g, '').toUpperCase(); };
+    dev.forEach(function (r) { var k = ck(r[C.code]); (byU[k] = byU[k] || []).push(r); });
     var R = { changes: [], newRows: [], skipped: [], devOnly: [], counts: { matched: 0, fixed: 0, review: 0, renewals: 0, added: 0, outSkipped: 0 } };
     var fix = function (r, col, oldV, newV, why, kind) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: col, old: oldV, val: newV, why: why, kind: kind || 'fix' }); };
     var review = function (r, why) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: '', old: '', val: '', why: why, kind: 'review' }); };
 
     ours.forEach(function (u) {
-      var rows = (byU[u.code] || []).slice().sort(function (a, b) { return day(a[C.start]) - day(b[C.start]); });
+      var rows = (byU[ck(u.code)] || []).slice().sort(function (a, b) { return day(a[C.start]) - day(b[C.start]); });
       if (!rows.length) {
         if (u.out) { R.counts.outSkipped++; return; }
         var nr = newRow(u, null, u.start, u.end, today, 'وحدة في ملف أصول ومش في ملف المطور (البداية من شيت الملاك، وهي أول عقد)');
@@ -135,12 +138,15 @@
       } else if (!u.paid && !dp) review(r, 'مفيش سداد ايجار للوحدة في الخزينة، ومسدد حتى فاضي');
     }
     function addGaps(u, no, st, en) {
-      gapsFor(u, st, en, today).forEach(function (g) { R.skipped.push({ code: u.code, no: no, month: g, why: 'الشهر فاضي في شيت الملاك (MBM)' }); });
+      var g = gapsFor(u, st, en, today);
+      // لو أغلب الشهور فاضية يبقى الشيت مش متملي، مش أشهر ملغاة
+      if (g.length >= 6 && g.length > g.seen / 2) { R.changes.push({ row: null, code: u.code, no: no, col: '', old: '', val: '', why: g.length + ' شهر من ' + g.seen + ' فاضيين في شيت الملاك' + (no ? ' في ' + no : '') + '، يا الشيت مش متملي يا الوحدة مش شغالة. مسجلناش أشهر ملغاة', kind: 'review' }); return; }
+      g.forEach(function (g) { R.skipped.push({ code: u.code, no: no, month: g, why: 'الشهر فاضي في شيت الملاك (MBM)' }); });
     }
     // وحدات عند المطور ومش في نطاق الملف ده (بنسيبها زي ما هي)
     var mine = {}; ours.forEach(function (u) { mine[u.code] = 1; });
-    var all = {}; (o.owner.cols['كود'] || []).forEach(function (c) { all[str(c)] = 1; });
-    Object.keys(byU).forEach(function (k) { if (!all[k]) R.devOnly.push(k); });
+    var all = {}; (o.owner.cols['كود'] || []).forEach(function (c) { all[ck(c)] = 1; });
+    Object.keys(byU).forEach(function (k) { if (!all[k]) R.devOnly.push(str(byU[k][0][C.code])); });
     R.counts.fixed = R.changes.filter(function (x) { return x.kind !== 'review'; }).length;
     R.counts.review = R.changes.filter(function (x) { return x.kind === 'review'; }).length;
     R.scope = ours.length;
@@ -157,11 +163,23 @@
     var type = str(r[C.incType]);
     var differs = Y.some(function (v) { return v && base && Math.abs(v - base) > 0.5; });
     if (type === INC.pct) {
+      var fx = [], odd = false;
       for (var y = 1; y < Y.length && y <= 7; y++) {
         if (!Y[y] || !Y[y - 1]) continue;
         var pct = Math.round((Y[y] / Y[y - 1] - 1) * 10000) / 100, cur = num(r[YEARS[y - 1]]);
-        if (Math.abs(pct - cur) > 0.5) fix(r, YEARS[y - 1], r[YEARS[y - 1]], pct, 'الإيجار في شيت الملاك ' + money(Y[y - 1]) + ' ← ' + money(Y[y]));
+        if (Math.abs(pct - cur) > 0.5) { fx.push([y, pct]); if (Math.abs(pct - Math.round(pct)) > 0.05) odd = true; }
       }
+      // نسبة مش رقم صحيح (زي 26.48%) معناها إن الإيجار اتحدد بمبلغ، فنحوّل العقد لـ "إيجار جديد"
+      if (odd) {
+        fix(r, C.incType, r[C.incType], INC.amt, 'الزيادة في شيت الملاك بمبلغ مش بنسبة ثابتة');
+        var prevA = base;
+        for (var q = 1; q < 8; q++) {
+          var curP = num(r[YEARS[q - 1]]), amt = 0;
+          if (q < Y.length) amt = Y[q] || (prevA ? Math.round(prevA * (1 + curP / 100)) : 0);
+          if (amt) { fix(r, YEARS[q - 1], r[YEARS[q - 1]], amt, Y[q] ? 'إيجار السنة ' + (q + 1) + ' في شيت الملاك' : 'محسوب من نسبة المطور ' + curP + '% (السنة دي مش في الشيت)'); prevA = amt; }
+          else if (str(r[YEARS[q - 1]]) !== '') fix(r, YEARS[q - 1], r[YEARS[q - 1]], '', 'بعد نهاية العقد');
+        }
+      } else fx.forEach(function (x) { fix(r, YEARS[x[0] - 1], r[YEARS[x[0] - 1]], x[1], 'الإيجار في شيت الملاك ' + money(Y[x[0] - 1]) + ' ← ' + money(Y[x[0]])); });
     } else if (type === INC.amt) {
       for (var z = 1; z < Y.length && z <= 7; z++) {
         if (Y[z] && Math.abs(num(r[YEARS[z - 1]]) - Y[z]) > 0.5) fix(r, YEARS[z - 1], r[YEARS[z - 1]], Y[z], 'إيجار السنة ' + (z + 1) + ' في شيت الملاك');
