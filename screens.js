@@ -1591,11 +1591,11 @@
         var l = S.availView || [];
         $('avMsg').textContent = 'بيجهز الإكسيل…';
         R.downloadXlsx({ name: avName(), title: fileName('المتاح', AV.projects.length === projects.length ? '' : grpName(AV.projects)), sheet: 'المتاح', sub: AV.projects.join('، '), sums: [],
-          kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text'],
-          headers: ['المكان', 'المشروع', 'كود الوحدة', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي'],
+          kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text', 'text'],
+          headers: ['المكان', 'المشروع', 'كود الوحدة', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي', 'ملاحظة'],
           rows: l.map(function (x) { var u = x.unit, c = x.current, n = x.next;
-            var st = c ? (c.end.getUTCFullYear() >= 2090 ? 'خارج التشغيل' : 'مشغولة') : x.pending ? 'لسه متستلمتش' : 'متاحة';
-            return [F.groupOf(u.project), u.project, u.code, u.block, u.building, u.apt, u.bedrooms, u.settle, st, c && c.end.getUTCFullYear() < 2090 ? new Date(c.end.getTime() + 864e5) : '', c ? c.name : x.pending ? x.pending.name : '', n ? n.start : '', n ? n.end : '', n ? n.name : '']; }) })
+            var st = c ? (c.end.getUTCFullYear() >= 2090 ? 'خارج التشغيل' : +c.end === +today() ? 'خروج النهارده' : 'مشغولة') : x.pending ? 'لسه متستلمتش' : 'متاحة';
+            return [F.groupOf(u.project), u.project, u.code, u.block, u.building, u.apt, u.bedrooms, u.settle, st, c && c.end.getUTCFullYear() < 2090 ? new Date(c.end.getTime() + 864e5) : '', c ? c.name : x.pending ? x.pending.name : '', n ? n.start : '', n ? n.end : '', n ? n.name : '', x.receivedToday ? F.RECEIVED : '']; }) })
           .then(function () { $('avMsg').textContent = l.length + ' وحدة'; }, function (e) { $('avMsg').textContent = e.message || 'التحميل مش متاح هنا.'; });
       };
       drawExits();
@@ -1616,9 +1616,10 @@
     $('avList').innerHTML = list.length ? list.slice(0, 150).map(function (x) {
       var u = x.unit, c = x.current, n = x.next, st;
       if (c && c.end.getUTCFullYear() >= 2090) st = '<span class="badge done">خارج التشغيل</span>';
+      else if (c && +c.end === +today()) st = '<span class="badge" style="background:#c62828;color:#fff">خروج النهارده</span>';
       else if (c) st = '<span class="badge book">لحد ' + L.fmt(c.end) + '</span>';
       else if (x.pending) st = '<span class="badge late">لسه متستلمتش</span>';
-      else st = '<span class="badge live">Available</span>';
+      else st = '<span class="badge live">Available</span>' + (x.receivedToday ? ' <span class="badge done">تم الاستلام</span>' : '');
       return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2"><span dir="ltr">' + esc(u.code) + '</span>' + (u.bedrooms ? ' · ' + esc(u.bedrooms) + ' غرف' : '') + (u.settle ? ' · ' + esc(u.settle) : '') + '</div></div>' + st + '</div>' +
         ((c && c.end.getUTCFullYear() < 2090) || n || x.pending ? '<dl class="kv">' + (c && c.end.getUTCFullYear() < 2090 ? '<dt>الساكن</dt><dd>' + esc(c.name || '—') + '</dd>' : '') +
         (x.pending ? '<dt>خرج</dt><dd>' + esc(x.pending.name || '—') + ' · ' + L.fmt(x.pending.end) + '</dd>' : '') +

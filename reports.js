@@ -34,7 +34,7 @@
     '.rp td.n,.rp th.n{text-align:left;direction:ltr;white-space:nowrap}' +
     '.rp tfoot td{font-weight:700;background:#f1efe9;border-top:2px solid #cfcbbf}' +
     '.rp .chip{display:inline-block;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;white-space:nowrap}' +
-    '.rp .chip.ok{background:#e6f4ea;color:#1f7a45}.rp .chip.soon{background:#fff4e0;color:#9a5b00}.rp .chip.out{background:#eee;color:#6b736f}' +
+    '.rp .chip.ok{background:#e6f4ea;color:#1f7a45}.rp .chip.soon{background:#fff4e0;color:#9a5b00}.rp .chip.out{background:#eee;color:#6b736f}.rp .chip.today{background:#c62828;color:#fff}' +
     '.rp .two{display:flex;gap:12px;margin-bottom:10px;align-items:flex-start}.rp .two>div{flex:1}' +
     '.rp h2{font-size:13px;margin:0 0 6px;color:#8c6b25}' +
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
@@ -69,7 +69,7 @@
   function availHtml(list, today, filterText) {
     var free = function (x) { return !x.current && !x.pending; };
     var checkIn = list.filter(function (x) { return x.next && +x.next.start === +today; }).length;
-    var checkOut = list.filter(function (x) { return x.current && +x.current.end === +today; }).length;
+    var checkOut = list.filter(function (x) { return (x.current && +x.current.end === +today) || x.receivedToday; }).length;
     var F = window.OsoolFollow, beds = ['1', '2', '3', '4'];
     var groups = F.groupsIn(list.map(function (x) { return x.unit; }));
     var cell = function (loc, b) {
@@ -86,13 +86,14 @@
       if (!c && x.pending) st = '<span class="chip out">لم تُستلم</span>';
       else if (!c) st = '<span class="chip ok">Available</span>';
       else if (c.end.getUTCFullYear() >= 2090) st = '<span class="chip out">خارج التشغيل</span>';
+      else if (+c.end === +today) st = '<span class="chip today">' + d2(c.end) + '</span>';
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
       else st = d2(c.end);
       var unit = [u.block, u.building, u.apt].filter(function (v) { return v && v !== '0'; }).join(' · ');
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + el(u.info && u.info !== '0' ? u.info : '', 80) + '</td>' +
         '<td>' + el(unit, 130) + '</td><td>' + st + '</td>' +
         '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + (n ? d2(n.start) : '') + '</td><td class="n">' + (n ? d2(n.end) : '') + '</td><td>' + el(n ? n.name : '', 130) + '</td>' +
-        '<td class="n">' + more + '</td><td>' + el(c ? c.receipt : '', 70) + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
+        '<td class="n">' + more + '</td><td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;
     var sub = DAYS[today.getUTCDay()] + ' ' + L.fmt(today) + (filterText ? ' · ' + filterText : '');

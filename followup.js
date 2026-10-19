@@ -444,6 +444,9 @@
     return units.filter(function (u) { return settings === 'all' || inScope(u, settings); }).map(function (u) {
       var mine = by[u.code] || [];
       var cur = mine.filter(function (r) { return r.start <= today && r.end >= today; }).sort(function (a, b) { return b.end - a.end; })[0] || null;
+      // اتسجل استلامها في يوم الخروج: الشقة متاحة من النهارده، وملاحظة "تم الاستلام" بتظهر النهارده بس
+      var recvToday = null;
+      if (cur && +cur.end === +today && str(cur.receipt) === RECEIVED) { recvToday = cur; cur = null; }
       var next = mine.filter(function (r) { return r.start > today; }).sort(function (a, b) { return a.start - b.start; })[0] || null;
       var freeFrom = cur ? cur.end : today;
       var rem = '';
@@ -459,7 +462,7 @@
       }
       var status = cur ? 'مشغولة' : pending ? 'لم تستلم' : next ? 'محجوزة' : 'فاضية';
       var upcoming = mine.filter(function (r) { return r.start > today; }).length;
-      return { unit: u, current: cur, pending: pending, next: next, upcoming: upcoming, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
+      return { unit: u, current: cur, receivedToday: recvToday, pending: pending, next: next, upcoming: upcoming, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
     }).sort(function (a, b) { return a.daysToFree - b.daysToFree || String(a.unit.project).localeCompare(String(b.unit.project)); });
   }
 
