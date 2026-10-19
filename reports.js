@@ -15,9 +15,12 @@
   function unitClass(u) { var b = String(u.block == null ? '' : u.block).trim(); return TAG_RE.test(b) ? (b.toUpperCase() === 'VIP' ? 'VIP' : 'Smart') : ''; }
   function unitTag(u, w) {
     var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
-    var parts = [['P', unitClass(u) ? '' : ok(u.block)], ['B', ok(u.building)], ['U', ok(u.apt)]].filter(function (x) { return x[1]; });
-    if (!parts.length) return '';
-    return '<span class="el ut" dir="ltr" style="--w:' + (w || 150) + 'px">' + parts.map(function (x) { return '<i>' + x[0] + '</i>' + esc(x[1]); }).join(' ') + '</span>';
+    var parts = [['P', unitClass(u) ? '' : ok(u.block)], ['B', ok(u.building)], ['U', ok(u.apt)]];
+    if (!parts.some(function (x) { return x[1]; })) return '';
+    // ٣ خانات ثابتة العرض عشان الأسامي تقف تحت بعض، والخانة الفاضية بتفضل مكانها
+    return '<span class="ut" dir="ltr">' + parts.map(function (x) {
+      return '<span class="us us' + x[0] + '"' + (x[1] ? ' title="' + esc(x[1]) + '"' : '') + '>' + (x[1] ? '<i>' + x[0] + '</i>' + esc(x[1]) : '') + '</span>';
+    }).join('') + '</span>';
   }
   function el(t, w) { return '<span class="el" style="--w:' + w + 'px">' + esc(t) + '</span>'; }
   function nowText() {
@@ -51,7 +54,9 @@
     '.rp .foot{display:flex;justify-content:space-between;color:#8a918d;font-size:10px;margin-top:10px;border-top:1px solid #e4e2db;padding-top:6px}' +
     '.rp .muted{color:#8a918d}' +
     '.rp td.mx,.rp th.mx{color:#c3b9a6!important;font-size:.85em;font-weight:400}' +
-    '.rp .ut{text-align:left;unicode-bidi:isolate}.rp .ut i{font-style:normal;font-size:.78em;color:#c3b9a6;font-weight:400;margin:0 2px 0 5px}.rp .ut i:first-child{margin-left:0}.rp .pj{color:#6b736f;font-size:.92em}' +
+    '.rp .ut{display:inline-flex;unicode-bidi:isolate;font-variant-numeric:tabular-nums;vertical-align:bottom}.rp .us{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}' +
+    '.rp .usP{width:11.5ch}.rp .usB{width:6ch}.rp .usU{width:5.5ch}' +
+    '.rp .ut i{font-style:normal;font-size:.78em;color:#c3b9a6;font-weight:400;margin-right:2px}.rp .pj{color:#6b736f;font-size:.92em}' +
     /* مضغوط: صفوف أكتر في الصفحة ومقروءة */
     '.rp{font-size:10.5px;line-height:1.25;padding:14px 16px 30px}' +
     '.rp .band{padding:7px 12px;margin-bottom:7px;border-radius:8px}.rp .band h1{font-size:16px}.rp .band .sub{font-size:11px;margin-top:0}.rp .brand{font-size:11px;padding:2px 8px}' +
