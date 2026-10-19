@@ -793,7 +793,7 @@
     $('eGenM').classList.toggle('hide', !!needPeriod || (ownerMonthly && !!EN.unit));
     if (!$('eWho').options.length) {
       var ppl = peopleList();
-      $('eWho').innerHTML = '<option value="">—</option>' + ppl.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join('') + '<option value="__new">اسم تاني…</option>';
+      $('eWho').innerHTML = '<option value="">' + (ppl.length ? '—' : '— القايمة فاضية: ضيف الأسامي من الإعدادات ⚙️') + '</option>' + ppl.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join('') + '<option value="__new">اسم تاني…</option>';
     }
     if (isTen && EN.unit) {
       var list = S.renters.filter(function (r) { return r.unit === EN.unit.code && r.code; }).sort(function (a, b) { return (b.start || 0) - (a.start || 0); });
