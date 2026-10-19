@@ -38,11 +38,13 @@
   function groupsIn(units) { var h = {}; units.forEach(function (u) { h[groupOf(u.project || (u.unit && u.unit.project))] = 1; }); return GROUPS.filter(function (g) { return h[g]; }); }
 
   // ---------- نطاق الملف ----------
-  function inScope(unit, settings) {
+  function isNF(unit) { return !!unit && str(unit.settle).toUpperCase().replace(/[_\s]/g, '-') === 'N-F'; }
+  // allowNF: في المتاح والحجوزات بس، وحدات N-F بتدخل لو اتختارت في الإعدادات. الفلوس دايمًا من غيرها
+  function inScope(unit, settings, allowNF) {
     if (settings === 'all') return true;
     settings = settings || DEFAULT_SETTINGS;
     if (!unit) return settings.mode !== 'only';
-    if (str(unit.settle).toUpperCase().replace(/[_\s]/g, '-') === 'N-F') return false; // N-F ليها ملف لوحدها
+    if (isNF(unit) && !(allowNF && settings.nf)) return false; // N-F ليها ملف لوحدها
     var p = str(unit.project).toLowerCase();
     var list = (settings.projects || []).map(function (x) { return str(x).toLowerCase(); });
     return settings.mode === 'only' ? list.indexOf(p) !== -1 : list.indexOf(p) === -1;
@@ -421,7 +423,7 @@
     var out = { today: [], yesterday: [], older: [] };
     renters.forEach(function (r) {
       if (r.idx < 0 || !r.end || !r.start || r.end.getUTCFullYear() >= 2090) return;
-      var u = ub[r.unit]; if (!u || (settings !== 'all' && !inScope(u, settings))) return;
+      var u = ub[r.unit]; if (!u || (settings !== 'all' && !inScope(u, settings, true))) return;
       var mine = by[r.unit] || [];
       var moved = mine.some(function (o) { return o !== r && o.start > r.end && o.start <= today; }); // حد تاني دخل بعده
       var next = mine.filter(function (o) { return o.start > r.end; }).sort(function (a, b) { return a.start - b.start; })[0] || null;
@@ -441,7 +443,7 @@
     today = today || L.todayUTC();
     var by = {};
     renters.forEach(function (r) { if (r.unit && r.start && r.end) (by[r.unit] = by[r.unit] || []).push(r); });
-    return units.filter(function (u) { return settings === 'all' || inScope(u, settings); }).map(function (u) {
+    return units.filter(function (u) { return settings === 'all' || inScope(u, settings, true); }).map(function (u) {
       var mine = by[u.code] || [];
       var cur = mine.filter(function (r) { return r.start <= today && r.end >= today; }).sort(function (a, b) { return b.end - a.end; })[0] || null;
       // اتسجل استلامها في يوم الخروج: الشقة متاحة من النهارده، وملاحظة "تم الاستلام" بتظهر النهارده بس

@@ -68,7 +68,7 @@
     var projects = F.projectsOf(S.units);
     App.openSheet('<h2>نطاق الملف ده</h2><p class="r2">المتابعة هتحسب الوحدات اللي جوه النطاق بس. الإعداد بيتحفظ جوه الملف، فكل الفريق هيشوف نفس النطاق.</p>' +
       '<div class="unit" style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="flex:1;min-width:0"><div class="r2">ده ملف</div><b style="font-size:17px">' + esc(scopeName() || 'كل المشاريع') + '</b>' +
-      '<div class="r2" style="margin-top:2px">' + esc(scopeText(cur)) + '</div></div><button class="act" id="setEditBtn">تعديل</button></div>' +
+      '<div class="r2" style="margin-top:2px">' + esc(scopeText(cur)) + (cur.nf ? ' · ومعاه N-F في المتاح' : '') + '</div></div><button class="act" id="setEditBtn">تعديل</button></div>' +
       '<div id="setEdit" class="hide">' +
       '<label class="radio"><input type="radio" name="mode" value="exclude"' + (cur.mode !== 'only' ? ' checked' : '') + '> كل المشاريع ما عدا اللي هتختارها</label>' +
       '<label class="radio"><input type="radio" name="mode" value="only"' + (cur.mode === 'only' ? ' checked' : '') + '> المشاريع اللي هتختارها بس</label>' +
@@ -76,8 +76,10 @@
       '<div class="tgs" id="setPj">' + projects.map(function (p) {
         var on = cur.projects.some(function (x) { return x.trim().toLowerCase() === p.toLowerCase(); });
         return '<button type="button" class="tg' + (on ? ' on' : '') + '" data-pj="' + esc(p) + '">' + esc(p) + '</button>';
-      }).join('') + '</div></div>' +
-      '<p class="r2">وحدات التسويات <span dir="ltr">N-F</span> مستبعدة دايماً من كل الملفات.</p>' +
+      }).join('') + '</div>' +
+      '<div class="r2" style="margin:12px 0 6px">وحدات التسويات، في المتاح والحجوزات بس (الفلوس دايمًا من غيرها):</div>' +
+      '<div class="tgs"><button type="button" class="tg' + (cur.nf ? ' on' : '') + '" id="setNF"><span dir="ltr">N-F</span></button></div></div>' +
+      '<div style="height:12px"></div>' +
       '<label class="chk" style="margin:4px 0 12px;font-size:13px;color:var(--ink)"><input type="checkbox" id="setAuto"' + (cur.autoOpen !== false ? ' checked' : '') + '> افتح البانل لوحده أول ما الملف يتفتح</label>' +
       (!App.cmpOn() ? '' : '<details class="more" style="margin:0 0 12px"><summary>أسماء الموظفين (' + ((cur.people || []).length) + ')</summary><div class="r2" style="margin:6px 0 4px">اسم في كل سطر، أو الصق عمود الأسامي من الإكسيل. بتظهر في خانة "موظف" في أي حركة خزينة.</div><textarea id="setPeople" style="min-height:120px">' + esc((cur.people || []).join('\n')) + '</textarea></details>') +
       '<div id="setMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="setBack">إلغاء</button><button class="btn primary" id="setSave">حفظ</button></div>' +
@@ -90,6 +92,7 @@
     $('setAll').onclick = function () { pjs().forEach(function (b) { b.classList.add('on'); }); cnt(); };
     $('setNone').onclick = function () { pjs().forEach(function (b) { b.classList.remove('on'); }); cnt(); };
     cnt();
+    $('setNF').onclick = function () { this.classList.toggle('on'); };
     $('setEditBtn').onclick = function () { var on = $('setEdit').classList.toggle('hide'); this.textContent = on ? 'تعديل' : 'خلاص'; };
     $('setBack').onclick = App.closeSheet;
     $('setRows').onclick = openAddRows;
@@ -102,7 +105,7 @@
       // القايمة بتتعدل من الجزء المخفي بس، وغير كده بتفضل زي ما هي
       var people = (cur.people || []).slice();
       if ($('setPeople')) { people = []; $('setPeople').value.split(/\n/).forEach(function (x) { x = x.trim(); if (x && people.indexOf(x) === -1) people.push(x); }); }
-      var obj = { mode: mode, projects: list, autoOpen: $('setAuto').checked, people: people };
+      var obj = { mode: mode, projects: list, autoOpen: $('setAuto').checked, people: people, nf: $('setNF').classList.contains('on') };
       this.disabled = true;
       A.saveSettings(obj).then(function () {
         S.settings = obj; S.settingsLoaded = true; App.closeSheet();
