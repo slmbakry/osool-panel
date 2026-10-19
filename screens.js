@@ -727,7 +727,7 @@
       '<div id="eAmtBox"><label>المبلغ بالجنيه <span class="req">*</span></label><input id="eAmt" class="ltr" inputmode="decimal"></div></div>' +
       '<div id="ePart"></div>' +
       '<div class="grid2"><div><label>الخزينة</label><select id="eCash">' + cashOptions('جنيه  خزينة') + '</select></div><div id="eFxBox" class="hide"><label>المبلغ بالعملة</label><input id="eFx" class="ltr" inputmode="decimal"></div></div>' +
-      '<div id="eWhoBox"><label>موظف <span class="r2">(اختياري، اسمه بيتكتب في البيان)</span></label><select id="eWho"></select><input id="eWhoNew" class="hide" placeholder="اكتب الاسم" style="margin-top:6px"></div>' +
+      '<div id="eWhoBox"><label>موظف <span class="r2">(اختياري، اسمه بيتكتب في البيان)</span></label><input id="eWho" placeholder="اكتب أي جزء من الاسم" autocomplete="off"><div id="eWhoRes" class="results hide"></div></div>' +
       '<div id="eGenM"><label>عن شهر <span class="r2">(اختياري)</span></label><select id="eGenMonth"></select></div>' +
       '<div class="grid2"><div><label>رقم المستند</label><input id="eDoc" class="ltr"></div><div><label>البيان</label><input id="eNote"></div></div>' +
       '<details class="more"><summary>شيك وملاحظات</summary><div class="grid2"><div><label>رقم الشيك</label><input id="eChq" class="ltr"></div><div><label>تاريخ الشيك</label><input type="date" id="eChqD"></div></div><label>ملاحظات</label><input id="eNotes"></details>' +
@@ -746,9 +746,19 @@
     $('eOwnN').oninput = function () { EN.ownerN = Math.max(1, Math.min(24, parseInt(digits(this.value), 10) || 1)); refreshOwner(); };
     $('eCash').onchange = function () { $('eFxBox').classList.toggle('hide', !F.isForeign(this.value)); disarm(); };
     ['eDate', 'eAmt', 'eFx', 'eMonth', 'eFrom', 'eTo'].forEach(function (id) { $(id).addEventListener('input', disarm); });
-    $('eGenMonth').innerHTML = '<option value="">—</option>' + monthOptions(recentKeys(), '');
-    $('eWho').onchange = function () { $('eWhoNew').classList.toggle('hide', this.value !== '__new'); if (this.value === '__new') $('eWhoNew').focus(); disarm(); };
-    $('eWhoNew').addEventListener('input', disarm); $('eGenMonth').addEventListener('change', disarm);
+    $('eGenMonth').innerHTML = '<option value="">—</option>' + monthOptions(recentKeys(), L.monthKey(today()));
+    // بحث في أسامي الموظفين: أي جزء من الاسم، وبعدها تختار من النتايج
+    $('eWho').oninput = function () {
+      disarm();
+      var q = L.norm(this.value).trim(), box = $('eWhoRes'), ppl = peopleList();
+      if (!q) { box.classList.add('hide'); return; }
+      var ws = q.split(/\s+/), res = ppl.filter(function (p) { var n = L.norm(p); return ws.every(function (w) { return n.indexOf(w) !== -1; }); }).slice(0, 12);
+      box.classList.remove('hide');
+      box.innerHTML = res.length ? res.map(function (p) { return '<button type="button" data-who="' + esc(p) + '">' + esc(p) + '</button>'; }).join('')
+        : '<div class="r2" style="padding:8px 10px">' + (ppl.length ? 'مفيش اسم كده في القايمة.' : 'القايمة فاضية: ضيف الأسامي من الإعدادات ⚙️') + '</div>';
+    };
+    $('eWhoRes').onclick = function (e) { var b = e.target.closest('button[data-who]'); if (!b) return; $('eWho').value = b.dataset.who; this.classList.add('hide'); disarm(); };
+    $('eGenMonth').addEventListener('change', disarm);
     $('eBack').onclick = App.closeSheet;
     $('eSave').onclick = saveEntry;
     $('eBulk').onclick = function () { App.closeSheet(); setTimeout(openBulk, 50); };
@@ -793,10 +803,6 @@
     $('ePeriod').classList.toggle('hide', !needPeriod);
     // الشهر الاختياري للمصروفات العامة، واسم صاحب السلفة لبنود الموظفين
     $('eGenM').classList.toggle('hide', !!needPeriod || (ownerMonthly && !!EN.unit));
-    if (!$('eWho').options.length) {
-      var ppl = peopleList();
-      $('eWho').innerHTML = '<option value="">' + (ppl.length ? '—' : '— القايمة فاضية: ضيف الأسامي من الإعدادات ⚙️') + '</option>' + ppl.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join('') + (App.cmpOn() || !ppl.length ? '<option value="__new">اسم تاني…</option>' : '');
-    }
     if (isTen && EN.unit) {
       var list = S.renters.filter(function (r) { return r.unit === EN.unit.code && r.code; }).sort(function (a, b) { return (b.start || 0) - (a.start || 0); });
       var t = today(), cur = list.filter(function (r) { return r.start <= t && r.end >= t; })[0];
@@ -865,7 +871,9 @@
       if (!$('ePeriod').classList.contains('hide')) { extra.month = $('eMonth').value; extra.from = L.parseISO($('eFrom').value); extra.to = L.parseISO($('eTo').value); }
       else if ($('eGenMonth').value) extra.month = $('eGenMonth').value;
       // الموظف: اسمه الكامل بيتكتب في البيان جنب الوصف
-      var who = $('eWho').value === '__new' ? $('eWhoNew').value.trim() : $('eWho').value;
+      var who = $('eWho').value.trim(), ppl = peopleList();
+      // الاسم لازم يكون من القايمة، إلا في الجزء المخفي أو لو القايمة لسه فاضية
+      if (who && ppl.indexOf(who) === -1 && ppl.length && !App.cmpOn()) { $('eMsg').innerHTML = '<div class="msg err">اختار اسم الموظف من نتايج البحث.</div>'; return; }
       if (who) { var nt = base.note.trim(); extra.note = nt.indexOf(who) !== -1 ? nt : (nt ? nt + ' - ' + who : who); }
       if (F.TENANT_CATS.indexOf(cat) !== -1) { extra.tenantCode = EN.tenant ? EN.tenant.code : ''; if (EN.tenant && extra.month) extra.contractEnd = EN.tenant.end; }
       if (cat === 'رد ايجار من مالك' && EN.unit) extra.contractEnd = EN.unit.ownerEnd;
