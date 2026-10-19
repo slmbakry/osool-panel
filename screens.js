@@ -1590,11 +1590,11 @@
         var l = S.availView || [];
         $('avMsg').textContent = 'بيجهز الإكسيل…';
         R.downloadXlsx({ name: avName(), title: fileName('المتاح', AV.projects.length === projects.length ? '' : grpName(AV.projects)), sheet: 'المتاح', sub: AV.projects.join('، '), sums: [],
-          kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text', 'text'],
-          headers: ['المكان', 'المشروع', 'كود الوحدة', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي', 'ملاحظة'],
+          kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text', 'text'],
+          headers: ['المكان', 'المشروع', 'كود الوحدة', 'تمييز', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي', 'ملاحظة'],
           rows: l.map(function (x) { var u = x.unit, c = x.current, n = x.next;
             var st = c ? (c.end.getUTCFullYear() >= 2090 ? 'خارج التشغيل' : +c.end === +today() ? 'خروج النهارده' : 'مشغولة') : x.pending ? 'لسه متستلمتش' : 'متاحة';
-            return [F.groupOf(u.project), u.project, u.code, u.block, u.building, u.apt, u.bedrooms, u.settle, st, c && c.end.getUTCFullYear() < 2090 ? new Date(c.end.getTime() + 864e5) : '', c ? c.name : x.pending ? x.pending.name : '', n ? n.start : '', n ? n.end : '', n ? n.name : '', x.receivedToday ? F.RECEIVED : '']; }) })
+            var cls = R.unitClass(u); return [F.groupOf(u.project), u.project, u.code, cls, cls ? '' : u.block, u.building, u.apt, u.bedrooms, u.settle, st, c && c.end.getUTCFullYear() < 2090 ? new Date(c.end.getTime() + 864e5) : '', c ? c.name : x.pending ? x.pending.name : '', n ? n.start : '', n ? n.end : '', n ? n.name : '', x.receivedToday ? F.RECEIVED : '']; }) })
           .then(function () { $('avMsg').textContent = l.length + ' وحدة'; }, function (e) { $('avMsg').textContent = e.message || 'التحميل مش متاح هنا.'; });
       };
       drawExits();
