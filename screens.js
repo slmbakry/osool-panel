@@ -1052,6 +1052,81 @@
     }
   }
 
+  // ======================= ربحية الوحدة (مخفي) =======================
+  var PF = { k1: null, k2: null, grp: '', proj: '', beds: '', sort: 'net', dir: 'asc', open: '' };
+  function pfSkip() { try { var v = JSON.parse(localStorage.getItem('osoolPanel.profSkip') || 'null'); if (v && v.length) return v; } catch (e) { } return F.PROFIT_SKIP.slice(); }
+  function pfSetSkip(v) { try { localStorage.setItem('osoolPanel.profSkip', JSON.stringify(v)); } catch (e) { } }
+  function renderProf() {
+    var box = $('tab-prof'); if (!box) return;
+    if (!App.cmpOn()) { box.innerHTML = '<div class="empty">الشاشة دي مقفولة على الجهاز ده.</div>'; return; }
+    box.innerHTML = loadingHtml('بيقرا الخزينة…');
+    ensureSettings().then(ensureTreasury).then(function () {
+      var keys = Object.keys(S.ownerMonths || {}).sort(F.cmpKey), t = today(), cur = L.monthKey(t), last = L.monthKey(new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 0)));
+      if (!PF.k1) { PF.k2 = keys.indexOf(last) !== -1 ? last : keys[keys.length - 1]; var y = 'Jan-' + PF.k2.slice(-2); PF.k1 = keys.indexOf(y) !== -1 ? y : keys[0]; }
+      var st = S.settings || F.DEFAULT_SETTINGS, base = S.units.filter(function (u) { return F.inScope(u, st); }), grps = F.groupsIn(base), projs = {}, beds = {};
+      base.forEach(function (u) { if (u.project) projs[u.project] = 1; beds[Number(u.bedrooms) || 0] = 1; });
+      var opt = function (v, l, sel) { return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc(l) + '</option>'; };
+      box.innerHTML = '<div class="filters"><select id="pfK1">' + keys.map(function (k) { return opt(k, 'من ' + L.monthLabel(k), PF.k1); }).join('') + '</select><select id="pfK2">' + keys.map(function (k) { return opt(k, 'لـ ' + L.monthLabel(k), PF.k2); }).join('') + '</select></div>' +
+        '<div class="filters"><select id="pfG">' + opt('', 'كل الأماكن', PF.grp) + grps.map(function (g) { return opt(g, GRP_AR[g] || g, PF.grp); }).join('') + '</select><select id="pfP">' + opt('', 'كل المشاريع', PF.proj) + Object.keys(projs).sort().map(function (p) { return opt(p, p, PF.proj); }).join('') + '</select></div>' +
+        '<div class="filters"><select id="pfB">' + opt('', 'كل الغرف', PF.beds) + Object.keys(beds).sort(function (a, b) { return a - b; }).map(function (b) { return opt(b, b === '0' ? 'غرف مش متسجلة' : b + ' غرف', PF.beds); }).join('') + '</select>' +
+        '<button class="btn ghost" id="pfCats" style="flex:1">البنود المحسوبة</button></div><div id="pfOut"></div>';
+      var re = function () { drawProf(); };
+      $('pfK1').onchange = function () { PF.k1 = this.value; re(); }; $('pfK2').onchange = function () { PF.k2 = this.value; re(); };
+      $('pfG').onchange = function () { PF.grp = this.value; re(); }; $('pfP').onchange = function () { PF.proj = this.value; re(); }; $('pfB').onchange = function () { PF.beds = this.value; re(); };
+      $('pfCats').onclick = openProfCats;
+      drawProf();
+    }).catch(function (e) { box.innerHTML = errHtml(e); });
+  }
+  function drawProf() {
+    var out = $('pfOut'); if (!out) return;
+    if (F.cmpKey(PF.k1, PF.k2) > 0) { out.innerHTML = '<div class="msg err">شهر البداية بعد شهر النهاية.</div>'; return; }
+    var st = S.settings || F.DEFAULT_SETTINGS, res = F.unitProfit(S.units, S.renters, S.months, S.ownerMonths, S.treasury, PF.k1, PF.k2, st, pfSkip());
+    S.pfCatsSeen = res.cats;
+    var rows = res.rows.filter(function (x) { return (!PF.grp || x.group === PF.grp) && (!PF.proj || x.unit.project === PF.proj) && (PF.beds === '' || String(x.beds) === PF.beds); });
+    var val = function (x) { return PF.sort === 'margin' ? (x.margin === null ? -Infinity : x.margin) : x[PF.sort] || 0; };
+    rows.sort(function (a, b) { var d = val(a) - val(b); return PF.dir === 'asc' ? d : -d; });
+    S.pfView = rows;
+    var T = { rev: 0, owner: 0, exp: 0, net: 0 }, cats = {};
+    rows.forEach(function (x) { T.rev += x.rev; T.owner += x.owner; T.exp += x.exp; T.net += x.net; Object.keys(x.cats).forEach(function (k) { cats[k] = (cats[k] || 0) + x.cats[k]; }); });
+    var pc = function (p) { return p === null || !isFinite(p) ? '—' : Math.round(p * 1000) / 10 + '%'; };
+    var losing = rows.filter(function (x) { return x.net < 0; }).length;
+    var topCats = Object.keys(cats).sort(function (a, b) { return Math.abs(cats[b]) - Math.abs(cats[a]); });
+    out.innerHTML = '<div class="sum"><div class="box"><div class="v okc">' + money(T.rev) + '</div><div class="k">إيجار المستأجرين</div></div><div class="box"><div class="v late">' + money(T.owner) + '</div><div class="k">إيجار الملاك</div></div>' +
+      '<div class="box"><div class="v late">' + money(T.exp) + '</div><div class="k">مصاريف الوحدات</div></div><div class="box"><div class="v ' + (T.net < 0 ? 'late' : 'okc') + '">' + money(T.net) + '</div><div class="k">صافي الربح · <span dir="ltr">' + pc(T.rev ? T.net / T.rev : null) + '</span></div></div></div>' +
+      '<div class="r2" style="margin:-2px 0 8px">' + rows.length + ' وحدة · ' + losing + ' بخسارة · من ' + L.monthLabel(PF.k1) + ' لـ ' + L.monthLabel(PF.k2) + '. الإيجار مستحق من الجداول، والمصاريف من الخزينة على كود الوحدة.</div>' +
+      (topCats.length ? '<div class="card" style="padding:8px 10px"><h3 style="margin:0 0 4px">المصاريف حسب البند</h3><table class="mt">' + topCats.slice(0, 12).map(function (k) { return '<tr><td>' + esc(k) + '</td><td class="n ' + (cats[k] < 0 ? 'okc' : '') + '">' + money(Math.round(cats[k])) + '</td><td class="n r2">' + pc(T.exp ? cats[k] / T.exp : null) + '</td></tr>'; }).join('') + (topCats.length > 12 ? '<tr><td colspan="3" class="r2">و' + (topCats.length - 12) + ' بنود تانية</td></tr>' : '') + '</table></div>' : '') +
+      '<div class="filters" style="margin-top:8px"><select id="pfSo">' + [['net', 'ترتيب: صافي الربح'], ['margin', 'ترتيب: الهامش %'], ['rev', 'ترتيب: إيجار المستأجر'], ['owner', 'ترتيب: إيجار المالك'], ['exp', 'ترتيب: المصاريف'], ['beds', 'ترتيب: الغرف']].map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === PF.sort ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' +
+      '<button class="btn ghost" id="pfD" style="flex:0 0 auto;padding:6px 12px">' + (PF.dir === 'asc' ? '↑ تصاعدي' : '↓ تنازلي') + '</button></div>' + exportBar('pfExp') +
+      (rows.length ? '<div class="card" style="padding:4px 10px" id="pfList">' + rows.map(function (x, i) {
+        var open = PF.open === x.unit.code, ck = Object.keys(x.cats).sort(function (a, b) { return Math.abs(x.cats[b]) - Math.abs(x.cats[a]); });
+        return '<div class="cmrow" data-pf="' + esc(x.unit.code) + '" style="cursor:pointer;flex-wrap:wrap"><div class="t"><b>' + esc(App.unitTitle(x.unit) || x.unit.code) + '</b><i>' + esc(x.unit.code) + (x.beds ? ' · ' + x.beds + ' غرف' : '') + ' · مستأجر ' + money(x.rev) + ' · مالك ' + money(x.owner) + ' · مصاريف ' + money(x.exp) + (x.assumed ? ' · المالك مفترض في ' + x.assumed + ' شهر' : '') + '</i></div>' +
+          '<div class="nums"><b class="' + (x.net < 0 ? 'late' : 'okc') + '">' + money(x.net) + '</b><small>' + pc(x.margin) + '</small></div>' +
+          (open ? '<div style="flex-basis:100%;margin-top:6px"><table class="mt">' + (ck.length ? ck.map(function (k) { return '<tr><td>' + esc(k) + '</td><td class="n">' + money(Math.round(x.cats[k])) + '</td></tr>'; }).join('') : '<tr><td class="r2">مفيش مصاريف متسجلة على الوحدة في الفترة دي.</td></tr>') + '</table></div>' : '') + '</div>';
+      }).join('') + '</div>' : '<div class="empty">مفيش وحدات.</div>');
+    $('pfSo').onchange = function () { PF.sort = this.value; drawProf(); };
+    $('pfD').onclick = function () { PF.dir = PF.dir === 'asc' ? 'desc' : 'asc'; drawProf(); };
+    if ($('pfList')) $('pfList').onclick = function (e) { var r = e.target.closest('[data-pf]'); if (!r) return; PF.open = PF.open === r.dataset.pf ? '' : r.dataset.pf; drawProf(); };
+    bindExport('pfExp', function () {
+      var l = S.pfView || [], cs = {}; l.forEach(function (x) { Object.keys(x.cats).forEach(function (k) { cs[k] = (cs[k] || 0) + Math.abs(x.cats[k]); }); });
+      var ck = Object.keys(cs).sort(function (a, b) { return cs[b] - cs[a]; });
+      var ttl = fileName('ربحية الوحدات', PF.grp ? grpName([PF.grp]) : scopeName(), PF.proj, PF.beds ? PF.beds + ' غرف' : '', L.monthLabel(PF.k1) + ' لـ ' + L.monthLabel(PF.k2));
+      return { name: fileName(ttl, fdate()), title: ttl, sheet: 'الربحية', sub: 'الإيجار مستحق من الجداول، والمصاريف من الخزينة على كود الوحدة', sums: [5, 6, 7, 8].concat(ck.map(function (_, i) { return 10 + i; })),
+        kinds: ['text', 'text', 'text', 'text', 'num', 'money', 'money', 'money', 'money', 'text'].concat(ck.map(function () { return 'money'; })),
+        headers: ['المكان', 'المشروع', 'الوحدة', 'كود', 'غرف', 'إيجار المستأجر', 'إيجار المالك', 'المصاريف', 'صافي الربح', 'الهامش'].concat(ck),
+        rows: l.map(function (x) { return [GRP_AR[x.group] || x.group, x.unit.project, App.unitTitle(x.unit), x.unit.code, x.beds || '', x.rev, x.owner, x.exp, x.net, pc(x.margin)].concat(ck.map(function (k) { return x.cats[k] ? Math.round(x.cats[k]) : ''; })); }) };
+    });
+  }
+  function openProfCats() {
+    var seen = S.pfCatsSeen || {}, skip = pfSkip(), all = {};
+    Object.keys(seen).forEach(function (k) { all[k] = 1; }); skip.forEach(function (k) { if (k) all[k] = 1; });
+    var ks = Object.keys(all).filter(function (k) { return k; }).sort();
+    App.openSheet('<h2>البنود المحسوبة في المصاريف</h2><div class="r2" style="margin:-4px 0 8px">علّم على البنود اللي تتحسب مصروف أو إيراد على الوحدة. اللي مش متعلم عليه (زي حركة الإيجار والتأمين والجاري) مش بيدخل الحساب.</div>' +
+      '<div class="card" style="padding:6px 10px;max-height:52vh;overflow:auto">' + ks.map(function (k) { return '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid #f0e9da"><input type="checkbox" data-pc="' + esc(k) + '"' + (skip.indexOf(k) === -1 ? ' checked' : '') + ' style="width:auto"> ' + esc(k) + '<span class="r2" style="margin-inline-start:auto">' + (seen[k] || 0) + ' حركة</span></label>'; }).join('') + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn ghost" id="pcReset">الافتراضي</button><button class="btn primary" id="pcSave">حفظ</button></div>');
+    $('pcReset').onclick = function () { try { localStorage.removeItem('osoolPanel.profSkip'); } catch (e) { } App.closeSheet(); drawProf(); };
+    $('pcSave').onclick = function () { var sk = ['']; document.querySelectorAll('#sheet input[data-pc]').forEach(function (c) { if (!c.checked) sk.push(c.dataset.pc); }); pfSetSkip(sk); App.closeSheet(); drawProf(); };
+  }
+
   // ======================= الإشغال (مخفي) =======================
   var OCC = { from: null, to: null, grp: '', proj: '', beds: '', set: '', sort: 'pct', dir: 'asc' };
   function occPreset(k) {
@@ -1759,7 +1834,7 @@
   }
 
   window.OsoolScreens = {
-    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); else if (t === 'occ') renderOcc(); },
+    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); else if (t === 'occ') renderOcc(); else if (t === 'prof') renderProf(); },
     startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
     ensureTreasury: ensureTreasury, openBulk: openBulk, openDeposits: openDeposits, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
     setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }

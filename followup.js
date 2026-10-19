@@ -661,6 +661,39 @@
     return Object.keys(g).map(function (k) { var a = g[k]; a.avg = Math.round(a.sum / a.n); return a; }).sort(function (a, b) { return a.beds - b.beds; });
   }
 
+  // ---------- ربحية الوحدة ----------
+  // البنود اللي مش مصروف على الوحدة (حركة فلوس الإيجار والتأمين والجاري والشيكات والتسويات) — قابلة للتعديل
+  var PROFIT_SKIP = ['تحصيل ايجار', 'سداد ايجار', 'تسويات', 'جارى - م فراس', 'جارى - م احمد', 'شيكات صادرة ت ت', 'شيكات صادرة CIB',
+    'تحصيل تأمين', 'رد تأمين للمستأجر', 'سداد تأمين', 'رد تأمين من المالك', 'رد ايجار للمستأجر', 'رد ايجار من مالك', ''];
+  // لكل وحدة في الشهور من k1 لـ k2: مستحق المستأجرين، ومستحق المالك (بنفس منطق المقارنة)، وصافي بنود الخزينة على كودها
+  function unitProfit(units, renters, rMonths, oMonths, t, k1, k2, settings, skip) {
+    var keys = keyRange(k1, k2), by = {};
+    keys.forEach(function (k) {
+      compareMonth(units, renters, rMonths, oMonths, k, settings).forEach(function (x) {
+        var a = by[x.unit.code] || (by[x.unit.code] = { unit: x.unit, group: x.group, beds: x.beds, rev: 0, owner: 0, assumed: 0, months: 0, cats: {}, exp: 0 });
+        a.rev += x.tenant; a.owner += x.owner; if (x.assumed) a.assumed++; a.months++;
+      });
+    });
+    var d1 = L.dateToSerial(keyToDate(k1)), d2 = L.dateToSerial(new Date(L.addMonths(keyToDate(k2), 1).getTime() - DAY));
+    var sk = {}; (skip || PROFIT_SKIP).forEach(function (x) { sk[str(x)] = 1; });
+    var c = t && t.cols, allCats = {};
+    if (c && c['كود']) {
+      var ub = {}; units.forEach(function (u) { ub[u.code] = u; });
+      for (var i = 0; i < c['فئة'].length; i++) {
+        var dt = Math.floor(num(c['تاريخ'][i])); if (!dt || dt < d1 || dt > d2) continue;
+        var code = str(c['كود'][i]); if (!code || code === '1') continue;
+        var cat = str(c['فئة'][i]), v = num(c['مصروف'][i]) - num(c['ايراد'][i]); if (!v) continue;
+        allCats[cat] = (allCats[cat] || 0) + 1;
+        if (sk[cat]) continue;
+        var a2 = by[code];
+        if (!a2) { var u = ub[code]; if (!u || !inScope(u, settings) || str(u.settle).toUpperCase() === 'OUT') continue; a2 = by[code] = { unit: u, group: groupOf(u.project), beds: num(u.bedrooms) || 0, rev: 0, owner: 0, assumed: 0, months: 0, cats: {}, exp: 0 }; }
+        a2.cats[cat] = (a2.cats[cat] || 0) + v; a2.exp += v;
+      }
+    }
+    var rows = Object.keys(by).map(function (k) { var a = by[k]; a.rev = Math.round(a.rev); a.owner = Math.round(a.owner); a.exp = Math.round(a.exp); a.net = a.rev - a.owner - a.exp; a.margin = a.rev ? a.net / a.rev : null; return a; });
+    return { rows: rows, cats: allCats };
+  }
+
   // ---------- الإشغال ----------
   // لكل وحدة في الفترة: الأيام المتاحة (عقد المالك ساري، ومش خارج التشغيل) والأيام المشغولة من عقود المستأجرين.
   // عقود الليالي (أقل من ٣٠ يوم): يوم الخروج مش محسوب ليلة. العقود الملغية مش محسوبة.
@@ -819,7 +852,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, occupancy: occupancy, occSum: occSum, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, unitProfit: unitProfit, PROFIT_SKIP: PROFIT_SKIP, keyRange: keyRange, occupancy: occupancy, occSum: occSum, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     inScope: inScope, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,

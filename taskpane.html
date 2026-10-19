@@ -295,6 +295,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   <section id="tab-cmp" class="hide"></section>
   <section id="tab-ownerc" class="hide"></section>
   <section id="tab-occ" class="hide"></section>
+  <section id="tab-prof" class="hide"></section>
   <section id="tab-avail" class="hide"></section>
   <section id="tab-treas" class="hide"></section>
   <section id="tab-transfer" class="hide"></section>
@@ -374,8 +375,8 @@ var GROUPS = {
   units: { title: 'الشقق', sub: [['avail','المتاح']] },
   review: { title: 'المراجعة', sub: null }
 };
-var GROUP_OF = { occ:'units', ownerc:'contracts', cmp:'money', home:'home', search:'contracts', 'new':'contracts', transfer:'contracts', coll:'money', owners:'money', treas:'money', avail:'units', review:'review' };
-var ALL_TABS = ['occ','ownerc','cmp','home','new','search','coll','transfer','avail','treas','owners','review'];
+var GROUP_OF = { prof:'money', occ:'units', ownerc:'contracts', cmp:'money', home:'home', search:'contracts', 'new':'contracts', transfer:'contracts', coll:'money', owners:'money', treas:'money', avail:'units', review:'review' };
+var ALL_TABS = ['prof','occ','ownerc','cmp','home','new','search','coll','transfer','avail','treas','owners','review'];
 var LAST = { contracts:'search', money:'coll', units:'avail', home:'home' };
 // ---------- شاشة المقارنة: مخفية ومبتظهرش غير بعد كود على الجهاز ----------
 var CMP_KEY = 'osoolPanel.cmp';
@@ -383,7 +384,7 @@ function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null
 function lsSet(k,v){ try { if (v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); } catch(e){} }
 function cmpOn(){ return lsGet(CMP_KEY)==='1'; }
 // الأقسام المخفية: المقارنة (الفلوس) وعقود الملاك (العقود)، والتأمينات جوه المستأجرين
-var HIDDEN_TABS = [['money','cmp','المقارنة'],['contracts','ownerc','عقود الملاك'],['units','occ','الإشغال']];
+var HIDDEN_TABS = [['money','cmp','المقارنة'],['money','prof','الربحية'],['contracts','ownerc','عقود الملاك'],['units','occ','الإشغال']];
 function cmpSync(){
   HIDDEN_TABS.forEach(function(h){
     var g = GROUPS[h[0]], has = g.sub.some(function(x){ return x[0]===h[1]; });
