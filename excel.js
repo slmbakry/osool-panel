@@ -36,7 +36,8 @@
     var out = {}, p = Promise.resolve();
     for (var s = 0; s < list.length; s += per) {
       (function (batch) {
-        p = p.then(function () {
+        // استراحة صغيرة بين كل دفعة والتانية عشان الإكسيل والمتصفح مايتقلوش
+        p = p.then(function () { return new Promise(function (ok) { setTimeout(ok, 40); }); }).then(function () {
           var rs = batch.map(function (x) { return table.columns.getItemAt(x[1]).getDataBodyRange().load('values'); });
           return ctx.sync().then(function () {
             batch.forEach(function (x, j) { out[x[0]] = rs[j].values.map(function (r) { return r[0]; }); });

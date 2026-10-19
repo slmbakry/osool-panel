@@ -203,9 +203,8 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   .kgrid{grid-template-columns:repeat(4,1fr)}
   .grid2{gap:0 14px}
   /* القوايم: الكروت جنب بعض */
-  :has(> .rcard){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;align-items:start}
-  :has(> .rcard) > :not(.rcard){grid-column:1/-1}
-  :has(> .rcard) > .rcard{margin-bottom:0}
+  /* الكروت جنب بعض من غير :has عشان المتصفح مايتقلش */
+  .rcard{display:inline-block;vertical-align:top;width:calc(50% - 8px);margin:0 4px 8px}
   /* الرئيسية: الصورة كلها على ناحية والمفضلات على الناحية التانية */
   #tab-home{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:0 18px;align-items:start}
   #tab-home > *{grid-column:1/-1}
@@ -755,7 +754,8 @@ window.OsoolApp = { cmpOn:cmpOn, cmpLock:cmpLock, S:S, A:A, L:L, $:$, esc:esc, m
 
 // ---------- البداية ----------
 setType('monthly');
-function start(){ load(); }
+// البانل ممكن يفتح مع الملف نفسه، فنستنى ثانية ونص عشان الإكسيل يخلص تحميل الأول
+function start(){ setTimeout(load, window.OsoolBig || window.OsoolMockAdapter ? 0 : 1500); }
 if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); else start();
 })();
 </script>
