@@ -198,7 +198,7 @@
   // ---------- كشف المستحقات ----------
   // من أول آخر سنة في العقد (بالعد لورا من تاريخ النهاية)، وبشرط إنها تبدأ في 1/7/2026 أو قبله.
   // المستحق من خانات الشهور، والمدفوع من الخزينة (سداد ايجار ناقص رد ايجار) حسب خانة الشهر.
-  var CUTOFF = L.dateToSerial(new Date(Date.UTC(2026, 6, 1)));
+  var CUTOFF = L.dateToSerial(new Date(Date.UTC(2026, 6, 1))), FLOOR = L.dateToSerial(new Date(Date.UTC(2025, 0, 1)));
   function treasuryByUnit(t) {
     var c = t.cols, out = {}; if (!c['كود'] || !c['فئة']) return out;
     for (var i = 0; i < c['فئة'].length; i++) {
@@ -211,6 +211,14 @@
     }
     return out;
   }
+  // اتفاقات محمد (20-10-2026): شهور ناقصة بتتقفل كأنها مسددة
+  // 1) وحدات التسويات (F و N-F): لحد أغسطس 2026، وبعده عادي
+  // 2) بورتو والملف الرئيسي (كله ما عدا فيلدج): من سبتمبر 2025 لحد مارس 2026 (الخزينة ناقصة في الفترة دي)
+  var CLOSE = [
+    { test: function (u, d) { var st = str(u.settle).toUpperCase().replace(/[_\s]/g, '-'); return (st === 'F' || st === 'N-F') && d <= Date.UTC(2026, 7, 1); }, why: 'تسويات: مقفول لحد 8/2026' },
+    { test: function (u, d) { return F.groupOf(u.project) !== 'Village' && d >= Date.UTC(2025, 8, 1) && d <= Date.UTC(2026, 2, 1); }, why: 'مسدد (مش في الخزينة) 9/2025 لـ 3/2026' }
+  ];
+  function closeRule(u, key) { var d = F.keyToDate(key).getTime(); for (var i = 0; i < CLOSE.length; i++) if (CLOSE[i].test(u, d)) return CLOSE[i].why; return ''; }
   function firstOf(s) { var d = L.serialToDate(s); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
   function duesAll(ours, byU, ck, treasury, today) {
     var T = treasuryByUnit(treasury || { cols: {} }), res = [], curM = firstOf(today);
@@ -221,6 +229,7 @@
       // أول آخر سنة: يوم بعد النهاية ناقص 12 شهر، ونرجع سنة سنة لحد ما تبقى في 1/7/2026 أو قبله
       var S = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), -12));
       while (S > CUTOFF) S = L.dateToSerial(L.addMonths(L.serialToDate(S), -12));
+      if (S < FLOOR) S = FLOOR; // الكشف مبيبدأش قبل أول 2025
       var g = T[u.code] || { m: {}, loose: 0, looseN: 0, list: [] };
       // آخر الكشف: الشهر الحالي، أو شهر النهاية لو قبله، وبعدها أي شهر متدفع مقدم
       var last = firstOf(Math.min(E, L.dateToSerial(curM)));
@@ -250,21 +259,24 @@
         months.forEach(function (m) { if (rest <= 0 || m.state === 'مقدم') return; var need = m.due - m.paid; if (need <= 1) return; var t = Math.min(need, rest); m.paid += t; rest -= t; spread += t; m.loose = true; });
         left += rest;
       });
-      if (spread) { // نعيد الحساب بعد التوزيع
-        tPaid = 0; under = 0; over = 0; bal = 0; first = null;
-        months.forEach(function (m) {
-          if (m.state === 'مقدم') return;
-          m.diff = Math.round(m.due - m.paid); tPaid += m.paid; bal += m.due - m.paid; m.bal = Math.round(bal);
-          m.state = Math.abs(m.diff) <= 1 ? 'مظبوط' : m.diff > 0 ? 'ناقص' : 'زايد';
-          if (m.state === 'ناقص') under += m.diff; else if (m.state === 'زايد') over -= m.diff;
-          if (!first && m.state !== 'مظبوط') first = m.month;
-        });
-      }
+      // إعادة الحساب بعد التوزيع والاتفاقات: الشهر الناقص اللي عليه اتفاق بيتقفل "مقفول" ومبيدخلش في الفرق
+      tPaid = 0; under = 0; over = 0; bal = 0; first = null; var closed = 0;
+      months.forEach(function (m) {
+        if (m.state === 'مقدم') return;
+        m.diff = Math.round(m.due - m.paid); m.closed = 0;
+        var rule = m.diff > 1 ? closeRule(u, m.key) : '';
+        if (rule) { m.closed = m.diff; m.diff = 0; m.rule = rule; closed += m.closed; }
+        tPaid += m.paid; bal += m.due - m.paid - m.closed; m.bal = Math.round(bal);
+        m.state = rule ? 'مقفول' : Math.abs(m.diff) <= 1 ? 'مظبوط' : m.diff > 0 ? 'ناقص' : 'زايد';
+        if (m.state === 'ناقص') under += m.diff; else if (m.state === 'زايد') over -= m.diff;
+        if (!first && (m.state === 'ناقص' || m.state === 'زايد')) first = m.month;
+      });
       g = { loose: left, looseN: left ? g.looseN : 0, spread: spread };
-      res.push({ code: u.code, project: u.project, owner: u.owner, title: u.unitTitle, no: rows.length ? str(rows[rows.length - 1][C.no]) : '', start: S, end: E, cycle: u.cycle,
-        months: months, due: Math.round(tDue), paid: Math.round(tPaid), balance: Math.round(tDue - tPaid), under: Math.round(under), over: Math.round(over), ahead: Math.round(ahead),
+      var balance = Math.round(tDue - tPaid - closed);
+      res.push({ code: u.code, project: u.project, owner: u.owner, title: u.unitTitle, no: rows.length ? str(rows[rows.length - 1][C.no]) : '', start: S, end: E, cycle: u.cycle, settle: u.settle,
+        months: months, due: Math.round(tDue), paid: Math.round(tPaid), closed: Math.round(closed), balance: balance, under: Math.round(under), over: Math.round(over), ahead: Math.round(ahead),
         loose: Math.round(g.loose), looseN: g.looseN, spread: Math.round(g.spread), first: first, devPaid: rows.length ? day(rows[rows.length - 1][C.paid]) : 0, trPaid: u.paid,
-        state: Math.abs(tDue - tPaid) <= 1 && !under && !over ? 'مظبوط' : tDue - tPaid > 1 ? 'عليه ناقص' : tDue - tPaid < -1 ? 'مدفوع زيادة' : 'فيه فروق شهور' });
+        state: Math.abs(balance) <= 1 && !under && !over ? 'مظبوط' : balance > 1 ? 'عليه ناقص' : balance < -1 ? 'مدفوع زيادة' : 'فيه فروق شهور' });
     });
     return res;
   }

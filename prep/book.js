@@ -9,7 +9,7 @@
   var DATE_COLS = ['تاريخ الإنهاء', 'تاريخ التوقيع', 'بداية العقد', 'نهاية العقد', 'تاريخ أول دفعة', 'مسدد حتى'];
   var fill = function (argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb: argb } }; };
   var YELLOW = fill('FFFFE699'), GREEN = fill('FFE6F4EA'), BLUE = fill('FFE8EEFC'), ORANGE = fill('FFF8CBAD'), RED = fill('FFFADBD8'), HEAD = fill('FFF5EEDC');
-  var STATE_FILL = { 'ناقص': RED, 'زايد': ORANGE, 'مقدم': BLUE, 'عليه ناقص': RED, 'مدفوع زيادة': ORANGE, 'فيه فروق شهور': YELLOW };
+  var STATE_FILL = { 'مقفول': GREEN, 'ناقص': RED, 'زايد': ORANGE, 'مقدم': BLUE, 'عليه ناقص': RED, 'مدفوع زيادة': ORANGE, 'فيه فروق شهور': YELLOW };
   var KIND = { fix: 'تصحيح', note: 'ملاحظة', review: 'محتاج قرار', flag: 'للمراجعة' };
 
   function cellVal(v) { if (v && typeof v === 'object') { if (v.formula !== undefined || v.sharedFormula !== undefined) return v.result; if (v instanceof Date) return L.dateToSerial(v); if (v.richText) return v.richText.map(function (x) { return x.text; }).join(''); } return v; }
@@ -34,10 +34,10 @@
     ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
     return ws;
   }
-  var DUES_COLS = [['كود الوحدة', 14], ['رقم العقد', 15], ['الشهر', 12, 'dd/mm/yyyy'], ['رقم القسط', 10], ['بداية القسط', 12, 'dd/mm/yyyy'], ['المستحق', 12, '#,##0'], ['المدفوع', 12, '#,##0'], ['الفرق', 12, '#,##0'], ['الرصيد', 13, '#,##0'], ['الحالة', 10], ['ملف أصول', 16]];
+  var DUES_COLS = [['كود الوحدة', 14], ['رقم العقد', 15], ['الشهر', 12, 'dd/mm/yyyy'], ['رقم القسط', 10], ['بداية القسط', 12, 'dd/mm/yyyy'], ['المستحق', 12, '#,##0'], ['المدفوع', 12, '#,##0'], ['مقفول بالاتفاق', 13, '#,##0'], ['الفرق', 12, '#,##0'], ['الرصيد', 13, '#,##0'], ['الحالة', 10], ['السبب', 34], ['ملف أصول', 16]];
   function duesRows(R, src) {
     var rows = [];
-    R.dues.forEach(function (x) { x.months.forEach(function (m) { rows.push([x.code, m.no || null, d(m.month), m.inst, d(m.instDate), m.due, m.paid, m.diff, m.bal, m.state + (m.loose ? ' *' : ''), src]); }); });
+    R.dues.forEach(function (x) { x.months.forEach(function (m) { rows.push([x.code, m.no || null, d(m.month), m.inst, d(m.instDate), m.due, m.paid, m.closed || null, m.diff, m.bal, m.state + (m.loose ? ' *' : ''), m.rule || null, src]); }); });
     return rows;
   }
 
@@ -74,8 +74,8 @@
     if (!hadLog) R.devOnly.forEach(function (c) { logRows.push(['مش عندنا', c, '', '', '', '', 'الوحدة في ملف المطور ومش في شيت الملاك في الملفات اللي اتراجعت', src]); });
     mergeSheet(wb, LOG, [['النوع', 12], ['كود الوحدة', 14], ['رقم العقد', 14], ['العمود', 26], ['قبل', 22], ['بعد', 22], ['السبب', 70], ['ملف أصول', 18]], logRows, 7, src,
       function (v) { return v[0] !== 'مش عندنا' || dev1[v[1]]; });
-    var dw = mergeSheet(wb, DUES, DUES_COLS, duesRows(R, src), 10, src);
-    dw.eachRow(function (row, i) { if (i < 2) return; var f = STATE_FILL[String(cellVal(row.getCell(10).value) || '').replace(' *', '')]; if (f) row.getCell(10).fill = f; });
+    var dw = mergeSheet(wb, DUES, DUES_COLS, duesRows(R, src), 12, src);
+    dw.eachRow(function (row, i) { if (i < 2) return; var f = STATE_FILL[String(cellVal(row.getCell(11).value) || '').replace(' *', '')]; if (f) row.getCell(11).fill = f; });
     return wb;
   }
 
@@ -88,17 +88,17 @@
       ws.getRow(1).font = { bold: true }; ws.getRow(1).fill = HEAD; ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
       return ws;
     };
-    var S = sheet('ملخص المستحقات', [['الحالة', 13], ['كود الوحدة', 13], ['المشروع', 11], ['المالك', 26], ['رقم العقد', 15], ['الكشف من', 12, 'dd/mm/yyyy'], ['نهاية العقد', 12, 'dd/mm/yyyy'], ['يسدد كل', 8], ['المستحق', 13, '#,##0'], ['المدفوع', 13, '#,##0'], ['الفرق', 13, '#,##0'], ['شهور ناقصة', 12, '#,##0'], ['شهور زايدة', 12, '#,##0'], ['مقدم بعد الشهر الحالي', 14, '#,##0'], ['سداد من غير شهر', 13, '#,##0'], ['أول شهر فيه فرق', 13, 'dd/mm/yyyy'], ['مسدد حتى (الخزينة)', 14, 'dd/mm/yyyy'], ['مسدد حتى (المطور)', 14, 'dd/mm/yyyy'], ['ملف أصول', 16]]);
+    var S = sheet('ملخص المستحقات', [['الحالة', 13], ['كود الوحدة', 13], ['المشروع', 11], ['المالك', 26], ['رقم العقد', 15], ['الكشف من', 12, 'dd/mm/yyyy'], ['نهاية العقد', 12, 'dd/mm/yyyy'], ['يسدد كل', 8], ['المستحق', 13, '#,##0'], ['المدفوع', 13, '#,##0'], ['مقفول بالاتفاق', 13, '#,##0'], ['الفرق', 13, '#,##0'], ['شهور ناقصة', 12, '#,##0'], ['شهور زايدة', 12, '#,##0'], ['مقدم بعد الشهر الحالي', 14, '#,##0'], ['سداد من غير شهر', 13, '#,##0'], ['أول شهر فيه فرق', 13, 'dd/mm/yyyy'], ['مسدد حتى (الخزينة)', 14, 'dd/mm/yyyy'], ['مسدد حتى (المطور)', 14, 'dd/mm/yyyy'], ['ملف أصول', 16]]);
     var all = [];
     runs.forEach(function (r) { r.R.dues.forEach(function (x) { all.push([r.src, x]); }); });
     var rank = { 'عليه ناقص': 0, 'مدفوع زيادة': 1, 'فيه فروق شهور': 2, 'مظبوط': 3 };
     all.sort(function (a, b) { return (rank[a[1].state] - rank[b[1].state]) || (Math.abs(b[1].balance) - Math.abs(a[1].balance)); });
     all.forEach(function (p) {
-      var x = p[1], row = S.addRow([x.state, x.code, x.project, x.owner, x.no || null, d(x.start), d(x.end), x.cycle, x.due, x.paid, x.balance, x.under || null, x.over || null, x.ahead || null, x.loose || null, d(x.first), d(x.trPaid), d(x.devPaid), p[0]]);
+      var x = p[1], row = S.addRow([x.state, x.code, x.project, x.owner, x.no || null, d(x.start), d(x.end), x.cycle, x.due, x.paid, x.closed || null, x.balance, x.under || null, x.over || null, x.ahead || null, x.loose || null, d(x.first), d(x.trPaid), d(x.devPaid), p[0]]);
       if (STATE_FILL[x.state]) row.getCell(1).fill = STATE_FILL[x.state];
     });
-    var M = sheet('شهر بشهر', DUES_COLS.slice(0, 10).concat([['ملف أصول', 16]]));
-    runs.forEach(function (r) { duesRows(r.R, r.src).forEach(function (v) { var row = M.addRow(v); var f = STATE_FILL[String(v[9]).replace(' *', '')]; if (f) row.getCell(10).fill = f; }); });
+    var M = sheet('شهر بشهر', DUES_COLS);
+    runs.forEach(function (r) { duesRows(r.R, r.src).forEach(function (v) { var row = M.addRow(v); var f = STATE_FILL[String(v[10]).replace(' *', '')]; if (f) row.getCell(11).fill = f; }); });
     M.addRow([]); M.addRow(['* = فيه سداد في الخزينة من غير خانة شهر، اتوزع على أقدم شهور ناقصة من تاريخه']);
     var F2 = sheet('الإيجار للمراجعة', [['كود الوحدة', 13], ['رقم العقد', 15], ['العمود', 26], ['عند المطور', 22], ['الشيت بيقول', 22], ['السبب', 60], ['ملف أصول', 16]]);
     runs.forEach(function (r) { r.R.changes.filter(function (c) { return c.kind === 'flag'; }).forEach(function (c) { F2.addRow([c.code, c.no, c.col, shown(c.col, c.old), shown(c.col, c.val), c.why, r.src]); }); });
