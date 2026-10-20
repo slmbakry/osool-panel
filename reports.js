@@ -11,8 +11,8 @@
   function d2(v) { return v ? L.fmt(v).replace(/\/(\d{2})(\d{2})$/, '/$2') : ''; } // 05/10/26
   // اسم الوحدة: P بارسل · B عمارة · U وحدة، والرموز خفيفة. الكل شمال ليمين عشان النص ميتلغبطش
   // VIP و Smart تمييز للوحدة مش جزء من العنوان، فبيطلعوا في عمود لوحدهم
-  var TAG_RE = /^(vip|smart)$/i;
-  function unitClass(u) { var b = String(u.block == null ? '' : u.block).trim(); return TAG_RE.test(b) ? (b.toUpperCase() === 'VIP' ? 'VIP' : 'Smart') : ''; }
+  var TAG_RE = /^(vip|v|smart)$/i; // V في فيلدج اختصار VIP
+  function unitClass(u) { var b = String(u.block == null ? '' : u.block).trim(); return TAG_RE.test(b) ? (/^vi?p?$/i.test(b) ? 'VIP' : 'Smart') : ''; }
   function unitTag(u, w) {
     var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
     var parts = [['P', unitClass(u) ? '' : ok(u.block)], ['B', ok(u.building)], ['U', ok(u.apt)]];
