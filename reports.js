@@ -83,7 +83,9 @@
     var md = L.monthsAndDays(today, end), y = Math.floor(md.months / 12), m = md.months % 12;
     return ((y ? y + 'Y ' : '') + (m ? m + 'M' : '')).trim() || '0M';
   }
-  function availHtml(list, today, filterText) {
+  function availHtml(list, today, filterText, name) {
+    // name: نفس اسم الملف (من غير التاريخ)، عشان العنوان جوه يطابق اسم الـ PDF
+    var head = 'Available List · ' + (name || 'المتاح');
     var free = function (x) { return !x.current && !x.pending; };
     var checkIn = list.filter(function (x) { return x.next && +x.next.start === +today; }).length;
     var checkOut = list.filter(function (x) { return (x.current && +x.current.end === +today) || x.receivedToday; }).length;
@@ -112,9 +114,9 @@
         '<td class="n">' + more + '</td><td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n mx">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;
-    var sub = DAYS[today.getUTCDay()] + ' ' + L.fmt(today) + (filterText ? ' · ' + filterText : '');
+    var sub = DAYS[today.getUTCDay()] + ' ' + L.fmt(today) + (filterText && !name ? ' · ' + filterText : '');
     if (sub.length > 110) sub = sub.slice(0, 107) + '…';
-    return { title: 'Available List · المتاح', sub: sub, top: band('Available List · المتاح', sub) +
+    return { title: head, sub: sub, top: band(head, sub) +
       '<div class="two avoid"><div><div class="kpis"><div class="kpi"><div class="v g">' + nFree + '</div><div class="k">Available · فاضية</div></div>' +
       '<div class="kpi"><div class="v">' + checkIn + '</div><div class="k">Check In النهارده</div></div>' +
       '<div class="kpi"><div class="v">' + checkOut + '</div><div class="k">Check Out النهارده</div></div>' +

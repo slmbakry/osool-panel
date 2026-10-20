@@ -1614,14 +1614,16 @@
       };
       var report = function () {
         var txt = AV.projects.length === projects.length ? 'كل الأماكن' : AV.projects.join('، ');
-        return R.availHtml(S.availView || [], today(), txt);
+        return R.availHtml(S.availView || [], today(), txt, avTitle());
       };
-      var avName = function () { return fileName('المتاح', AV.projects.length === projects.length ? '' : grpName(AV.projects), fdate()); };
+      // نفس الاسم في اسم الملف وجوه الملف: المتاح + المكان (ولو كله، نطاق الملف)
+      var avTitle = function () { return fileName('المتاح', AV.projects.length === projects.length ? scopeName() : grpName(AV.projects)); };
+      var avName = function () { return fileName(avTitle(), fdate()); };
       $('avPdf').onclick = function () { R.openPrint(report(), avName()).then(function () { $('avMsg').textContent = 'اختار Save as PDF من نافذة الطباعة.'; }); };
       $('avXl').onclick = function () {
         var l = S.availView || [];
         $('avMsg').textContent = 'بيجهز الإكسيل…';
-        R.downloadXlsx({ name: avName(), title: fileName('المتاح', AV.projects.length === projects.length ? '' : grpName(AV.projects)), sheet: 'المتاح', sub: AV.projects.join('، '), sums: [],
+        R.downloadXlsx({ name: avName(), title: avTitle(), sheet: 'المتاح', sub: AV.projects.join('، '), sums: [],
           kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text', 'text'],
           headers: ['المكان', 'المشروع', 'كود الوحدة', 'تمييز', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي', 'ملاحظة'],
           rows: l.map(function (x) { var u = x.unit, c = x.current, n = x.next;
