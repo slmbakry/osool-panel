@@ -189,10 +189,15 @@
     var fd = fr.contentDocument; fd.open(); fd.write('<!doctype html><html dir="rtl"><head><meta charset="utf-8"></head><body style="margin:0"></body></html>'); fd.close();
     var host = fd.body;
     var pages = [], i = 0, rows = rep.rows || [];
+    // عرض الأعمدة بيتقاس مرة واحدة على كل السطور، وكل الصفحات بتاخده ثابت (عشان كل صفحة متطلعش بشكل)
+    host.innerHTML = CSS + '<div class="rp"><table id="fullt">' + rep.thead + '<tbody>' + rows.join('') + '</tbody>' + rep.tfoot + '</table></div>';
+    var ft = fd.getElementById('fullt'), hr = ft.tHead && ft.tHead.rows.length ? ft.tHead.rows[ft.tHead.rows.length - 1] : null, cg = '', tw = 0;
+    if (hr) { cg = '<colgroup>' + Array.prototype.map.call(hr.cells, function (c) { var w = Math.ceil(c.getBoundingClientRect().width); tw += w; return '<col style="width:' + w + 'px">'; }).join('') + '</colgroup>'; }
+    var tOpen = cg ? '<table style="table-layout:fixed;width:' + tw + 'px">' + cg : '<table>';
     do {
       var top = pages.length === 0 ? rep.top : '<div class="mini"><span>' + esc(rep.title) + ' · ' + esc(rep.sub) + '</span><span dir="ltr">' + esc(BRAND) + '</span></div>';
       // نفس شكل الصفحة النهائية بالظبط، والجدول لازم يخلص قبل الفوتر
-      host.innerHTML = CSS + '<div class="rp">' + top + '<table id="pgtable">' + rep.thead + '<tbody id="pgbody"></tbody>' + rep.tfoot + '</table><div class="pfoot">.</div></div>';
+      host.innerHTML = CSS + '<div class="rp">' + top + tOpen.replace('<table', '<table id="pgtable"') + rep.thead + '<tbody id="pgbody"></tbody>' + rep.tfoot + '</table><div class="pfoot">.</div></div>';
       var table = fd.getElementById('pgtable'), body = fd.getElementById('pgbody'), used = [];
       var limit = fd.querySelector('.pfoot').getBoundingClientRect().top - 6;
       while (i < rows.length) {
@@ -204,7 +209,7 @@
     } while (i < rows.length);
     fr.remove();
     return pages.map(function (p, k) {
-      return CSS + '<div class="rp">' + p.top + '<table>' + rep.thead + '<tbody>' + p.rows + '</tbody>' + (k === pages.length - 1 ? rep.tfoot : '') + '</table>' +
+      return CSS + '<div class="rp">' + p.top + tOpen + rep.thead + '<tbody>' + p.rows + '</tbody>' + (k === pages.length - 1 ? rep.tfoot : '') + '</table>' +
         '<div class="pfoot"><span dir="ltr">' + esc(BRAND) + '</span><span>طُبع في ' + esc(nowText()) + '</span><span>صفحة ' + (k + 1) + ' من ' + pages.length + '</span></div></div>';
     });
   }

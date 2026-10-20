@@ -465,7 +465,8 @@
       var status = cur ? 'مشغولة' : pending ? 'لم تستلم' : next ? 'محجوزة' : 'فاضية';
       var upcoming = mine.filter(function (r) { return r.start > today; }).length;
       return { unit: u, current: cur, receivedToday: recvToday, pending: pending, next: next, upcoming: upcoming, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
-    }).sort(function (a, b) { return a.daysToFree - b.daysToFree || String(a.unit.project).localeCompare(String(b.unit.project)); });
+    // الفاضي الأول، وبعده اللي خارج النهارده، وبعده الباقي بتاريخ الخروج
+    }).sort(function (a, b) { return (a.current ? 1 : 0) - (b.current ? 1 : 0) || a.daysToFree - b.daysToFree || String(a.unit.project).localeCompare(String(b.unit.project)); });
   }
 
   // ---------- الخزينة العامة ----------
