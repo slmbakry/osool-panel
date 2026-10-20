@@ -102,6 +102,11 @@
     M.addRow([]); M.addRow(['* = فيه سداد في الخزينة من غير خانة شهر، اتوزع على أقدم شهور ناقصة من تاريخه']);
     var F2 = sheet('الإيجار للمراجعة', [['كود الوحدة', 13], ['رقم العقد', 15], ['العمود', 26], ['عند المطور', 22], ['الشيت بيقول', 22], ['السبب', 60], ['ملف أصول', 16]]);
     runs.forEach(function (r) { r.R.changes.filter(function (c) { return c.kind === 'flag'; }).forEach(function (c) { F2.addRow([c.code, c.no, c.col, shown(c.col, c.old), shown(c.col, c.val), c.why, r.src]); }); });
+    var G = sheet('فترات العقود', [['كود الوحدة', 13], ['المشروع', 11], ['المالك', 26], ['نهاية الشيت', 12, 'dd/mm/yyyy'], ['العقد الحالي من', 13, 'dd/mm/yyyy'], ['إيجاره', 12, '#,##0'], ['العقد اللي مغطي 1/7 من', 15, 'dd/mm/yyyy'], ['لحد', 12, 'dd/mm/yyyy'], ['إيجاره', 12, '#,##0'], ['ليه', 44], ['تغيير في نص السنة', 22], ['شهور بعد النهاية', 12], ['عند المطور', 10], ['ملف أصول', 16]]);
+    runs.forEach(function (r) { (r.R.segs || []).forEach(function (x) {
+      var row = G.addRow([x.code, x.project, x.owner, d(x.end), d(x.cur.s), x.rentCur || null, x.prev ? d(x.prev.s) : null, x.prev ? d(x.prev.e) : null, x.prev ? x.rentPrev : null, x.cur.why + (x.prev ? ' · ' + x.prev.why : ''), x.mid.map(function (k) { return L.monthLabel(k); }).join('، ') || null, x.after || null, x.dev ? 'موجود' : 'جديد', r.src]);
+      if (x.after || x.mid.length) row.getCell(1).fill = YELLOW;
+    }); });
     var Q = sheet('محتاج قرار', [['كود الوحدة', 13], ['رقم العقد', 15], ['السبب', 90], ['ملف أصول', 16]]);
     runs.forEach(function (r) { r.R.changes.filter(function (c) { return c.kind === 'review'; }).forEach(function (c) { Q.addRow([c.code, c.no, c.why, r.src]); }); });
     return wb;
