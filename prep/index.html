@@ -48,22 +48,16 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
 </div>
 <main>
   <div class="card">
-    <h3><span class="n">1</span>ملف المطور: عقود الملاك</h3>
-    <div class="r2" style="margin-bottom:8px">ارفع ملف المطور. ولو ده مش أول ملف أصول، ارفع الملف اللي طلع من المرة اللي فاتت عشان نكمّل عليه.</div>
-    <input type="file" id="dev" accept=".xlsx">
-    <div id="devMsg"></div>
-  </div>
-  <div class="card">
-    <h3><span class="n">2</span>المراجعة</h3>
-    <div class="r2">بيقرا شيت الملاك والخزينة من الملف المفتوح ويقارنهم بملف المطور. مفيش أي حاجة بتتكتب في ملف أصول.</div>
-    <button class="btn" id="run" style="margin-top:8px" disabled>حلّل</button>
+    <h3><span class="n">1</span>عقود الملاك للسيستم الجديد</h3>
+    <div class="r2">بيقرا شيت الملاك والخزينة من الملف المفتوح دلوقتي (آخر تحديث فيه)، ويملا شكل ملف المطور. مفيش أي حاجة بتتكتب في ملف أصول.</div>
+    <button class="btn" id="run" style="margin-top:8px">طلّع العقود</button>
     <div id="out"></div>
   </div>
   <div class="card hide" id="dl">
-    <h3><span class="n">3</span>الملف بعد التعديل</h3>
-    <div class="r2">التصحيحات بالأصفر، والإيجار والزيادات بالبرتقالي من غير ما تتغير (للمراجعة)، والسطور الجديدة بالأخضر. وفيه شيت "كشف المستحقات" وشيت "تغييرات MBM".</div>
-    <button class="btn" id="save" style="margin-top:8px">حمّل ملف المطور بعد التعديل</button>
-    <button class="btn" id="saveRev" style="margin-top:8px;background:#fff;color:var(--ink,#333);border:1px solid #ccc">حمّل ملف مراجعة المستحقات</button>
+    <h3><span class="n">2</span>التحميل</h3>
+    <div class="r2">ملف للمطور بنفس شكله: سطر لكل عقد، والخانات اللي محتاجة مراجعة بالبرتقالي وعليها ملاحظة، وفيه شيت "كشف المستحقات" وشيت "تغييرات MBM". وملف مراجعة ليك انت بس.</div>
+    <button class="btn" id="save" style="margin-top:8px">حمّل ملف المطور</button>
+    <button class="btn" id="saveRev" style="margin-top:8px;background:#fff;color:var(--ink,#333);border:1px solid #ccc">حمّل ملف مراجعة العقود والمستحقات</button>
     <div id="saveMsg"></div>
   </div>
 </main>
@@ -143,7 +137,9 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   function out(col, v) { if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.serialToDate(v); return v === '' ? null : v; }
   function shown(col, v) { if (v === null || v === undefined || v === '') return '—'; if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.fmt(L.serialToDate(v)); return typeof v === 'number' ? v.toLocaleString('en-US') : String(v); }
   // كل تحميل من نسخة نضيفة من ملف المطور، عشان الضغط مرتين ميكررش السطور
-  function buildFile() { return readDev(S.devBuf).then(function (d) { OsoolBook.applyDev(d.wb, S.res, S.scopeName); return d.wb.xlsx.writeBuffer(); }); }
+  // شكل ملف المطور (فاضي من غير أي داتا) جوه الأداة، وكل تحميل من نسخة نضيفة منه
+  function template() { return fetch('template.xlsx', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error('شكل ملف المطور متحملش.'); return r.arrayBuffer(); }); }
+  function buildFile() { return template().then(readDev).then(function (d) { OsoolBook.applyDev(d.wb, S.res, S.scopeName, { fresh: true }); return d.wb.xlsx.writeBuffer(); }); }
   function buildReview() { return OsoolBook.reviewBook(ExcelJS, [{ src: S.scopeName, R: S.res }]).xlsx.writeBuffer(); }
   function download(buf, name) {
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -160,21 +156,19 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   function draw() {
     var R = S.res, c = R.counts, list;
     var bad = R.dues.filter(function (x) { return x.state !== 'مظبوط'; });
-    var tabs = [['dues', 'المستحقات', bad.length], ['flag', 'الإيجار للمراجعة', c.flagged], ['fix', 'تصحيحات', c.fixed], ['review', 'محتاج قرار', c.review], ['new', 'سطور جديدة', R.newRows.length], ['skip', 'أشهر ملغاة', R.skipped.length], ['dev', 'عند المطور بس', R.devOnly.length]];
+    var tabs = [['dues', 'المستحقات', bad.length], ['flag', 'الإيجار للمراجعة', c.flagged], ['fix', 'تصحيحات', c.fixed], ['review', 'محتاج قرار', c.review], ['new', 'العقود', R.newRows.length], ['skip', 'أشهر ملغاة', R.skipped.length]];
     if (S.view === 'dues') list = bad.sort(function (a, b) { return Math.abs(b.balance) - Math.abs(a.balance); }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.project) + '<span class="c ' + (x.balance > 0 ? 'review' : 'note') + '">' + esc(x.state) + '</span><div class="r2">مستحق ' + esc(shown('', x.due)) + ' · مدفوع ' + esc(shown('', x.paid)) + ' · الفرق <b>' + esc(shown('', x.balance)) + '</b>' + (x.first ? ' · من ' + esc(L.monthLabel(L.monthKey(L.serialToDate(x.first)))) : '') + '</div></div>'; });
     else if (S.view === 'flag') list = R.changes.filter(function (x) { return x.kind === 'flag'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.col) + '<span class="c flag">مراجعة</span><div class="r2">المطور ' + esc(shown(x.col, x.old)) + ' · الشيت <b>' + esc(shown(x.col, x.val)) + '</b> · ' + esc(x.why) + '</div></div>'; });
     else if (S.view === 'fix') list = R.changes.filter(function (x) { return x.kind === 'fix' || x.kind === 'note'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.col) + '<span class="c ' + x.kind + '">' + (x.kind === 'note' ? 'ملاحظة' : 'تصحيح') + '</span><div class="r2">' + esc(shown(x.col, x.old)) + ' ← <b>' + esc(shown(x.col, x.val)) + '</b> · ' + esc(x.why) + '</div></div>'; });
     else if (S.view === 'review') list = R.changes.filter(function (x) { return x.kind === 'review'; }).map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(x.no) + '<span class="c review">قرار</span><div class="r2">' + esc(x.why) + '</div></div>'; });
-    else if (S.view === 'new') list = R.newRows.map(function (n) { var v = n.values; return '<div class="item"><b class="ltr">' + esc(n.code) + '</b> · ' + esc(v['المالك'] || '') + '<span class="c new">جديد</span><div class="r2">' + esc(shown('بداية العقد', v['بداية العقد'])) + ' ← ' + esc(shown('نهاية العقد', v['نهاية العقد'])) + ' · ' + esc(shown('', v['الإيجار الشهري (السنة الأولى)'])) + ' ج · ' + esc(n.why) + '</div></div>'; });
+    else if (S.view === 'new') list = R.newRows.map(function (n) { var v = n.values; return '<div class="item"><b class="ltr">' + esc(n.code) + '</b> · ' + esc(v['المالك'] || '') + '<span class="c new">' + esc(String(v['الحالة'] || '').split(' /')[0]) + '</span><div class="r2">' + esc(shown('بداية العقد', v['بداية العقد'])) + ' ← ' + esc(shown('نهاية العقد', v['نهاية العقد'])) + ' · ' + esc(shown('', v['الإيجار الشهري (السنة الأولى)'])) + ' ج · ' + esc(n.why) + '</div></div>'; });
     else if (S.view === 'skip') list = R.skipped.map(function (x) { return '<div class="item"><b class="ltr">' + esc(x.code) + '</b> · ' + esc(L.monthLabel(L.monthKey(L.serialToDate(x.month)))) + '<span class="c skip">ملغي</span><div class="r2">' + esc(x.no || 'عقد جديد') + '</div></div>'; });
     else list = R.devOnly.map(function (x) { return '<div class="item"><b class="ltr">' + esc(x) + '</b><div class="r2">في ملف المطور ومش في شيت الملاك هنا، بنسيبه زي ما هو.</div></div>'; });
     $('out').innerHTML = '<div class="sum">' +
       '<div class="box"><div class="v">' + R.scope + '</div><div class="k">وحدة في نطاق الملف</div></div>' +
-      '<div class="box"><div class="v">' + c.matched + '</div><div class="k">عقد اتراجع</div></div>' +
-      '<div class="box"><div class="v">' + c.fixed + '</div><div class="k">خانة اتصححت</div></div>' +
+      '<div class="box"><div class="v">' + R.newRows.length + '</div><div class="k">عقد (منهم ' + c.renewals + ' تجديد بعد 1/7)</div></div>' +
       '<div class="box"><div class="v" style="color:#b45309">' + c.flagged + '</div><div class="k">إيجار للمراجعة</div></div>' +
       '<div class="box"><div class="v" style="color:var(--err)">' + bad.length + '</div><div class="k">وحدة مستحقاتها فيها فرق</div></div>' +
-      '<div class="box"><div class="v">' + R.newRows.length + '</div><div class="k">سطر جديد (منهم ' + c.renewals + ' تجديد)</div></div>' +
       '<div class="box"><div class="v" style="color:var(--err)">' + c.review + '</div><div class="k">محتاج قرار منك</div></div>' +
       '<div class="box"><div class="v">' + c.outSkipped + '</div><div class="k">OUT اتعدّت</div></div></div>' +
       '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (S.view === t[0] ? ' on' : '') + '" data-v="' + t[0] + '">' + t[1] + ' (' + t[2] + ')</button>'; }).join('') + '</div>' +
@@ -182,27 +176,18 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
     document.querySelectorAll('.tab').forEach(function (b) { b.onclick = function () { S.view = b.dataset.v; draw(); }; });
     $('dl').classList.remove('hide');
   }
-  $('dev').onchange = function () {
-    var f = this.files[0]; if (!f) return; S.devName = f.name;
-    $('devMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيقرا ملف المطور…</div>';
-    f.arrayBuffer().then(function (buf) { S.devBuf = buf; return readDev(buf); }).then(function (d) {
-      S.dev = d; $('run').disabled = false;
-      $('devMsg').innerHTML = '<div class="msg ok">' + d.rows.length + ' عقد في ملف المطور.</div>';
-    }).catch(function (e) { $('devMsg').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>'; });
-  };
   $('run').onclick = function () {
     var btn = this; btn.disabled = true;
     var say = function (t) { $('out').innerHTML = '<div class="msg"><span class="spin"></span>' + esc(t) + '</div>'; };
     say('بيقرا ملف أصول…');
-    (S.data ? Promise.resolve(S.data) : readBook(say)).then(function (data) {
+    readBook(say).then(function (data) { // كل مرة من الملف المفتوح، عشان آخر تحديث
       S.data = data; say('بيقارن…');
       var cc = data.owner.cols, us = []; for (var i = 0; i < cc['كود'].length; i++) us.push({ project: cc['المشروع'] ? cc['المشروع'][i] : '', settle: cc['تسويات'] ? cc['تسويات'][i] : '' });
       var gs = F.groupsIn(us.filter(function (u) { return u.project && F.inScope(u, S.settings); }));
       if (gs.length && gs.length < F.GROUPS.length) { S.scopeName = gs.map(function (g) { return GRP[g] || g; }).join(' و'); $('scope').textContent = 'الملف ده: ' + S.scopeName; }
-      return readDev(S.devBuf).then(function (d) { S.dev = d; }); // نسخة نضيفة كل مرة
     }).then(function () {
-      S.res = P.reconcile({ devRows: S.dev.rows, owner: S.data.owner, treasury: S.data.treasury, settings: S.settings });
-      btn.disabled = false; btn.textContent = 'حلّل تاني'; draw();
+      S.res = P.reconcile({ devRows: [], owner: S.data.owner, treasury: S.data.treasury, settings: S.settings });
+      btn.disabled = false; btn.textContent = 'طلّع تاني'; draw();
     }).catch(function (e) { btn.disabled = false; $('out').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   };
   $('save').onclick = function () {
@@ -218,7 +203,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
     var btn = this; btn.disabled = true; $('saveMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيجهز ملف المراجعة…</div>';
     buildReview().then(function (buf) {
       var t = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
-      var name = 'مراجعة المستحقات - ' + S.scopeName + ' - ' + p(t.getDate()) + '-' + p(t.getMonth() + 1) + '-' + t.getFullYear() + '.xlsx';
+      var name = 'مراجعة العقود والمستحقات - ' + S.scopeName + ' - ' + p(t.getDate()) + '-' + p(t.getMonth() + 1) + '-' + t.getFullYear() + '.xlsx';
       download(buf, name); btn.disabled = false;
       $('saveMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. ده ليك انت بس، مش للمطور.</div>';
     }).catch(function (e) { btn.disabled = false; $('saveMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });

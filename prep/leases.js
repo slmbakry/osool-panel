@@ -82,6 +82,7 @@
   function cycleOf(label) { label = str(label); for (var k in CYCLE) if (CYCLE[k] === label) return Number(k); return 0; }
 
   // ---------- المقارنة ----------
+  var R0 = { push: function (x) { if (R0.R) R0.R.changes.push(x); } };
   function reconcile(o) {
     var today = day(o.today || L.dateToSerial(L.todayUTC()));
     var paid = F.ownerPaid(o.treasury);
@@ -90,7 +91,7 @@
     // الكود بيتقارن من غير شَرطة أو مسافة: 60005-318 هي نفسها 60005318
     var ck = function (x) { return str(x).replace(/[\s\-_\/]/g, '').toUpperCase(); };
     dev.forEach(function (r) { var k = ck(r[C.code]); (byU[k] = byU[k] || []).push(r); });
-    var R = { changes: [], newRows: [], skipped: [], devOnly: [], segs: [], counts: { matched: 0, fixed: 0, flagged: 0, review: 0, renewals: 0, added: 0, outSkipped: 0 } };
+    var R = R0.R = { changes: [], newRows: [], skipped: [], devOnly: [], segs: [], counts: { matched: 0, fixed: 0, flagged: 0, review: 0, renewals: 0, added: 0, outSkipped: 0 } };
     var fix = function (r, col, oldV, newV, why, kind) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: col, old: oldV, val: newV, why: why, kind: kind || 'fix' }); };
     // الإيجار والزيادات: منغيرش القيمة، بنعلّم الخانة ونكتب اقتراح الشيت جنبها للمراجعة
     var flag = function (r, col, oldV, newV, why) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: col, old: oldV, val: newV, why: why, kind: 'flag' }); };
@@ -104,7 +105,7 @@
       if (!live.length) {
         if (u.out) { R.counts.outSkipped++; return; }
         if (!sg) { R.newRows.push(newRow(u, null, u.start, u.end, today, 'وحدة في ملف أصول ومش في ملف المطور (البداية من شيت الملاك، وهي أول عقد)')); R.counts.added++; addGaps(u, '', u.start, u.end); return; }
-        if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, 'وحدة مش عند المطور: العقد اللي مغطي 1/7/2026 (من شهور الشيت)', ST.renewed, sg.prev.rs)); R.counts.added++; addGaps(u, '', sg.prev.s, sg.prev.e); }
+        if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, 'وحدة مش عند المطور: العقد اللي مغطي 1/7/2026 (من شهور الشيت)', ST.renewed, sg.prev.rs)); R.counts.added++; R.counts.renewals++; addGaps(u, '', sg.prev.s, sg.prev.e); }
         R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, 'وحدة مش عند المطور: العقد الحالي من ' + fmtS(sg.cur.s) + ' (آخر تغيير في الإيجار)', null, sg.cur.rs));
         R.counts.added++; addGaps(u, '', sg.cur.s, sg.cur.e); midReview(null, u, sg); return;
       }
@@ -378,9 +379,10 @@
     if (differs) for (var y = 1; y < Y.length && y <= 7; y++) if (Y[y]) v[YEARS[y - 1]] = Y[y];
     if (u.deposit) v[C.deposit] = u.deposit;
     v[C.auto] = 'لا / No';
-    if (u.paid) v[C.paid] = u.paid;
+    if (u.paid) v[C.paid] = en && u.paid > en ? en : u.paid; // العقد اللي اتجدد مسدد لحد نهايته بس
     if (u.method) v[C.method] = u.method;
     v[C.notes] = 'اتضاف من ملف أصول (MBM)' + (u.settle ? ' · ' + u.settle : '');
+    if (!Y[0]) R0.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', why: 'إيجار العقد اللي من ' + fmtS(st) + ' فاضي في شيت الملاك، اكتبه في الشيت', kind: 'review' });
     return { code: u.code, values: v, why: why };
   }
 

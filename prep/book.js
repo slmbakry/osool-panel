@@ -41,7 +41,9 @@
     return rows;
   }
 
-  function applyDev(wb, R, src) {
+  // opts.fresh: الملف فاضي من الأول (شكل المطور بس)، فالسطور مبتتلونش أخضر
+  function applyDev(wb, R, src, opts) {
+    var fresh = !!(opts && opts.fresh);
     var ws = wb.getWorksheet(SHEET), H = ws.getRow(1).values, colOf = function (h) { return H.indexOf(h); };
     R.changes.forEach(function (c) {
       if (!c.col || !c.row) return; var cell = ws.getRow(c.row).getCell(colOf(c.col)); if (!cell) return;
@@ -56,7 +58,7 @@
     var last = Math.max(2, lastRow(ws));
     R.newRows.forEach(function (n, k) {
       var ri = last + 1 + k, row = ws.getRow(ri);
-      Object.keys(n.values).forEach(function (h) { var ci = colOf(h); if (ci < 1) return; var cell = row.getCell(ci); cell.value = out(h, n.values[h]); paint(cell, GREEN, DATE_COLS.indexOf(h) !== -1); });
+      Object.keys(n.values).forEach(function (h) { var ci = colOf(h); if (ci < 1) return; var cell = row.getCell(ci); cell.value = out(h, n.values[h]); if (fresh) { if (DATE_COLS.indexOf(h) !== -1) { var st = JSON.parse(JSON.stringify(cell.style || {})); st.numFmt = 'dd/mm/yyyy'; cell.style = st; } } else paint(cell, GREEN, DATE_COLS.indexOf(h) !== -1); });
       var pc = colOf('قيمة الدفعة'); if (pc > 0) row.getCell(pc).value = { formula: 'IF(OR(L' + ri + '="",M' + ri + '=""),"",L' + ri + '*IFERROR(VLOOKUP(M' + ri + ',Lists!$G$2:$H$6,2,FALSE),1))' };
       row.getCell(colOf('كود الوحدة')).note = 'MBM: ' + n.why;
     });
