@@ -83,8 +83,39 @@
 
   // ---------- المقارنة ----------
   var R0 = { push: function (x) { if (R0.R) R0.R.changes.push(x); } };
+  var CTX = { T: {}, OV: {}, today: 0 };
+  // الإيجار المتفق عليه = المدفوع فعلًا: لو في ميعاد الزيادة المالك بيتدفعله أقل من الشيت (زيادة 5% بدل 10%، أو من غير زيادة)،
+  // المطور ياخد المدفوع، والفرق يطلع ملاحظة. بنبص على شهور السنة اللي فترتها قبل "مسدد حتى" بس
+  function agreed(u, rs, en, Y) {
+    var g = CTX.T[u.code]; if (!g || !u.paid || !rs) return Y;
+    var cd = L.serialToDate(rs).getUTCDate();
+    for (var y = 0; y < Y.length; y++) {
+      if (!Y[y]) continue;
+      var y0 = L.addMonths(firstOf(rs), 12 * y), before = u.val(L.monthKey(L.addMonths(y0, -1)));
+      if (!(before > 0) || Y[y] <= before + 1) continue; // مش ميعاد زيادة
+      // أول شهور السنة (لحد 3) اللي الشيت فيها بالإيجار الجديد وفترتها قبل "مسدد حتى"
+      var paid = [];
+      for (var j = 0; j < 3; j++) {
+        var d = L.addMonths(y0, j), ds = L.dateToSerial(d);
+        if ((en && ds > en) || ds + cd - 1 > u.paid || ds > CTX.today || Math.abs(u.val(L.monthKey(d)) - Y[y]) > 1) break;
+        var v = Math.round(g.m[L.monthKey(d)] || 0); if (v > 0) paid.push(v);
+      }
+      if (!paid.length || paid.some(function (v) { return Math.abs(v - paid[0]) > 1; })) continue;
+      var p = paid[0], from = L.dateToSerial(y0), lbl = L.monthLabel(L.monthKey(y0));
+      if (p >= before - 1 && p < Y[y] - 1) { // زيادة أقل من الشيت، أو من غير زيادة: المطور ياخد المدفوع
+        R0.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note',
+          why: 'ملاحظة: زيادة ' + lbl + ' في الشيت ' + money(before) + ' ← ' + money(Y[y]) + '، والمدفوع فعلًا ' + money(p) + (Math.abs(p - before) <= 1 ? ' (من غير زيادة)' : '') + '، اتسجل للمطور ' + money(p) });
+        (CTX.OV[u.code] = CTX.OV[u.code] || []).push({ from: from, to: L.dateToSerial(L.addMonths(y0, 12)) - 1, amt: p, sheet: Y[y] });
+        Y[y] = p;
+      }
+    }
+    return Y;
+  }
+  // المستحق في الكشف: المتفق عليه لو اتغير، وإلا خانة الشهر
+  function dueOf(u, d) { var ov = CTX.OV[u.code], ds = L.dateToSerial(d), v = u.val(L.monthKey(d)); if (ov) ov.forEach(function (o) { if (ds >= o.from && ds <= o.to && Math.abs(v - o.sheet) <= 1) v = o.amt; }); return v; }
   function reconcile(o) {
     var today = day(o.today || L.dateToSerial(L.todayUTC()));
+    CTX.T = treasuryByUnit(o.treasury || { cols: {} }); CTX.OV = {}; CTX.today = today;
     var paid = F.ownerPaid(o.treasury);
     var ours = ourContracts(o.owner, o.settings, paid);
     var dev = o.devRows, byU = {};
@@ -136,7 +167,7 @@
       if (Math.abs(st - sgm.s) > 1) fix(r, C.start, r[C.start], sgm.s, why);
       if (Math.abs(en - sgm.e) > 1) fix(r, C.end, r[C.end], sgm.e, 'نهاية العقد' + (status === ST.renewed ? ' (اليوم اللي قبل التجديد)' : ' في شيت الملاك'));
       if (Math.abs(day(r[C.firstPay]) - sgm.s) > 1) fix(r, C.firstPay, r[C.firstPay], sgm.s, 'أول دفعة = بداية العقد الحالي');
-      var Y = yearsFor(u, sgm.rs, sgm.e);
+      var Y = agreed(u, sgm.rs, sgm.e, yearsFor(u, sgm.rs, sgm.e));
       if (Y[0] && Math.abs(num(r[C.rent]) - Y[0]) > 0.5) fix(r, C.rent, r[C.rent], Y[0], 'إيجار ' + L.monthLabel(L.monthKey(L.serialToDate(sgm.rs))) + ' في شيت الملاك');
       var base = Y[0] || num(r[C.rent]), known = Y.filter(function (v) { return v; }).length;
       var differs = Y.some(function (v) { return v && base && Math.abs(v - base) > 0.5; });
@@ -331,7 +362,7 @@
       var paidMax = null; Object.keys(g.m).forEach(function (k) { var dk = F.keyToDate(k); if (dk > last && g.m[k] > 0 && (!paidMax || dk > paidMax)) paidMax = dk; });
       var stop = paidMax || last, months = [], tDue = 0, tPaid = 0, under = 0, over = 0, ahead = 0, first = null, bal = 0;
       for (var d = firstOf(S), i = 0; d <= stop; d = L.addMonths(d, 1), i++) {
-        var k = L.monthKey(d), future = d > last, due = u.val(k), paid = Math.round((g.m[k] || 0) * 100) / 100;
+        var k = L.monthKey(d), future = d > last, due = dueOf(u, d), paid = Math.round((g.m[k] || 0) * 100) / 100;
         var no = ''; rows.forEach(function (r) { var a = day(r[C.start]), b = day(r[C.end]); if (a && L.dateToSerial(d) >= L.dateToSerial(firstOf(a)) && (!b || L.dateToSerial(d) <= b)) no = str(r[C.no]); });
         if (!no && rows.length) no = str(rows[rows.length - 1][C.no]);
         var inst = Math.floor(i / u.cycle) + 1, instDate = L.dateToSerial(L.addMonths(L.serialToDate(S), (inst - 1) * u.cycle));
@@ -378,7 +409,7 @@
 
   // سطر جديد بنفس أعمدة المطور (من غير lease_id)
   function newRow(u, prev, st, en, today, why, status, rs) {
-    var v = {}, Y = yearsFor(u, rs || (st ? st + 3 : st), en);
+    var v = {}, Y = agreed(u, rs || (st ? st + 3 : st), en, yearsFor(u, rs || (st ? st + 3 : st), en));
     v[C.code] = u.code; v[C.unit] = u.unitTitle; v[C.owner] = u.owner;
     v[C.prev] = prev ? str(prev[C.no]) : '';
     v[C.status] = status || (en && en < today ? ST.ended : ST.active);
