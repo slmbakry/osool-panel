@@ -33,7 +33,7 @@ main{padding:12px;max-width:900px;margin:0 auto}
 .tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
 .item{border-top:1px solid #f0e9da;padding:7px 0;font-size:13px}.item:first-child{border-top:0}
 .item b{font-weight:600}.item .c{display:inline-block;font-size:11px;border-radius:6px;padding:0 6px;margin-inline-start:6px}
-.c.fix{background:#fff2cc;color:#7a5c00}.c.review{background:var(--errbg);color:var(--err)}.c.note{background:#e8eefc;color:#2b4a8a}.c.new{background:var(--okbg);color:var(--ok)}.c.skip{background:#eee;color:#555}.c.flag{background:#f8cbad;color:#7a3300}.item .hd{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.item .ut{font-size:11px;opacity:.8}.go{margin-top:5px;border:1px solid #d8c9a6;background:#fffdf8;border-radius:7px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:#6e531b}.go:hover{background:#f5eedc}
+.c.fix{background:#fff2cc;color:#7a5c00}.c.review{background:var(--errbg);color:var(--err)}.c.note{background:#e8eefc;color:#2b4a8a}.c.new{background:var(--okbg);color:var(--ok)}.c.skip{background:#eee;color:#555}.c.flag{background:#f8cbad;color:#7a3300}.scp{margin-top:8px}.scp .g{margin:6px 0 2px;font-size:12px;font-weight:700;color:#6e531b;display:flex;align-items:center;gap:6px}.scp .g button{font:inherit;font-size:11px;border:0;background:none;color:#8a6d2b;text-decoration:underline;cursor:pointer;padding:0}.scp .chips{display:flex;flex-wrap:wrap;gap:5px}.scp .ch{border:1px solid #d8c9a6;background:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:#555}.scp .ch.on{background:#8a6d2b;border-color:#8a6d2b;color:#fff}.scp .ch i{font-style:normal;font-size:10px;opacity:.75;margin-inline-start:6px;padding:0 5px;border-radius:999px;background:rgba(0,0,0,.08)}.scp .ft{margin-top:6px;font-size:12px;color:#777;display:flex;gap:10px;flex-wrap:wrap}.scp .ft button{font:inherit;font-size:12px;border:0;background:none;color:#8a6d2b;text-decoration:underline;cursor:pointer;padding:0}.item .hd{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.item .ut{font-size:11px;opacity:.8}.go{margin-top:5px;border:1px solid #d8c9a6;background:#fffdf8;border-radius:7px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:#6e531b}.go:hover{background:#f5eedc}
 .ltr{direction:ltr;unicode-bidi:isolate}
 .spin{width:22px;height:22px;border:3px solid var(--soft);border-top-color:var(--brand);border-radius:50%;display:inline-block;vertical-align:middle;animation:s .8s linear infinite;margin-inline-end:8px}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -50,6 +50,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   <div class="card">
     <h3><span class="n">1</span>عقود الملاك للسيستم الجديد</h3>
     <div class="r2">بيقرا شيت الملاك والخزينة من الملف المفتوح دلوقتي (آخر تحديث فيه)، ويملا شكل ملف المطور. مفيش أي حاجة بتتكتب في ملف أصول.</div>
+    <div class="scp" id="scopeBox"><div class="r2"><span class="spin"></span>بيقرا المشاريع…</div></div>
     <button class="btn" id="run" style="margin-top:8px">طلّع العقود</button>
     <div id="out"></div>
   </div>
@@ -216,7 +217,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       S.data = data; say('بيقارن…');
       var cc = data.owner.cols, us = []; for (var i = 0; i < cc['كود'].length; i++) us.push({ project: cc['المشروع'] ? cc['المشروع'][i] : '', settle: cc['تسويات'] ? cc['تسويات'][i] : '' });
       var gs = F.groupsIn(us.filter(function (u) { return u.project && F.inScope(u, S.settings); }));
-      if (gs.length && gs.length < F.GROUPS.length) { S.scopeName = gs.map(function (g) { return GRP[g] || g; }).join(' و'); $('scope').textContent = 'الملف ده: ' + S.scopeName; }
+      if (!S.projects && gs.length && gs.length < F.GROUPS.length) { S.scopeName = gs.map(function (g) { return GRP[g] || g; }).join(' و'); $('scope').textContent = 'الملف ده: ' + S.scopeName; }
     }).then(function () {
       S.res = P.reconcile({ devRows: [], owner: S.data.owner, treasury: S.data.treasury, settings: S.settings });
       btn.disabled = false; btn.textContent = 'طلّع تاني'; draw();
@@ -240,7 +241,48 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       $('saveMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. ده ليك انت بس، مش للمطور.</div>';
     }).catch(function (e) { btn.disabled = false; $('saveMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   };
-  function start() { settingsFromFile().then(function (st) { S.settings = st; S.scopeName = scopeName(S.settings); $('scope').textContent = 'الملف ده: ' + S.scopeName; }); }
+  // ---------- اختيار النطاق: مشاريع الملف كله، والاختيار بيبدأ من إعداد الملف، ومش بيتحفظ في اللوحة ----------
+  function loadProjects() {
+    if (window.PrepMock) return window.PrepMock().then(function (d) { return d.owner.cols['المشروع'] || []; });
+    return Excel.run(function (ctx) { return head(ctx, 'owner').then(function (O) { return readCols(ctx, O.t, O.H, ['المشروع'], function () { }); }).then(function (c) { return c['المشروع'] || []; }); });
+  }
+  function drawScope() {
+    var box = $('scopeBox'), P0 = S.projects || [], on = S.pick;
+    var html = F.GROUPS.map(function (g) {
+      var ps = P0.filter(function (p) { return F.groupOf(p.name) === g; }); if (!ps.length) return '';
+      return '<div class="g">' + esc(GRP[g] || g) + ' <button data-g="' + esc(g) + '">' + (ps.every(function (p) { return on[p.key]; }) ? 'شيل الكل' : 'اختار الكل') + '</button></div><div class="chips">' +
+        ps.map(function (p) { return '<button class="ch' + (on[p.key] ? ' on' : '') + '" data-p="' + esc(p.key) + '"><bdi>' + esc(p.name) + '</bdi><i>' + p.n + '</i></button>'; }).join('') + '</div>';
+    }).join('');
+    var n = P0.filter(function (p) { return on[p.key]; }).reduce(function (a, p) { return a + p.n; }, 0);
+    box.innerHTML = '<div class="r2" style="margin-bottom:2px">النطاق: اختار المشاريع اللي تطلع عقودها</div>' + html +
+      '<div class="ft"><span>' + n + ' وحدة متختارة</span><button id="scpReset">رجّع إعداد الملف</button></div>';
+    box.querySelectorAll('.ch').forEach(function (b) { b.onclick = function () { on[b.dataset.p] = !on[b.dataset.p]; applyPick(); }; });
+    box.querySelectorAll('.g button').forEach(function (b) { b.onclick = function () { var ps = P0.filter(function (p) { return F.groupOf(p.name) === b.dataset.g; }), all = ps.every(function (p) { return on[p.key]; }); ps.forEach(function (p) { on[p.key] = !all; }); applyPick(); }; });
+    $('scpReset').onclick = function () { pickFrom(S.fileSettings); applyPick(); };
+  }
+  function pickFrom(st) { S.pick = {}; (S.projects || []).forEach(function (p) { S.pick[p.key] = F.inScope({ project: p.name }, st, true); }); }
+  function applyPick() {
+    var sel = (S.projects || []).filter(function (p) { return S.pick[p.key]; });
+    S.settings = Object.assign({}, S.fileSettings, { mode: 'only', projects: sel.map(function (p) { return p.name; }) });
+    var gs = F.groupsIn(sel.map(function (p) { return { project: p.name }; }));
+    S.scopeName = gs.map(function (g) { var all = (S.projects || []).filter(function (p) { return F.groupOf(p.name) === g; }), mine = sel.filter(function (p) { return F.groupOf(p.name) === g; });
+      if (mine.length === all.length) return GRP[g] || g;
+      var out = all.filter(function (p) { return mine.indexOf(p) === -1; });
+      if (mine.length <= 3) return mine.map(function (p) { return p.name; }).join(' و');
+      return (GRP[g] || g) + (out.length <= 3 ? ' ما عدا ' + out.map(function (p) { return p.name; }).join(' و') : ' (جزء)'); }).join(' و') || 'مفيش';
+    $('scope').textContent = 'الملف ده: ' + S.scopeName; $('run').disabled = !sel.length;
+    drawScope();
+  }
+  function start() {
+    settingsFromFile().then(function (st) {
+      S.fileSettings = st; S.settings = st; S.scopeName = scopeName(st); $('scope').textContent = 'الملف ده: ' + S.scopeName;
+      return loadProjects().then(function (col) {
+        var cnt = {}, name = {}; col.forEach(function (v) { var p = String(v == null ? '' : v).trim(); if (!p) return; var k = p.toLowerCase(); cnt[k] = (cnt[k] || 0) + 1; if (!name[k]) name[k] = p; });
+        S.projects = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (k) { return { key: k, name: name[k], n: cnt[k] }; });
+        pickFrom(st); applyPick();
+      });
+    }).catch(function (e) { $('scopeBox').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+  }
   if (window.Office && Office.onReady && !window.PrepMock) Office.onReady(start); else start();
 })();
 </script>
