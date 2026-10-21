@@ -135,7 +135,16 @@
       if (sg && !u.out) R.segs.push({ code: u.code, project: u.project, owner: u.owner, end: u.end, cur: sg.cur, prev: sg.prev, mid: sg.mid, after: sg.after, rentCur: u.val(L.monthKey(L.serialToDate(sg.cur.rs))), rentPrev: sg.prev ? u.val(L.monthKey(L.serialToDate(sg.prev.rs))) : 0, dev: live.length });
       if (!live.length) {
         if (u.out) { R.counts.outSkipped++; return; }
-        if (!sg && !u.end && !u.start && !hasAny(u)) { R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'review', why: 'وحدة من غير عقد (مفيش بداية ولا نهاية ولا إيجار)، غالبًا ملك الشركة. مش هتتسجل للمطور' }); return; }
+        // وحدة من غير عقد (زي ملك صاحب الشركة): عقد طويل رمزي بجنيه، زي ما المطور مسجلها
+        if (!sg && !u.end && !u.start && !hasAny(u)) {
+          var s0 = L.dateToSerial(new Date(Date.UTC(2019, 0, 1))), e0 = L.dateToSerial(new Date(Date.UTC(2050, 0, 1)));
+          var nr0 = newRow(u, null, s0, e0, today, 'وحدة من غير عقد (غالبًا ملك الشركة): عقد رمزي بجنيه من 2019 لـ 2050');
+          for (var q0 = R.changes.length - 1; q0 >= 0; q0--) if (R.changes[q0].code === u.code && /فاضي في شيت الملاك/.test(R.changes[q0].why)) R.changes.splice(q0, 1);
+          nr0.values[C.rent] = 1; nr0.values[C.signed] = ''; nr0.values[C.notes] = 'عقد رمزي، ملك الشركة (MBM)';
+          R.newRows.push(nr0); R.counts.added++;
+          R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: 'ملاحظة: وحدة من غير عقد، اتسجلت بعقد رمزي بجنيه من 1/1/2019 لـ 1/1/2050' });
+          return;
+        }
         if (!sg) { R.newRows.push(newRow(u, null, u.start, u.end, today, 'وحدة في ملف أصول ومش في ملف المطور (البداية من شيت الملاك، وهي أول عقد)')); R.counts.added++; addGaps(u, '', u.start, u.end); return; }
         if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, sg.prev.why, ST.renewed, sg.prev.rs, sg.prev.unsigned)); R.counts.added++; R.counts.renewals++; addGaps(u, '', sg.prev.s, sg.prev.e); }
         R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, sg.cur.why, null, sg.cur.rs, sg.cur.unsigned));
