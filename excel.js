@@ -108,9 +108,21 @@
   }
 
   // ---------- إعداد الملف (بيتحفظ جوه الملف لكل الفريق) ----------
+  // المصدر الأساسي: الإعداد المحفوظ جوه الملف (store.js). لو مش موجود، من إعداد الإضافة القديم ونحفظه في الملف
   function getSettings() {
-    try { var s = Office.context.document.settings.get(SETTINGS_KEY); return Promise.resolve(s ? JSON.parse(s) : null); }
-    catch (e) { return Promise.resolve(null); }
+    var old = null;
+    try { var s = Office.context.document.settings.get(SETTINGS_KEY); old = s ? JSON.parse(s) : null; } catch (e) { }
+    var St = window.OsoolStore;
+    if (!St) return Promise.resolve(old);
+    return St.read().then(function (x) {
+      if (x) {
+        // لو الملف فيه أسماء والإعداد القديم فاضي (أو العكس)، نحتفظ باللي فيه أسماء
+        if ((!x.people || !x.people.length) && old && old.people && old.people.length) { x.people = old.people; St.write(x); }
+        return x;
+      }
+      if (old) St.write(old);
+      return old;
+    });
   }
   function saveSettings(obj) {
     return new Promise(function (ok, no) {
@@ -118,7 +130,10 @@
         Office.context.document.settings.set(SETTINGS_KEY, JSON.stringify(obj));
         // البانل يفتح لوحده مع الملف (لكل اللي مركّبينه)
         Office.context.document.settings.set('Office.AutoShowTaskpaneWithDocument', !!obj.autoOpen);
-        Office.context.document.settings.saveAsync(function (r) { r.status === 'succeeded' ? ok() : no(new Error('مقدرتش أحفظ الإعداد في الملف.')); });
+        var St = window.OsoolStore, doneX = St ? St.write(obj) : Promise.resolve(false);
+        Office.context.document.settings.saveAsync(function (r) {
+          doneX.then(function (x) { (r.status === 'succeeded' || x) ? ok() : no(new Error('مقدرتش أحفظ الإعداد في الملف.')); });
+        });
       } catch (e) { no(e); }
     });
   }

@@ -63,6 +63,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
 </main>
 <script src="../logic.js"></script>
 <script src="../followup.js"></script>
+<script src="../store.js"></script>
 <script src="leases.js"></script>
 <script src="book.js"></script>
 <script>
@@ -106,6 +107,11 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   function settings() {
     if (window.PrepMock) return window.__settings || F.DEFAULT_SETTINGS;
     try { var s = Office.context.document.settings.get('osoolPanel.scope'); return s ? JSON.parse(s) : F.DEFAULT_SETTINGS; } catch (e) { return F.DEFAULT_SETTINGS; }
+  }
+  // نطاق الملف من إعداد اللوحة المحفوظ جوه الملف (الإضافة دي نسخة تانية فمبتشوفش إعداد اللوحة العادي)
+  function settingsFromFile() {
+    if (window.PrepMock || !window.OsoolStore) return Promise.resolve(settings());
+    return OsoolStore.read().then(function (x) { return x || settings(); });
   }
 
   // ---------- ExcelJS ----------
@@ -208,7 +214,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       $('saveMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. ده ليك انت بس، مش للمطور.</div>';
     }).catch(function (e) { btn.disabled = false; $('saveMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   };
-  function start() { S.settings = settings(); S.scopeName = scopeName(S.settings); $('scope').textContent = 'الملف ده: ' + S.scopeName; }
+  function start() { settingsFromFile().then(function (st) { S.settings = st; S.scopeName = scopeName(S.settings); $('scope').textContent = 'الملف ده: ' + S.scopeName; }); }
   if (window.Office && Office.onReady && !window.PrepMock) Office.onReady(start); else start();
 })();
 </script>
