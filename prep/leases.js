@@ -75,7 +75,8 @@
     var d = L.serialToDate(start), last = L.serialToDate(Math.min(end, today));
     d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
     var seen = 0;
-    while (d <= last) { var k = L.monthKey(d); if (u.has(k)) { seen++; if (!u.val(k)) out.push(L.dateToSerial(d)); } d = L.addMonths(d, 1); }
+    var g = CTX.T[u.code];
+    while (d <= last) { var k = L.monthKey(d); if (u.has(k)) { seen++; if (!u.val(k) && !(g && g.m[k] > 0)) out.push(L.dateToSerial(d)); } d = L.addMonths(d, 1); }
     out.seen = seen; return out;
   }
   function methodOf(v) { v = str(v); if (!v) return ''; for (var i = 0; i < METHOD.length; i++) if (METHOD[i][0].test(v)) return METHOD[i][1]; return ''; }
@@ -90,7 +91,12 @@
     var g = CTX.T[u.code]; if (!g || !u.paid || !rs) return Y;
     var cd = L.serialToDate(rs).getUTCDate();
     for (var y = 0; y < Y.length; y++) {
-      if (!Y[y]) continue;
+      if (!Y[y]) { // الشيت فاضي في السنة دي والعقد لسه ممتد: الإيجار = المدفوع فعلًا
+        var cnt = {}, best = 0, bn = 0;
+        for (var jj = 0; jj < 12; jj++) { var dd = L.addMonths(firstOf(rs), 12 * y + jj), dss = L.dateToSerial(dd); if ((en && dss > en) || dss + cd - 1 > u.paid) break; var vv = Math.round(g.m[L.monthKey(dd)] || 0); if (vv > 0) { cnt[vv] = (cnt[vv] || 0) + 1; if (cnt[vv] > bn) { bn = cnt[vv]; best = vv; } } }
+        if (best) { Y[y] = best; R0.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: 'ملاحظة: مستحقات ' + L.monthLabel(L.monthKey(L.addMonths(firstOf(rs), 12 * y))) + ' مش متنزلة في الشيت، الإيجار اتاخد من المدفوع فعلًا ' + money(best) }); }
+        continue;
+      }
       var y0 = L.addMonths(firstOf(rs), 12 * y), before = u.val(L.monthKey(L.addMonths(y0, -1)));
       if (!(before > 0) || Y[y] <= before + 1) continue; // مش ميعاد زيادة
       // أول شهور السنة (لحد 3) اللي الشيت فيها بالإيجار الجديد وفترتها قبل "مسدد حتى"
@@ -112,7 +118,10 @@
     return Y;
   }
   // المستحق في الكشف: المتفق عليه لو اتغير، وإلا خانة الشهر
-  function dueOf(u, d) { var ov = CTX.OV[u.code], ds = L.dateToSerial(d), v = u.val(L.monthKey(d)); if (ov) ov.forEach(function (o) { if (ds >= o.from && ds <= o.to && Math.abs(v - o.sheet) <= 1) v = o.amt; }); return v; }
+  // مستحق مش متنزل في الشيت: المدفوع فعلًا
+  function dueOf(u, d) { var ov = CTX.OV[u.code], ds = L.dateToSerial(d), v = u.val(L.monthKey(d));
+    if (!v) { var g = CTX.T[u.code], pv = g ? g.m[L.monthKey(d)] || 0 : 0; if (pv > 0 && (!u.end || ds <= u.end || (u.paid && ds <= u.paid))) return pv; }
+    if (ov) ov.forEach(function (o) { if (ds >= o.from && ds <= o.to && Math.abs(v - o.sheet) <= 1) v = o.amt; }); return v; }
   function reconcile(o) {
     var today = day(o.today || L.dateToSerial(L.todayUTC()));
     CTX.T = treasuryByUnit(o.treasury || { cols: {} }); CTX.OV = {}; CTX.today = today;
