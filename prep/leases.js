@@ -83,7 +83,7 @@
 
   // ---------- المقارنة ----------
   var R0 = { push: function (x) { if (R0.R) R0.R.changes.push(x); } };
-  var CTX = { T: {}, OV: {}, today: 0 };
+  var CTX = { T: {}, OV: {}, today: 0, lastRent: {} };
   // الإيجار المتفق عليه = المدفوع فعلًا: لو في ميعاد الزيادة المالك بيتدفعله أقل من الشيت (زيادة 5% بدل 10%، أو من غير زيادة)،
   // المطور ياخد المدفوع، والفرق يطلع ملاحظة. بنبص على شهور السنة اللي فترتها قبل "مسدد حتى" بس
   function agreed(u, rs, en, Y) {
@@ -147,7 +147,8 @@
         }
         if (!sg) { R.newRows.push(newRow(u, null, u.start, u.end, today, 'وحدة في ملف أصول ومش في ملف المطور (البداية من شيت الملاك، وهي أول عقد)')); R.counts.added++; addGaps(u, '', u.start, u.end); return; }
         if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, sg.prev.why, ST.renewed, sg.prev.rs, sg.prev.unsigned)); R.counts.added++; R.counts.renewals++; addGaps(u, '', sg.prev.s, sg.prev.e); }
-        R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, sg.cur.why, null, sg.cur.rs, sg.cur.unsigned));
+        R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, sg.cur.why, sg.next.length ? ST.renewed : null, sg.cur.rs, sg.cur.unsigned));
+        sg.next.forEach(function (x) { R.newRows.push(newRow(u, null, x.s, x.e, today, x.why, null, x.rs, true)); R.counts.added++; });
         R.counts.added++; addGaps(u, '', sg.cur.s, sg.cur.e); midReview(null, u, sg); return;
       }
       R.counts.matched += live.length;
@@ -193,7 +194,7 @@
       else if (!status && sgm.e >= today && str(r[C.status]) !== ST.active) fix(r, C.status, r[C.status], ST.active, 'العقد ساري لحد ' + fmtS(sgm.e));
     }
     function midReview(r, u, sg) {
-      if (sg.after) { var w = 'الشيت لسه بيحسب ' + sg.after + ' شهر بعد نهاية العقد ' + fmtS(sg.cur.e) + '، عدّل النهاية في الشيت'; if (r) review(r, w); else R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', why: w, kind: 'review' }); }
+      if (sg.after) { var w = 'الشيت بيحسب ' + sg.after + ' شهر بعد نهاية العقد ' + fmtS(sg.cur.e) + ' ومفيش سداد بعد النهاية: العقد خلص ولا اتجدد؟'; if (r) review(r, w); else R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', why: w, kind: 'review' }); }
       if (!sg.mid.length) return;
       var why = 'الإيجار اتغير في نص سنة العقد: ' + sg.mid.map(function (k) { return L.monthLabel(k); }).join('، ');
       if (r) review(r, why); else R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', why: why, kind: 'review' });
@@ -299,9 +300,10 @@
     var E = u.end; if (!E) return null;
     var key = function (d) { return L.monthKey(d); };
     var at = function (d) { return u.val(key(d)); };
-    // العقد خلص والشيت لسه بيحسب بعده = اتفاق سنة جديدة من غير عقد موقّع، سنة بسنة لحد ما تغطي آخر شهر بيتحسب لحد النهارده
+    // العقد خلص واتدفع بعد نهايته (مسدد حتى في الخزينة أبعد من النهاية) = اتفاق سنة جديدة لسه متوقعش، سنة بسنة لحد ما تغطي "مسدد حتى"
     var E0 = E;
-    while (at(L.addMonths(firstOf(E + 1), 0)) > 0 && L.dateToSerial(firstOf(E + 1)) <= today) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
+    CTX.lastRent[u.code] = at(firstOf(E0));
+    while (u.paid && u.paid > E) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
     // تغيير في الشهر ده عن اللي قبله (أو أول شهر بعد شهر فاضي)
     var changedAt = function (d) { var p = L.addMonths(d, -1), r1 = at(d), r0 = at(p); return r1 > 0 && (r0 <= 0 ? u.has(key(p)) : Math.abs(r1 - r0) > 0.5); };
     var an = [], floor = L.dateToSerial(new Date(Date.UTC(2015, 0, 1)));
@@ -325,14 +327,20 @@
     // العقد اللي قبل التجديد لازم يكون ليه شهور في الشيت، وإلا تبقى الوحدة جديدة من التجديد ده
     if (prev) { var any = false; for (var q = firstOf(prev.rs), qe = firstOf(cur.rs); q < qe; q = L.addMonths(q, 1)) if (at(q) > 0) { any = true; break; } if (!any) prev = null; }
     if (u.start && cur.s < u.start) { cur.s = u.start; if (cur.rs < u.start) cur.rs = u.start; }
-    if (E > E0) { if (cur.s > E0) { cur.unsigned = true; cur.why = 'اتفاق سنة جديدة من غير عقد موقّع (العقد خلص ' + fmtS(E0) + ' والشيت لسه بيحسب)'; } if (prev && prev.s > E0) { prev.unsigned = true; prev.why = 'اتفاق سنة من غير عقد موقّع'; } }
+    // الاتفاق سنة واحدة: لو مدفوع لسنة بعدها، كل سنة سطر لوحدها
+    var next = [];
+    if (E > E0 && cur.s > E0) {
+      var ce = L.dateToSerial(L.addMonths(L.serialToDate(cur.s), 12)) - 1;
+      if (ce < cur.e) { for (var ns = ce + 1; ns <= E; ns = L.dateToSerial(L.addMonths(L.serialToDate(ns), 12))) next.push({ s: ns, e: Math.min(E, L.dateToSerial(L.addMonths(L.serialToDate(ns), 12)) - 1), rs: ns + 3, unsigned: true, why: 'اتفاق سنة جديدة لسه متوقعش (مدفوع مقدم لحد ' + fmtS(u.paid) + ')' }); cur.e = ce; }
+    }
+    if (E > E0) { if (cur.s > E0) { cur.unsigned = true; cur.why = 'اتفاق سنة جديدة لسه متوقعش (العقد خلص ' + fmtS(E0) + ' ومدفوع لحد ' + fmtS(u.paid) + ')'; } if (prev && prev.s > E0) { prev.unsigned = true; prev.why = 'اتفاق سنة من غير عقد موقّع'; } }
     // تغيير الإيجار في نص السنة (مش في أول-سنة) من بداية الفترة لحد النهارده
     var mid = [], ok = {}; ch.forEach(function (c) { ok[key(L.serialToDate(c.rs))] = 1; }); an.forEach(function (a) { ok[key(L.serialToDate(a + 3))] = 1; });
     for (var d = L.addMonths(firstOf((prev || cur).rs), 1), last = firstOf(Math.min(today, E)); d <= last; d = L.addMonths(d, 1)) {
       if (changedAt(d) && at(L.addMonths(d, -1)) > 0 && !ok[key(d)]) mid.push(key(d));
     }
     var after = 0; for (var d2 = L.addMonths(firstOf(E), 1), lim = firstOf(today); d2 <= lim; d2 = L.addMonths(d2, 1)) if (at(d2) > 0) after++;
-    return { cur: cur, prev: prev, mid: mid, after: after, E0: E0, E: E };
+    return { cur: cur, prev: prev, next: next, mid: mid, after: after, E0: E0, E: E };
   }
 
   // ---------- كشف المستحقات ----------
@@ -441,6 +449,8 @@
     if (u.paid && (!st || u.paid >= st)) v[C.paid] = en && u.paid > en ? en : u.paid;
     if (u.method) v[C.method] = u.method;
     v[C.notes] = (unsigned ? 'اتفاق سنة جديدة من غير عقد موقّع · ' : '') + 'اتضاف من ملف أصول (MBM)' + (u.settle ? ' · ' + u.settle : '');
+    // اتفاق لسه متوقعش والشيت فاضي بعد النهاية: الإيجار = المدفوع في أول شهر، وإلا آخر إيجار في العقد
+    if (!Y[0] && unsigned) { var g0 = CTX.T[u.code], pm = g0 ? Math.round(g0.m[L.monthKey(L.serialToDate(rs || st))] || 0) : 0; Y[0] = pm || CTX.lastRent[u.code] || 0; v[C.rent] = Y[0] || ''; }
     if (!Y[0]) R0.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', why: 'إيجار العقد اللي من ' + fmtS(st) + ' فاضي في شيت الملاك، اكتبه في الشيت', kind: 'review' });
     return { code: u.code, values: v, why: why };
   }
