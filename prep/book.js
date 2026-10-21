@@ -9,7 +9,7 @@
   var DATE_COLS = ['تاريخ الإنهاء', 'تاريخ التوقيع', 'بداية العقد', 'نهاية العقد', 'تاريخ أول دفعة', 'مسدد حتى'];
   var fill = function (argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb: argb } }; };
   var YELLOW = fill('FFFFE699'), GREEN = fill('FFE6F4EA'), BLUE = fill('FFE8EEFC'), ORANGE = fill('FFF8CBAD'), RED = fill('FFFADBD8'), HEAD = fill('FFF5EEDC');
-  var STATE_FILL = { 'مقفول': GREEN, 'ناقص': RED, 'زايد': ORANGE, 'مقدم': BLUE, 'عليه ناقص': RED, 'مدفوع زيادة': ORANGE, 'فيه فروق شهور': YELLOW };
+  var STATE_FILL = { 'مقفول': GREEN, 'مسدد بملاحظة': BLUE, 'ناقص': RED, 'زايد': ORANGE, 'مقدم': BLUE, 'عليه ناقص': RED, 'مدفوع زيادة': ORANGE, 'فيه فروق شهور': YELLOW };
   var KIND = { fix: 'تصحيح', note: 'ملاحظة', review: 'محتاج قرار', flag: 'للمراجعة' };
 
   function cellVal(v) { if (v && typeof v === 'object') { if (v.formula !== undefined || v.sharedFormula !== undefined) return v.result; if (v instanceof Date) return L.dateToSerial(v); if (v.richText) return v.richText.map(function (x) { return x.text; }).join(''); } return v; }

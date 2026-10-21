@@ -197,6 +197,14 @@
     var all = {}; (o.owner.cols['كود'] || []).forEach(function (c) { all[ck(c)] = 1; });
     Object.keys(byU).forEach(function (k) { if (!all[k]) R.devOnly.push(str(byU[k][0][C.code])); });
     R.dues = duesAll(ours, byU, ck, o.treasury, today);
+    // المهم: من 1/7/2026 لحد "مسدد حتى" المدفوع عن كل شهر يساوي المستحق. فترة الشهر بتبدأ يوم دورة العقد (زي 10 أو 15)
+    R.dues.forEach(function (x) {
+      if (!x.trPaid) return;
+      var cd = L.serialToDate(x.start).getUTCDate();
+      var bad = x.months.filter(function (m) { var ps = m.month + cd - 1; return m.month >= CUTOFF && ps <= x.trPaid && Math.abs(m.due - m.paid - (m.rule && !/^قبل مسدد/.test(m.rule) ? m.closed : 0)) > 1; });
+      if (bad.length) R.changes.push({ row: null, code: x.code, no: x.no, col: '', old: '', val: '', kind: 'note',
+        why: 'ملاحظة: مسدد حتى ' + fmtS(x.trPaid) + ' ومعتبر مسدد، بس المدفوع مش مساوي المستحق: ' + bad.map(function (m) { return L.monthLabel(m.key) + ' مستحق ' + money(m.due) + ' ومدفوع ' + money(m.paid); }).join('، ') });
+    });
     R.counts.flagged = R.changes.filter(function (x) { return x.kind === 'flag'; }).length;
     R.counts.fixed = R.changes.filter(function (x) { return x.kind === 'fix' || x.kind === 'note'; }).length;
     R.counts.review = R.changes.filter(function (x) { return x.kind === 'review'; }).length;
@@ -345,14 +353,16 @@
         left += rest;
       });
       // إعادة الحساب بعد التوزيع والاتفاقات: الشهر الناقص اللي عليه اتفاق بيتقفل "مقفول" ومبيدخلش في الفرق
-      tPaid = 0; under = 0; over = 0; bal = 0; first = null; var closed = 0;
+      tPaid = 0; under = 0; over = 0; bal = 0; first = null; var closed = 0, cd = L.serialToDate(S).getUTCDate();
       months.forEach(function (m) {
         if (m.state === 'مقدم') return;
         m.diff = Math.round(m.due - m.paid); m.closed = 0;
         var rule = m.diff > 1 ? closeRule(u, m.key) : '';
+        // أي شهر فترته قبل "مسدد حتى" بيتعتبر مسدد، والفرق بيطلع ملاحظة بس
+        if (!rule && Math.abs(m.diff) > 1 && u.paid && m.month + cd - 1 <= u.paid) rule = m.diff > 0 ? 'قبل مسدد حتى: معتبر مسدد (ناقص ' + money(m.diff) + ')' : 'قبل مسدد حتى: مدفوع زيادة ' + money(-m.diff);
         if (rule) { m.closed = m.diff; m.diff = 0; m.rule = rule; closed += m.closed; }
         tPaid += m.paid; bal += m.due - m.paid - m.closed; m.bal = Math.round(bal);
-        m.state = rule ? 'مقفول' : Math.abs(m.diff) <= 1 ? 'مظبوط' : m.diff > 0 ? 'ناقص' : 'زايد';
+        m.state = rule ? (/^قبل مسدد/.test(rule) ? 'مسدد بملاحظة' : 'مقفول') : Math.abs(m.diff) <= 1 ? 'مظبوط' : m.diff > 0 ? 'ناقص' : 'زايد';
         if (m.state === 'ناقص') under += m.diff; else if (m.state === 'زايد') over -= m.diff;
         if (!first && (m.state === 'ناقص' || m.state === 'زايد')) first = m.month;
       });
@@ -379,7 +389,8 @@
     if (differs) for (var y = 1; y < Y.length && y <= 7; y++) if (Y[y]) v[YEARS[y - 1]] = Y[y];
     if (u.deposit) v[C.deposit] = u.deposit;
     v[C.auto] = 'لا / No';
-    if (u.paid) v[C.paid] = en && u.paid > en ? en : u.paid; // العقد اللي اتجدد مسدد لحد نهايته بس
+    // مسدد حتى من الخزينة (مظبوط بنسبة كبيرة حتى لو فيه شهور ناقصة قبله). العقد اللي اتجدد لحد نهايته بالكتير، والعقد اللي لسه مبدأش مبيتحطلوش
+    if (u.paid && (!st || u.paid >= st)) v[C.paid] = en && u.paid > en ? en : u.paid;
     if (u.method) v[C.method] = u.method;
     v[C.notes] = 'اتضاف من ملف أصول (MBM)' + (u.settle ? ' · ' + u.settle : '');
     if (!Y[0]) R0.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', why: 'إيجار العقد اللي من ' + fmtS(st) + ' فاضي في شيت الملاك، اكتبه في الشيت', kind: 'review' });
