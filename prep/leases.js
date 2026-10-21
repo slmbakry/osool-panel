@@ -45,7 +45,7 @@
       out.push({
         idx: i, code: code, project: u.project, settle: u.settle, owner: str(c['الاسم'] && c['الاسم'][i]),
         unitTitle: [u.project, str(c['عمارة'] && c['عمارة'][i]) && 'عمارة ' + str(c['عمارة'][i]), str(c['شقة'] && c['شقة'][i]) && 'شقة ' + str(c['شقة'][i])].filter(Boolean).join(' · '),
-        start: start, end: end, val: val, has: function (k) { return !!m[k] && hasKey[k]; },
+        start: start, end: end, val: val, has: function (k) { return !!m[k] && hasKey[k]; }, mk: keys,
         cycle: CYCLE[every] ? every : 1, cycleBad: every && !CYCLE[every] ? str(c['يسدد كل'][i]) : '',
         deposit: c['التأمين'] ? num(c['التأمين'][i]) : null,
         method: methodOf(c['الدفع'] && c['الدفع'][i]),
@@ -135,9 +135,10 @@
       if (sg && !u.out) R.segs.push({ code: u.code, project: u.project, owner: u.owner, end: u.end, cur: sg.cur, prev: sg.prev, mid: sg.mid, after: sg.after, rentCur: u.val(L.monthKey(L.serialToDate(sg.cur.rs))), rentPrev: sg.prev ? u.val(L.monthKey(L.serialToDate(sg.prev.rs))) : 0, dev: live.length });
       if (!live.length) {
         if (u.out) { R.counts.outSkipped++; return; }
+        if (!sg && !u.end && !u.start && !hasAny(u)) { R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'review', why: 'وحدة من غير عقد (مفيش بداية ولا نهاية ولا إيجار)، غالبًا ملك الشركة. مش هتتسجل للمطور' }); return; }
         if (!sg) { R.newRows.push(newRow(u, null, u.start, u.end, today, 'وحدة في ملف أصول ومش في ملف المطور (البداية من شيت الملاك، وهي أول عقد)')); R.counts.added++; addGaps(u, '', u.start, u.end); return; }
-        if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, 'وحدة مش عند المطور: العقد اللي مغطي 1/7/2026 (من شهور الشيت)', ST.renewed, sg.prev.rs)); R.counts.added++; R.counts.renewals++; addGaps(u, '', sg.prev.s, sg.prev.e); }
-        R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, 'وحدة مش عند المطور: العقد الحالي من ' + fmtS(sg.cur.s) + ' (آخر تغيير في الإيجار)', null, sg.cur.rs));
+        if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, sg.prev.why, ST.renewed, sg.prev.rs, sg.prev.unsigned)); R.counts.added++; R.counts.renewals++; addGaps(u, '', sg.prev.s, sg.prev.e); }
+        R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, sg.cur.why, null, sg.cur.rs, sg.cur.unsigned));
         R.counts.added++; addGaps(u, '', sg.cur.s, sg.cur.e); midReview(null, u, sg); return;
       }
       R.counts.matched += live.length;
@@ -236,6 +237,7 @@
       if (bad.length) R.changes.push({ row: null, code: x.code, no: x.no, col: '', old: '', val: '', kind: 'note',
         why: 'ملاحظة: مسدد حتى ' + fmtS(x.trPaid) + ' ومعتبر مسدد، بس المدفوع مش مساوي المستحق: ' + bad.map(function (m) { return L.monthLabel(m.key) + ' مستحق ' + money(m.due) + ' ومدفوع ' + money(m.paid); }).join('، ') });
     });
+    R.units = {}; ours.forEach(function (u) { R.units[u.code] = { idx: u.idx, owner: u.owner, title: u.unitTitle }; });
     R.counts.flagged = R.changes.filter(function (x) { return x.kind === 'flag'; }).length;
     R.counts.fixed = R.changes.filter(function (x) { return x.kind === 'fix' || x.kind === 'note'; }).length;
     R.counts.review = R.changes.filter(function (x) { return x.kind === 'review'; }).length;
@@ -288,6 +290,9 @@
     var E = u.end; if (!E) return null;
     var key = function (d) { return L.monthKey(d); };
     var at = function (d) { return u.val(key(d)); };
+    // العقد خلص والشيت لسه بيحسب بعده = اتفاق سنة جديدة من غير عقد موقّع، سنة بسنة لحد ما تغطي آخر شهر بيتحسب لحد النهارده
+    var E0 = E;
+    while (at(L.addMonths(firstOf(E + 1), 0)) > 0 && L.dateToSerial(firstOf(E + 1)) <= today) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
     // تغيير في الشهر ده عن اللي قبله (أو أول شهر بعد شهر فاضي)
     var changedAt = function (d) { var p = L.addMonths(d, -1), r1 = at(d), r0 = at(p); return r1 > 0 && (r0 <= 0 ? u.has(key(p)) : Math.abs(r1 - r0) > 0.5); };
     var an = [], floor = L.dateToSerial(new Date(Date.UTC(2015, 0, 1)));
@@ -295,7 +300,8 @@
     if (!an.length) return null;
     // شهر الإيجار لأول-سنة: شهرها (ولو بتبدأ آخر الشهر، الشهر اللي بعده). ولو بتبدأ في نص الشهر والتغيير ظهر الشهر اللي بعده، ناخده
     var rentMonth = function (a) { var m0 = firstOf(a + 3); if (changedAt(m0)) return m0; var dd = L.serialToDate(a).getUTCDate(); var m1 = L.addMonths(m0, 1); return dd > 1 && dd < 28 && changedAt(m1) ? m1 : null; };
-    var ch = []; an.forEach(function (a) { if (a > today) return; var m = rentMonth(a); if (m) ch.push({ a: a, rs: L.dateToSerial(m) }); }); // من الأحدث للأقدم
+    // كل سنة بعد نهاية العقد الأصلية (اتفاق من غير عقد) بداية عقد لوحدها حتى لو الإيجار زي ما هو
+    var ch = []; an.forEach(function (a) { if (a > today) return; var m = rentMonth(a); if (!m && a > E0) m = firstOf(a + 3); if (m) ch.push({ a: a, rs: L.dateToSerial(m) }); }); // من الأحدث للأقدم
     var lastYear = function (lim) { for (var i = 0; i < an.length; i++) if (an[i] <= lim) return an[i]; return an[an.length - 1]; };
     var lbl = function (rs) { return L.monthLabel(key(L.serialToDate(rs))); };
     var cur, prev = null;
@@ -310,13 +316,14 @@
     // العقد اللي قبل التجديد لازم يكون ليه شهور في الشيت، وإلا تبقى الوحدة جديدة من التجديد ده
     if (prev) { var any = false; for (var q = firstOf(prev.rs), qe = firstOf(cur.rs); q < qe; q = L.addMonths(q, 1)) if (at(q) > 0) { any = true; break; } if (!any) prev = null; }
     if (u.start && cur.s < u.start) { cur.s = u.start; if (cur.rs < u.start) cur.rs = u.start; }
+    if (E > E0) { if (cur.s > E0) { cur.unsigned = true; cur.why = 'اتفاق سنة جديدة من غير عقد موقّع (العقد خلص ' + fmtS(E0) + ' والشيت لسه بيحسب)'; } if (prev && prev.s > E0) { prev.unsigned = true; prev.why = 'اتفاق سنة من غير عقد موقّع'; } }
     // تغيير الإيجار في نص السنة (مش في أول-سنة) من بداية الفترة لحد النهارده
     var mid = [], ok = {}; ch.forEach(function (c) { ok[key(L.serialToDate(c.rs))] = 1; }); an.forEach(function (a) { ok[key(L.serialToDate(a + 3))] = 1; });
     for (var d = L.addMonths(firstOf((prev || cur).rs), 1), last = firstOf(Math.min(today, E)); d <= last; d = L.addMonths(d, 1)) {
       if (changedAt(d) && at(L.addMonths(d, -1)) > 0 && !ok[key(d)]) mid.push(key(d));
     }
     var after = 0; for (var d2 = L.addMonths(firstOf(E), 1), lim = firstOf(today); d2 <= lim; d2 = L.addMonths(d2, 1)) if (at(d2) > 0) after++;
-    return { cur: cur, prev: prev, mid: mid, after: after };
+    return { cur: cur, prev: prev, mid: mid, after: after, E0: E0, E: E };
   }
 
   // ---------- كشف المستحقات ----------
@@ -340,9 +347,10 @@
   // 2) بورتو والملف الرئيسي (كله ما عدا فيلدج): من سبتمبر 2025 لحد مارس 2026 (الخزينة ناقصة في الفترة دي)
   var CLOSE = [
     { test: function (u, d) { var st = str(u.settle).toUpperCase().replace(/[_\s]/g, '-'); return (st === 'F' || st === 'N-F') && d <= Date.UTC(2026, 7, 1); }, why: 'تسويات: مقفول لحد 8/2026' },
-    { test: function (u, d) { return F.groupOf(u.project) !== 'Village' && d >= Date.UTC(2025, 8, 1) && d <= Date.UTC(2026, 2, 1); }, why: 'مسدد (مش في الخزينة) 9/2025 لـ 3/2026' }
+    { test: function (u, d) { var g = F.groupOf(u.project); return g !== 'Village' && d >= Date.UTC(2025, g === 'Porto' ? 7 : 8, 1) && d <= Date.UTC(2026, 2, 1); }, why: 'مسدد (مش في الخزينة) لحد 3/2026' }
   ];
   function closeRule(u, key) { var d = F.keyToDate(key).getTime(); for (var i = 0; i < CLOSE.length; i++) if (CLOSE[i].test(u, d)) return CLOSE[i].why; return ''; }
+  function hasAny(u) { for (var k in u.mk) if (u.val(u.mk[k]) > 0) return true; return false; }
   function firstOf(s) { var d = L.serialToDate(s); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
   function duesAll(ours, byU, ck, treasury, today) {
     var T = treasuryByUnit(treasury || { cols: {} }), res = [], curM = firstOf(today);
@@ -408,12 +416,12 @@
   }
 
   // سطر جديد بنفس أعمدة المطور (من غير lease_id)
-  function newRow(u, prev, st, en, today, why, status, rs) {
+  function newRow(u, prev, st, en, today, why, status, rs, unsigned) {
     var v = {}, Y = agreed(u, rs || (st ? st + 3 : st), en, yearsFor(u, rs || (st ? st + 3 : st), en));
     v[C.code] = u.code; v[C.unit] = u.unitTitle; v[C.owner] = u.owner;
     v[C.prev] = prev ? str(prev[C.no]) : '';
     v[C.status] = status || (en && en < today ? ST.ended : ST.active);
-    v[C.start] = st || ''; v[C.end] = en || ''; v[C.signed] = st || ''; v[C.firstPay] = st || '';
+    v[C.start] = st || ''; v[C.end] = en || ''; v[C.signed] = unsigned ? '' : (st || ''); v[C.firstPay] = st || '';
     v[C.rent] = Y[0] || ''; v[C.cycle] = CYCLE[u.cycle];
     var base = Y[0], differs = Y.some(function (x) { return x && base && Math.abs(x - base) > 0.5; });
     v[C.incType] = differs ? INC.amt : INC.none;
@@ -423,7 +431,7 @@
     // مسدد حتى من الخزينة (مظبوط بنسبة كبيرة حتى لو فيه شهور ناقصة قبله). العقد اللي اتجدد لحد نهايته بالكتير، والعقد اللي لسه مبدأش مبيتحطلوش
     if (u.paid && (!st || u.paid >= st)) v[C.paid] = en && u.paid > en ? en : u.paid;
     if (u.method) v[C.method] = u.method;
-    v[C.notes] = 'اتضاف من ملف أصول (MBM)' + (u.settle ? ' · ' + u.settle : '');
+    v[C.notes] = (unsigned ? 'اتفاق سنة جديدة من غير عقد موقّع · ' : '') + 'اتضاف من ملف أصول (MBM)' + (u.settle ? ' · ' + u.settle : '');
     if (!Y[0]) R0.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', why: 'إيجار العقد اللي من ' + fmtS(st) + ' فاضي في شيت الملاك، اكتبه في الشيت', kind: 'review' });
     return { code: u.code, values: v, why: why };
   }
