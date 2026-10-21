@@ -784,7 +784,7 @@
     }
   }
   // أسامي الموظفين من إعداد الملف (بتتحفظ جوه الملف، مش في كود البانل)
-  function peopleList() { var p = (S.settings && S.settings.people) || []; return p.slice().sort(function (a, b) { return a.localeCompare(b, 'ar'); }); }
+  function peopleList() { var p = (S.settings && S.settings.people) || []; if (!p.length) { try { p = JSON.parse(localStorage.getItem('osoolPanel.people') || '[]') || []; } catch (e) { p = []; } } return p.slice().sort(function (a, b) { return a.localeCompare(b, 'ar'); }); }
   function disarm() { if (EN) { EN.armed = false; $('eSave').textContent = 'تسجيل'; } }
   function drawEntryUnit() {
     var u = EN.unit;

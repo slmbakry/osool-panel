@@ -114,7 +114,7 @@
     try { var s = Office.context.document.settings.get(SETTINGS_KEY); old = s ? JSON.parse(s) : null; } catch (e) { }
     var St = window.OsoolStore;
     if (!St) return Promise.resolve(old);
-    return St.read().then(function (x) {
+    return St.read().then(function (x) { return sharePeople(x || old, St); }).then(function (x) {
       if (x) {
         // لو الملف فيه أسماء والإعداد القديم فاضي (أو العكس)، نحتفظ باللي فيه أسماء
         if ((!x.people || !x.people.length) && old && old.people && old.people.length) { x.people = old.people; St.write(x); }
@@ -124,7 +124,18 @@
       return old;
     });
   }
+  // أسماء الموظفين واحدة في كل الملفات: أي ملف فيه أسماء بيحفظها على الجهاز،
+  // وأي ملف أسماؤه فاضية بياخدها منه ويحفظها جواه. النطاق مبيتنقلش، كل ملف ليه نطاقه
+  var PEOPLE_KEY = 'osoolPanel.people';
+  function sharePeople(x, St) {
+    var cache = null; try { cache = JSON.parse(localStorage.getItem(PEOPLE_KEY) || 'null'); } catch (e) { }
+    if (x && x.people && x.people.length) { try { localStorage.setItem(PEOPLE_KEY, JSON.stringify(x.people)); } catch (e) { } return x; }
+    if (cache && cache.length && x) { x.people = cache; St.write(x); } // ملف لسه متظبطش نطاقه: الأسماء بتتحط مع أول حفظ للإعدادات
+    return x;
+  }
   function saveSettings(obj) {
+    if (obj && obj.people && obj.people.length) { try { localStorage.setItem(PEOPLE_KEY, JSON.stringify(obj.people)); } catch (e) { } }
+    else if (obj) { try { var c = JSON.parse(localStorage.getItem(PEOPLE_KEY) || 'null'); if (c && c.length) obj.people = c; } catch (e) { } }
     return new Promise(function (ok, no) {
       try {
         Office.context.document.settings.set(SETTINGS_KEY, JSON.stringify(obj));
