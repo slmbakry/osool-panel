@@ -19,6 +19,12 @@
     var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
     return [ok(u.building), ok(u.apt), unitClass(u) ? '' : ok(u.block)].filter(Boolean).join(' ');
   }
+  // نفس الكلام بس متنسق: العمارة - الشقة بشرطة صغيرة، والبلوك أصغر وأهدى
+  function unitHtml(u) {
+    var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
+    var b = ok(u.building), a = ok(u.apt), p = unitClass(u) ? '' : ok(u.block);
+    return esc(b) + (b && a ? '<i class="ds">-</i>' : '') + esc(a) + (p ? '<i class="pc">' + esc(p) + '</i>' : '');
+  }
   function unitCols(u) {
     var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
     return [unitClass(u) ? '' : ok(u.block), ok(u.building), ok(u.apt)].map(function (v) { return '<td class="uc" dir="ltr">' + (v ? el(v, 110) : '') + '</td>'; }).join('');
@@ -39,7 +45,7 @@
   }
 
   var CSS = '<style>' +
-    '.rp.pt{width:763px!important;height:1080px!important}.rp.pt td{font-size:9.8px!important}.rp.pt th{font-size:9px!important}.rp.pt .chip{font-size:9px!important}.rp td.dt,.rp.pt td.dt,.rp td.dt .chip.pl,.rp td.dt .chip.soon,.rp td.dt .chip.today{font-size:11px!important;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.2px}.rp td.dt .chip.pl{color:#1d2422}.rp td.dt .chip.ok,.rp td.dt .chip.out,.rp td.dt .chip.in{font-size:9px!important;font-weight:600}.rp td.un,.rp.pt td.un{white-space:nowrap;font-weight:600;font-size:10.5px!important}.rp .cl{padding:0 1px!important;width:1px}.rp .chip.cls,.rp.pt .chip.cls{font-size:7px!important;padding:0 2px!important;line-height:1.2}.rp .bl{white-space:nowrap}.rp .bl+.bl{border-top:1px dotted #e4e2db}' +
+    '.rp.pt{width:763px!important;height:1080px!important}.rp.pt td{font-size:9.8px!important}.rp.pt th{font-size:9px!important}.rp.pt .chip{font-size:9px!important}.rp td.dt,.rp.pt td.dt,.rp td.dt .chip.pl,.rp td.dt .chip.soon,.rp td.dt .chip.today{font-size:11px!important;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.2px}.rp td.dt .chip.pl{color:#1d2422}.rp td.dt .chip.ok,.rp td.dt .chip.out,.rp td.dt .chip.in{font-size:9px!important;font-weight:600}.rp td.un,.rp.pt td.un{white-space:nowrap;font-weight:600;font-size:10.5px!important;text-align:left}.rp td.un i{font-style:normal}.rp td.un .ds{font-weight:400;color:#9aa19e;font-size:9px;margin:0 1px}.rp td.un .pc{font-weight:400;color:#8a918e;font-size:9px;margin-left:5px}.rp .cl{padding:0 1px!important;width:1px}.rp .chip.cls,.rp.pt .chip.cls{font-size:7px!important;padding:0 2px!important;line-height:1.2}.rp .bl{white-space:nowrap}.rp .bl+.bl{border-top:1px dotted #e4e2db}' +
     '.rp{box-sizing:border-box;direction:rtl;width:1080px;height:763px;position:relative;overflow:hidden;background:#fff;color:#1d2422;font:12px/1.45 "Segoe UI",Tahoma,Arial,"DejaVu Sans",sans-serif;padding:18px 20px 34px}' +
     '.rp .pfoot{position:absolute;left:20px;right:20px;bottom:10px;display:flex;justify-content:space-between;color:#8a918d;font-size:10px;border-top:1px solid #e4e2db;padding-top:5px}' +
     '.rp .mini{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #c9a24a;padding-bottom:6px;margin-bottom:8px;color:#6e531b;font-weight:700}' +
@@ -123,7 +129,7 @@
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
       else st = '<span class="chip pl">' + d2(c.end) + '</span>'; // نفس مقاس الشيب عشان التواريخ تقف تحت بعض
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td class="cl">' + (unitClass(u) ? '<span class="chip cls">' + unitClass(u) + '</span>' : '') + '</td>' +
-        '<td class="uc un" dir="ltr">' + esc(unitText(u)) + '</td><td class="av dt">' + st + '</td>' +
+        '<td class="uc un" dir="ltr">' + unitHtml(u) + '</td><td class="av dt">' + st + '</td>' +
         '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n dt">' + lines(function (b, j) { return !j && x.checkInToday ? '<span class="chip in">دخول اليوم</span>' : d2(b.start); }) + '</td><td class="n dt">' + lines(function (b) { return d2(b.end); }) + '</td><td>' + lines(function (b) { return el(b.name || '', 130); }) + '</td>' +
         '<td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n mx">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
