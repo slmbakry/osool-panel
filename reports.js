@@ -69,7 +69,7 @@
     '.rp th{font-size:9.5px;padding:3px 4px}' +
     '.rp td{font-size:10.5px;line-height:1.2;padding:1.5px 4px;white-space:nowrap;vertical-align:middle}' +
     '.rp .el{display:inline-block;max-width:var(--w,150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}' +
-    '.rp table.fx td{overflow:hidden}.rp table.fx .el{max-width:100%}.rp td.uc{text-align:right;font-variant-numeric:tabular-nums}.rp .av{text-align:center}.rp .chip.pl{background:transparent;color:inherit;font-weight:400}.rp td.av .chip{font-variant-numeric:tabular-nums;min-width:62px;display:inline-block;text-align:center;box-sizing:border-box}' +
+    '.rp table.fx td{overflow:hidden}.rp table.fx .el{max-width:100%}.rp .el{line-height:1.4;padding:1px 0;margin:-2px 0}.rp td.uc{text-align:right;font-variant-numeric:tabular-nums}.rp .av{text-align:center}.rp .chip.pl{background:transparent;color:inherit;font-weight:400}.rp td.av .chip{font-variant-numeric:tabular-nums;min-width:62px;display:inline-block;text-align:center;box-sizing:border-box}' +
     '.rp .chip{font-size:9.5px;padding:0 6px;line-height:1.3}' +
     '.rp h2{font-size:11.5px;margin:0 0 4px}.rp .two{gap:10px;margin-bottom:7px}' +
     '.rp .grp td{background:#f5eedc!important;color:#6e531b;font-weight:700;font-size:10px;padding:2px 6px;border-bottom:1px solid #e3d6b5}' +
