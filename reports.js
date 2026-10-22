@@ -13,6 +13,11 @@
   // VIP و Smart تمييز للوحدة مش جزء من العنوان، فبيطلعوا في عمود لوحدهم
   var TAG_RE = /^(vip|v|smart)$/i; // V في فيلدج اختصار VIP
   function unitClass(u) { var b = String(u.block == null ? '' : u.block).trim(); return TAG_RE.test(b) ? (/^vi?p?$/i.test(b) ? 'VIP' : 'Smart') : ''; }
+  // في كشف المتاح: Parcel و Building و Unit كل واحد في عمود بعنوانه
+  function unitCols(u) {
+    var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
+    return [unitClass(u) ? '' : ok(u.block), ok(u.building), ok(u.apt)].map(function (v) { return '<td class="uc" dir="ltr">' + (v ? el(v, 110) : '') + '</td>'; }).join('');
+  }
   function unitTag(u, w) {
     var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
     var parts = [['P', unitClass(u) ? '' : ok(u.block)], ['B', ok(u.building)], ['U', ok(u.apt)]];
@@ -64,7 +69,7 @@
     '.rp th{font-size:9.5px;padding:3px 4px}' +
     '.rp td{font-size:10.5px;line-height:1.2;padding:1.5px 4px;white-space:nowrap;vertical-align:middle}' +
     '.rp .el{display:inline-block;max-width:var(--w,150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}' +
-    '.rp table.fx td{overflow:hidden}.rp table.fx .el{max-width:100%}' +
+    '.rp table.fx td{overflow:hidden}.rp table.fx .el{max-width:100%}.rp td.uc{text-align:right;font-variant-numeric:tabular-nums}' +
     '.rp .chip{font-size:9.5px;padding:0 6px;line-height:1.3}' +
     '.rp h2{font-size:11.5px;margin:0 0 4px}.rp .two{gap:10px;margin-bottom:7px}' +
     '.rp .grp td{background:#f5eedc!important;color:#6e531b;font-weight:700;font-size:10px;padding:2px 6px;border-bottom:1px solid #e3d6b5}' +
@@ -110,7 +115,7 @@
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
       else st = d2(c.end);
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + el(u.info && u.info !== '0' ? u.info : '', 80) + '</td><td>' + (unitClass(u) ? '<span class="chip cls">' + unitClass(u) + '</span>' : '') + '</td>' +
-        '<td>' + unitTag(u, 175) + '</td><td>' + st + '</td>' +
+        unitCols(u) + '<td>' + st + '</td>' +
         '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + (n ? (x.checkInToday ? '<span class="chip in">دخول اليوم</span>' : d2(n.start)) : '') + '</td><td class="n">' + (n ? d2(n.end) : '') + '</td><td>' + el(n ? n.name : '', 130) + '</td>' +
         '<td class="n">' + more + '</td><td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n mx">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
@@ -123,7 +128,7 @@
       '<div class="kpi"><div class="v">' + checkOut + '</div><div class="k">Check Out النهارده</div></div>' +
       '<div class="kpi"><div class="v">' + list.length + '</div><div class="k">إجمالي الوحدات</div></div></div></div>' +
       '<div style="flex:0 0 330px"><table><thead><tr><th>Location</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">Total</th></tr></thead><tbody>' + matrix + '</tbody></table></div></div>' +
-      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Class</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n mx">Max.</th></tr></thead>', rows: rows, tfoot: '' };
+      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Class</th><th>Parcel</th><th>Building</th><th>Unit</th><th>Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n mx">Max.</th></tr></thead>', rows: rows, tfoot: '' };
   }
 
   // ---------- طباعة اليومية ----------
