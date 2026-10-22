@@ -141,6 +141,7 @@
       var rows = (byU[ck(u.code)] || []).slice().sort(function (a, b) { return day(a[C.start]) - day(b[C.start]); });
       var live = rows.filter(function (r) { return str(r[C.status]) !== 'مسودة / Draft'; });
       var sg = segments(u, today);
+      if (sg && sg.note && !u.out) R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: sg.note });
       if (sg && !u.out) R.segs.push({ code: u.code, project: u.project, owner: u.owner, end: u.end, cur: sg.cur, prev: sg.prev, mid: sg.mid, after: sg.after, rentCur: u.val(L.monthKey(L.serialToDate(sg.cur.rs))), rentPrev: sg.prev ? u.val(L.monthKey(L.serialToDate(sg.prev.rs))) : 0, dev: live.length });
       if (!live.length) {
         if (u.out) { R.counts.outSkipped++; return; }
@@ -348,8 +349,21 @@
     for (var d = L.addMonths(firstOf((prev || cur).rs), 1), last = firstOf(Math.min(today, E)); d <= last; d = L.addMonths(d, 1)) {
       if (changedAt(d) && at(L.addMonths(d, -1)) > 0 && !ok[key(d)]) mid.push(key(d));
     }
+    // الإيجار اتغير في نص السنة وفضل بالقيمة الجديدة لحد النهاية = عقد جديد من شهر التغيير لحد نهاية الشيت (اتفاق 22-10)
+    var lastMid = mid.length ? mid[mid.length - 1] : null;
+    if (lastMid && !cur.unsigned) {
+      var md = F.keyToDate(lastMid), nv = at(md), steady = true;
+      for (var q2 = L.addMonths(md, 1), qe2 = firstOf(Math.min(E, L.dateToSerial(L.addMonths(firstOf(today), 12)))); q2 <= qe2; q2 = L.addMonths(q2, 1)) { var vq = at(q2); if (vq > 0 && Math.abs(vq - nv) > 0.5) { steady = false; break; } }
+      if (steady && L.dateToSerial(md) > cur.rs) {
+        var dd0 = Math.min(28, L.serialToDate(E + 1).getUTCDate()), ns2 = L.dateToSerial(new Date(Date.UTC(md.getUTCFullYear(), md.getUTCMonth(), dd0)));
+        if (ns2 > CUTOFF && cur.s <= CUTOFF) prev = { s: cur.s, e: ns2 - 1, rs: cur.rs, why: 'العقد اللي مغطي 1/7/2026 (قبل تغيير الإيجار في ' + L.monthLabel(lastMid) + ')' };
+        cur = { s: ns2, e: E, rs: L.dateToSerial(md), why: 'الإيجار اتغير في نص السنة (' + L.monthLabel(lastMid) + '): عقد جديد من شهر التغيير لحد نهاية الشيت' };
+        var midNote = 'ملاحظة: الإيجار اتغير في ' + L.monthLabel(lastMid) + ' لـ ' + money(nv) + '، فاتسجل عقد جديد من ' + fmtS(ns2) + ' لحد ' + fmtS(E);
+        mid = mid.slice(0, -1);
+      }
+    }
     var after = 0; for (var d2 = L.addMonths(firstOf(E), 1), lim = firstOf(today); d2 <= lim; d2 = L.addMonths(d2, 1)) if (at(d2) > 0) after++;
-    return { cur: cur, prev: prev, next: next, mid: mid, after: after, E0: E0, E: E };
+    return { cur: cur, prev: prev, next: next, mid: mid, after: after, E0: E0, E: E, note: typeof midNote !== 'undefined' ? midNote : '' };
   }
 
   // ---------- كشف المستحقات ----------
