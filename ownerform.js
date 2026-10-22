@@ -157,10 +157,37 @@
       put('زيادة سنوية', ocIncCell(inc), 'الزيادة السنوية'); opt('يسدد كل', 'ofEv', true);
       put('Beneficiary Name', $('ofBen').value.trim(), 'المستفيد'); put('Beneficiary Acc. No.', $('ofAcc').value.trim(), 'رقم الحساب'); put('البنك', $('ofBank').value.trim());
       put('الدفع', $('ofPay').value.trim(), 'طريقة الدفع'); opt('التأمين', 'ofDep', true); put('تسويات', $('ofSet').value); put('Info', $('ofInfo').value.trim());
-      // تعليق التعديل لكل شهر اتغير بيبقى واحد بس على أول شهر
-      OF.plan = errs.length ? null : { idx: m === 'new' ? null : OF.u.idx, code: m === 'new' ? OF.code : OF.u.code, fields: fields, months: months, comments: comments, changes: changes, rows: monthsRows };
+      // الكتابة في حدود أعمدة الشهور الموجودة بس. اللي بعد آخر عمود يتكتب تعليق على آخر شهر في الجدول
+      var pend = [], before = 0;
+      var cols = (OF.H || Object.keys(S.ownerMonths || {})).filter(function (h) { return MRE.test(h); }).sort(F.cmpKey), lastCol = cols[cols.length - 1], firstCol = cols[0];
+      if (lastCol) {
+        Object.keys(months).forEach(function (k) {
+          if (cols.indexOf(k) !== -1) return;
+          if (F.cmpKey(k, lastCol) > 0 && months[k]) pend.push({ key: k, amount: months[k] });
+          else if (F.cmpKey(k, firstCol) < 0 && months[k]) before++;
+          delete months[k];
+        });
+        monthsRows = monthsRows.filter(function (r) { return cols.indexOf(r.key) !== -1; });
+        pend.sort(function (a, b) { return F.cmpKey(a.key, b.key); });
+        if (pend.length) comments.push({ key: lastCol, pending: true, text: pendText(pend, tday) });
+      }
+      OF.plan = errs.length ? null : { idx: m === 'new' ? null : OF.u.idx, code: m === 'new' ? OF.code : OF.u.code, fields: fields, months: months, comments: comments, changes: changes, rows: monthsRows, pend: pend, lastCol: lastCol, before: before };
       if (show) drawOwnerPlan(errs);
       return { errs: errs, plan: OF.plan };
+    }
+    // فترات متتالية بنفس القيمة: "نوفمبر 2026 ← أكتوبر 2027: 60,000"
+    function pendRanges(pend) {
+      var out = [];
+      pend.forEach(function (x) {
+        var g = out[out.length - 1], nxt = g && L.monthKey(L.addMonths(F.keyToDate(g.to), 1)) === x.key;
+        if (g && nxt && g.amount === x.amount) g.to = x.key; else out.push({ from: x.key, to: x.key, amount: x.amount });
+      });
+      return out;
+    }
+    function pendText(pend, tday) {
+      return 'مطلوب تسجيله لما نزوّد شهور في جدول الملاك (' + tday + '):\n' + pendRanges(pend).map(function (g) {
+        return (g.from === g.to ? L.monthLabel(g.from) : L.monthLabel(g.from) + ' ← ' + L.monthLabel(g.to)) + ': ' + money(g.amount) + ' شهريًا';
+      }).join('\n');
     }
     function drawOwnerPlan(errs) {
       if (errs.length) { $('ofRows').innerHTML = ''; $('ofMsg').innerHTML = errs.map(function (e) { return '<div class="msg err">' + esc(e) + '</div>'; }).join(''); return; }
@@ -173,7 +200,11 @@
           var yh = r.year && !byY[r.year] ? (byY[r.year] = 1, '<tr><td colspan="3" class="r2" style="padding-top:6px"><b>السنة ' + r.year + '</b></td></tr>') : '';
           return yh + '<tr><td class="m">' + L.monthLabel(r.key) + (r.old && r.old !== r.amount ? '<div class="note">كان ' + money(r.old) + '</div>' : '') + '</td><td><input class="ltr" data-ofm="' + i + '" value="' + (r.amount || '') + '"' + (r.amount ? '' : ' placeholder="هيتمسح"') + '></td></tr>';
         }).join('') + '</table></div>';
-      } else if (!ch.length) html += '<div class="r2">مفيش تغييرات.</div>';
+      } else if (!ch.length && !(p.pend || []).length) html += '<div class="r2">مفيش تغييرات.</div>';
+      if ((p.pend || []).length) html += '<div class="card" style="padding:8px 10px"><h3 style="margin:0 0 4px">بعد آخر عمود في الجدول (' + p.pend.length + ' شهر)</h3>' +
+        '<div class="r2">مش هتتكتب في الجدول. هتتكتب تعليق على خانة ' + L.monthLabel(p.lastCol) + ' عشان تتسجل لما نزوّد شهور:</div>' +
+        pendRanges(p.pend).map(function (g) { return '<div class="r2"><b>' + (g.from === g.to ? L.monthLabel(g.from) : L.monthLabel(g.from) + ' ← ' + L.monthLabel(g.to)) + '</b>: ' + money(g.amount) + '</div>'; }).join('') + '</div>';
+      if (p.before) html += '<div class="r2">' + p.before + ' شهر قبل أول عمود في الجدول مش هيتكتبوا.</div>';
       $('ofRows').innerHTML = html; $('ofMsg').innerHTML = '';
       document.querySelectorAll('#ofRows input[data-ofm]').forEach(function (inp) {
         inp.oninput = function () { var r = rows[+inp.dataset.ofm], v = Number(digits(inp.value)) || 0; r.amount = v; p.months[r.key] = v || ''; OF.armed = false; $('ofSave').textContent = 'تسجيل'; };
@@ -182,12 +213,12 @@
     function saveOwner() {
       if (!OF.plan) { var r = ownerPlan(true); if (r.errs.length) return; }
       var p = OF.plan;
-      if (!Object.keys(p.fields).length && !Object.keys(p.months).length) { $('ofMsg').innerHTML = '<div class="msg warn">مفيش حاجة اتغيرت.</div>'; return; }
+      if (!Object.keys(p.fields).length && !Object.keys(p.months).length && !(p.pend || []).length) { $('ofMsg').innerHTML = '<div class="msg warn">مفيش حاجة اتغيرت.</div>'; return; }
       if (!OF.armed) {
         OF.armed = true; $('ofSave').textContent = 'تأكيد التسجيل';
         var nm = Object.keys(p.months).length;
         $('ofMsg').innerHTML = '<div class="msg warn">' + (OF.mode === 'new' ? 'هتتسجل وحدة جديدة بكود ' + esc(p.code) + ' في جدول الملاك' : 'هيتعدل سطر الوحدة ' + esc(p.code)) + (nm ? '، و' + nm + ' شهر' : '') +
-          (p.comments.length ? '، ومعاهم ' + p.comments.length + ' تعليق بالتعديل' : '') + '. راجع الجدول فوق، واضغط تأكيد.</div>';
+          (p.comments.length ? '، ومعاهم ' + p.comments.length + ' تعليق بالتعديل' : '') + ((p.pend || []).length ? '، و' + p.pend.length + ' شهر بعد آخر الجدول هيتكتبوا تعليق على ' + L.monthLabel(p.lastCol) : '') + '. راجع الجدول فوق، واضغط تأكيد.</div>';
         return;
       }
       var btn = $('ofSave'); btn.disabled = true; btn.textContent = 'بيسجل…';
@@ -209,15 +240,6 @@
         $('ofDone').onclick = function () { App.closeSheet(); renderOwnerC(); };
       }).catch(function (e) {
         btn.disabled = false; btn.textContent = 'تأكيد التسجيل'; $('ofMsg').innerHTML = errHtml(e);
-        if (e && e.missingMonths) {
-          var upto = e.missingMonths.slice().sort(F.cmpKey).pop();
-          $('ofMsg').innerHTML += '<div class="msg warn">جدول الملاك آخره شهر قبل كده. أقدر أزوّد أعمدة الشهور الناقصة لحد ' + L.monthLabel(upto) + ' في آخر الجدول. لازم تفك حماية شيت الملاك الأول، وبعد كده رجّعها.</div><button class="btn ghost" id="ofAddM" style="width:100%">زوّد أعمدة الشهور الناقصة</button>';
-          $('ofAddM').onclick = function () {
-            var b = this; b.disabled = true; b.textContent = 'بيزوّد الأعمدة…';
-            A.addMonthColumns('owner', upto).then(function (ks) { $('ofMsg').innerHTML = '<div class="msg ok">اتزوّد ' + ks.length + ' عمود (' + (ks[0] || '') + ' لـ ' + (ks[ks.length - 1] || '') + '). دوس تأكيد التسجيل تاني.</div>'; OF.armed = true; })
-              .catch(function (er) { b.disabled = false; b.textContent = 'زوّد أعمدة الشهور الناقصة'; $('ofMsg').insertAdjacentHTML('beforeend', errHtml(er)); });
-          };
-        }
       });
     }
 
