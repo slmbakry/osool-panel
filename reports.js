@@ -39,7 +39,7 @@
   }
 
   var CSS = '<style>' +
-    '.rp.pt{width:763px!important;height:1080px!important}.rp.pt td{font-size:9.8px!important}.rp.pt th{font-size:9px!important}.rp.pt .chip{font-size:9px!important}.rp .bl{white-space:nowrap}.rp .bl+.bl{border-top:1px dotted #e4e2db}' +
+    '.rp.pt{width:763px!important;height:1080px!important}.rp.pt td{font-size:9.8px!important}.rp.pt th{font-size:9px!important}.rp.pt .chip{font-size:9px!important}.rp td.dt,.rp.pt td.dt,.rp td.dt .chip.pl,.rp td.dt .chip.soon,.rp td.dt .chip.today{font-size:11px!important;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.2px}.rp td.dt .chip.pl{color:#1d2422}.rp td.dt .chip.ok,.rp td.dt .chip.out,.rp td.dt .chip.in{font-size:9px!important;font-weight:600}.rp td.un,.rp.pt td.un{white-space:nowrap;font-weight:600;font-size:10.5px!important}.rp .cl{padding:0 1px!important;width:1px}.rp .chip.cls,.rp.pt .chip.cls{font-size:7px!important;padding:0 2px!important;line-height:1.2}.rp .bl{white-space:nowrap}.rp .bl+.bl{border-top:1px dotted #e4e2db}' +
     '.rp{box-sizing:border-box;direction:rtl;width:1080px;height:763px;position:relative;overflow:hidden;background:#fff;color:#1d2422;font:12px/1.45 "Segoe UI",Tahoma,Arial,"DejaVu Sans",sans-serif;padding:18px 20px 34px}' +
     '.rp .pfoot{position:absolute;left:20px;right:20px;bottom:10px;display:flex;justify-content:space-between;color:#8a918d;font-size:10px;border-top:1px solid #e4e2db;padding-top:5px}' +
     '.rp .mini{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #c9a24a;padding-bottom:6px;margin-bottom:8px;color:#6e531b;font-weight:700}' +
@@ -122,9 +122,9 @@
       else if (+c.end === +today) st = '<span class="chip today">' + d2(c.end) + '</span>';
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
       else st = '<span class="chip pl">' + d2(c.end) + '</span>'; // نفس مقاس الشيب عشان التواريخ تقف تحت بعض
-      return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + el(u.info && u.info !== '0' ? u.info : '', 80) + '</td><td>' + (unitClass(u) ? '<span class="chip cls">' + unitClass(u) + '</span>' : '') + '</td>' +
-        '<td class="uc" dir="ltr">' + el(unitText(u), 140) + '</td><td class="av">' + st + '</td>' +
-        '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + lines(function (b, j) { return !j && x.checkInToday ? '<span class="chip in">دخول اليوم</span>' : d2(b.start); }) + '</td><td class="n">' + lines(function (b) { return d2(b.end); }) + '</td><td>' + lines(function (b) { return el(b.name || '', 130); }) + '</td>' +
+      return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td class="cl">' + (unitClass(u) ? '<span class="chip cls">' + unitClass(u) + '</span>' : '') + '</td>' +
+        '<td class="uc un" dir="ltr">' + esc(unitText(u)) + '</td><td class="av dt">' + st + '</td>' +
+        '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n dt">' + lines(function (b, j) { return !j && x.checkInToday ? '<span class="chip in">دخول اليوم</span>' : d2(b.start); }) + '</td><td class="n dt">' + lines(function (b) { return d2(b.end); }) + '</td><td>' + lines(function (b) { return el(b.name || '', 130); }) + '</td>' +
         '<td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n mx">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;
@@ -136,7 +136,7 @@
       '<div class="kpi"><div class="v">' + checkOut + '</div><div class="k">Check Out النهارده</div></div>' +
       '<div class="kpi"><div class="v">' + list.length + '</div><div class="k">إجمالي الوحدات</div></div></div></div>' +
       '<div style="flex:0 0 330px"><table><thead><tr><th>Location</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">Total</th></tr></thead><tbody>' + matrix + '</tbody></table></div></div>' +
-      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Class</th><th>Unit</th><th class="av">Available</th><th>Name</th><th class="n">Booked<br>from</th><th class="n">Booked<br>to</th><th>Booked<br>name</th><th>Note</th><th class="n mx">Max.</th></tr></thead>', rows: rows, tfoot: '', portrait: true };
+      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th class="cl"></th><th>Unit</th><th class="av">Available</th><th>Name</th><th class="n">Booked<br>from</th><th class="n">Booked<br>to</th><th>Booked<br>name</th><th>Note</th><th class="n mx">Max.</th></tr></thead>', rows: rows, tfoot: '', portrait: true };
   }
 
   // ---------- طباعة اليومية ----------
