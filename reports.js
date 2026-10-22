@@ -14,6 +14,11 @@
   var TAG_RE = /^(vip|v|smart)$/i; // V في فيلدج اختصار VIP
   function unitClass(u) { var b = String(u.block == null ? '' : u.block).trim(); return TAG_RE.test(b) ? (/^vi?p?$/i.test(b) ? 'VIP' : 'Smart') : ''; }
   // في كشف المتاح: Parcel و Building و Unit كل واحد في عمود بعنوانه
+  // الوحدة زي ما بنكتبها: العمارة والشقة والبلوك، مثلًا 2C 103 P23
+  function unitText(u) {
+    var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
+    return [ok(u.building), ok(u.apt), unitClass(u) ? '' : ok(u.block)].filter(Boolean).join(' ');
+  }
   function unitCols(u) {
     var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; };
     return [unitClass(u) ? '' : ok(u.block), ok(u.building), ok(u.apt)].map(function (v) { return '<td class="uc" dir="ltr">' + (v ? el(v, 110) : '') + '</td>'; }).join('');
@@ -34,6 +39,7 @@
   }
 
   var CSS = '<style>' +
+    '.rp.pt{width:763px!important;height:1080px!important}.rp.pt td{font-size:9.8px!important}.rp.pt th{font-size:9px!important}.rp.pt .chip{font-size:9px!important}.rp .bl{white-space:nowrap}.rp .bl+.bl{border-top:1px dotted #e4e2db}' +
     '.rp{box-sizing:border-box;direction:rtl;width:1080px;height:763px;position:relative;overflow:hidden;background:#fff;color:#1d2422;font:12px/1.45 "Segoe UI",Tahoma,Arial,"DejaVu Sans",sans-serif;padding:18px 20px 34px}' +
     '.rp .pfoot{position:absolute;left:20px;right:20px;bottom:10px;display:flex;justify-content:space-between;color:#8a918d;font-size:10px;border-top:1px solid #e4e2db;padding-top:5px}' +
     '.rp .mini{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #c9a24a;padding-bottom:6px;margin-bottom:8px;color:#6e531b;font-weight:700}' +
@@ -69,7 +75,7 @@
     '.rp th{font-size:9.5px;padding:3px 4px}' +
     '.rp td{font-size:10.5px;line-height:1.2;padding:1.5px 4px;white-space:nowrap;vertical-align:middle}' +
     '.rp .el{display:inline-block;max-width:var(--w,150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}' +
-    '.rp table.fx td{overflow:hidden}.rp table.fx .el{max-width:100%}.rp .el{line-height:1.4;padding:1px 0;margin:-2px 0}.rp td.uc{text-align:right;font-variant-numeric:tabular-nums}.rp .av{text-align:center}.rp .chip.pl{background:transparent;color:inherit;font-weight:400}.rp td.av .chip{font-variant-numeric:tabular-nums;min-width:62px;display:inline-block;text-align:center;box-sizing:border-box}' +
+    '.rp table.fx td{overflow:hidden}.rp table.fx .el{max-width:100%}.rp .el{line-height:1.4;padding:1px 0;margin:-2px 0}.rp td.uc{text-align:right;font-variant-numeric:tabular-nums}.rp .av{text-align:center}.rp .chip.pl{background:transparent;color:inherit;font-weight:400}.rp td.av .chip{font-variant-numeric:tabular-nums;min-width:56px;padding:0 4px;display:inline-block;text-align:center;box-sizing:border-box}' +
     '.rp .chip{font-size:9.5px;padding:0 6px;line-height:1.3}' +
     '.rp h2{font-size:11.5px;margin:0 0 4px}.rp .two{gap:10px;margin-bottom:7px}' +
     '.rp .grp td{background:#f5eedc!important;color:#6e531b;font-weight:700;font-size:10px;padding:2px 6px;border-bottom:1px solid #e3d6b5}' +
@@ -106,7 +112,9 @@
         '<td class="n"><b>' + cs.reduce(function (a, b) { return a + b; }, 0) + '</b></td></tr>';
     }).join('');
     var rows = list.map(function (x, i) {
-      var u = x.unit, c = x.current, n = x.next, more = x.upcoming > 1 ? (x.upcoming - 1) : '';
+      var u = x.unit, c = x.current, bk = x.bookings || (x.next ? [x.next] : []);
+      // كل الحجوزات الجاية تحت بعض في نفس سطر الوحدة
+      var lines = function (f) { return bk.map(function (b, j) { return '<div class="bl">' + f(b, j) + '</div>'; }).join(''); };
       var st;
       if (!c && x.pending) st = '<span class="chip out">لم تُستلم</span>';
       else if (!c) st = '<span class="chip ok">Available</span>';
@@ -115,9 +123,9 @@
       else if (x.daysToFree <= 7) st = '<span class="chip soon">' + d2(c.end) + '</span>';
       else st = '<span class="chip pl">' + d2(c.end) + '</span>'; // نفس مقاس الشيب عشان التواريخ تقف تحت بعض
       return '<tr><td class="n">' + (i + 1) + '</td><td>' + el(u.project, 90) + '</td><td class="n">' + esc(u.bedrooms) + '</td><td>' + el(u.info && u.info !== '0' ? u.info : '', 80) + '</td><td>' + (unitClass(u) ? '<span class="chip cls">' + unitClass(u) + '</span>' : '') + '</td>' +
-        unitCols(u) + '<td class="av">' + st + '</td>' +
-        '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + (n ? (x.checkInToday ? '<span class="chip in">دخول اليوم</span>' : d2(n.start)) : '') + '</td><td class="n">' + (n ? d2(n.end) : '') + '</td><td>' + el(n ? n.name : '', 130) + '</td>' +
-        '<td class="n">' + more + '</td><td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n mx">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
+        '<td class="uc" dir="ltr">' + el(unitText(u), 140) + '</td><td class="av">' + st + '</td>' +
+        '<td>' + el(c ? c.name : x.pending ? x.pending.name : '', 150) + '</td><td class="n">' + lines(function (b, j) { return !j && x.checkInToday ? '<span class="chip in">دخول اليوم</span>' : d2(b.start); }) + '</td><td class="n">' + lines(function (b) { return d2(b.end); }) + '</td><td>' + lines(function (b) { return el(b.name || '', 130); }) + '</td>' +
+        '<td>' + (x.receivedToday ? '<span class="chip ok">تم الاستلام</span>' : el(c ? c.receipt : '', 70)) + '</td><td class="n mx">' + esc(maxText(today, u.ownerEnd)) + '</td></tr>';
     });
     var nFree = list.filter(free).length;
     var sub = DAYS[today.getUTCDay()] + ' ' + L.fmt(today) + (filterText && !name ? ' · ' + filterText : '');
@@ -128,7 +136,7 @@
       '<div class="kpi"><div class="v">' + checkOut + '</div><div class="k">Check Out النهارده</div></div>' +
       '<div class="kpi"><div class="v">' + list.length + '</div><div class="k">إجمالي الوحدات</div></div></div></div>' +
       '<div style="flex:0 0 330px"><table><thead><tr><th>Location</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">Total</th></tr></thead><tbody>' + matrix + '</tbody></table></div></div>' +
-      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Class</th><th>Parcel</th><th>Building</th><th>Unit</th><th class="av">Available</th><th>Name</th><th class="n">Booked from</th><th class="n">Booked to</th><th>Name</th><th class="n">More</th><th>Note</th><th class="n mx">Max.</th></tr></thead>', rows: rows, tfoot: '' };
+      '', thead: '<thead><tr><th class="n">S.</th><th>Location</th><th class="n">Bed</th><th>Info</th><th>Class</th><th>Unit</th><th class="av">Available</th><th>Name</th><th class="n">Booked<br>from</th><th class="n">Booked<br>to</th><th>Booked<br>name</th><th>Note</th><th class="n mx">Max.</th></tr></thead>', rows: rows, tfoot: '', portrait: true };
   }
 
   // ---------- طباعة اليومية ----------
@@ -190,6 +198,7 @@
   // ---------- تقسيم الصفحات ----------
   // كل صفحة A4 بالعرض بعرض 1080 وارتفاع 763، وراس الجدول بيتكرر، ومفيش صف بيتقطع
   function paginate(rep) {
+    var RP = rep.portrait ? 'rp pt' : 'rp'; // بورتريه: الصفحة بالطول
     // القياس جوه iframe معزول عشان تنسيقات البانل متأثرش على طول الصفوف
     var fr = document.createElement('iframe');
     fr.style.cssText = 'position:fixed;left:-3000px;top:0;width:1200px;height:900px;border:0;visibility:hidden';
@@ -201,23 +210,32 @@
     // العرض الطبيعي لكل عمود (من غير ما الجدول يتمط)، مرة بحدود الأسامي العادية ومرة بحدود أوسع،
     // وبعدين المساحة الفاضية في الصفحة بتروح للأعمدة اللي فيها كلام بيتقص (زي الأسامي) بدل ما تتوزع على الكل
     var measure = function (k) {
-      host.innerHTML = CSS + '<style>.rp #fullt{width:auto}.rp #fullt .el{max-width:calc(var(--w) * ' + k + ')}</style><div class="rp"><table id="fullt">' + rep.thead + '<tbody>' + rows.join('') + '</tbody>' + rep.tfoot + '</table></div>';
+      host.innerHTML = CSS + '<style>.rp #fullt{width:auto}.rp #fullt .el{max-width:calc(var(--w) * ' + k + ')}</style><div class="' + RP + '"><table id="fullt">' + rep.thead + '<tbody>' + rows.join('') + '</tbody>' + rep.tfoot + '</table></div>';
       var t = fd.getElementById('fullt'), h = t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length - 1] : null;
-      return { w: h ? Array.prototype.map.call(h.cells, function (c) { return Math.ceil(c.getBoundingClientRect().width); }) : null, avail: Math.floor(fd.querySelector('.rp').clientWidth - 32) };
+      var tx = {}; Array.prototype.forEach.call(t.tBodies[0] ? t.tBodies[0].rows : [], function (r) { Array.prototype.forEach.call(r.cells, function (c, i) { if (c.colSpan === 1 && c.querySelector('.el')) tx[i] = 1; }); });
+      return { w: h ? Array.prototype.map.call(h.cells, function (c) { return Math.ceil(c.getBoundingClientRect().width); }) : null, avail: Math.floor(fd.querySelector('.rp').clientWidth - 32), tx: tx };
     };
     var m1 = measure(1), m2 = m1.w ? measure(1.8) : m1, cg = '', tw = 0;
     if (m1.w) {
       var sum = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); }, A = m1.avail, lo = sum(m1.w), hi = sum(m2.w), ws;
       if (hi <= A) { var gain = m2.w.map(function (w, i) { return w - m1.w[i]; }), g = sum(gain) || 1; ws = m2.w.map(function (w, i) { return w + Math.floor((A - hi) * (sum(gain) ? gain[i] / g : 1 / m2.w.length)); }); }
       else if (lo <= A) { var k = (A - lo) / Math.max(1, hi - lo); ws = m1.w.map(function (w, i) { return Math.floor(w + (m2.w[i] - w) * k); }); }
-      else ws = m1.w.map(function (w) { return Math.floor(w * A / lo); });
+      else { // مفيش مكان: الأرقام والتواريخ بتفضل بعرضها، والتقليل من أعمدة الكلام بس
+        var fixed = 0, flex = 0; m1.w.forEach(function (w, i) { if (m1.tx[i]) flex += w; else fixed += w; });
+        // بنقص من الأعرض الأول: سقف واحد لكل أعمدة الكلام، والقصيرة (زي المكان) بتفضل كاملة
+        if (flex && A > fixed) {
+          var X0 = 0, X1 = Math.max.apply(null, m1.w);
+          for (var it = 0; it < 30; it++) { var X = (X0 + X1) / 2, tot = fixed; m1.w.forEach(function (w, i) { if (m1.tx[i]) tot += Math.min(w, X); }); if (tot > A) X1 = X; else X0 = X; }
+          ws = m1.w.map(function (w, i) { return m1.tx[i] ? Math.floor(Math.min(w, X0)) : w; });
+        } else ws = m1.w.map(function (w) { return Math.floor(w * A / lo); });
+      }
       tw = sum(ws); cg = '<colgroup>' + ws.map(function (w) { return '<col style="width:' + w + 'px">'; }).join('') + '</colgroup>';
     }
     var tOpen = cg ? '<table class="fx" style="table-layout:fixed;width:' + tw + 'px">' + cg : '<table>';
     do {
       var top = pages.length === 0 ? rep.top : '<div class="mini"><span>' + esc(rep.title) + ' · ' + esc(rep.sub) + '</span><span dir="ltr">' + esc(BRAND) + '</span></div>';
       // نفس شكل الصفحة النهائية بالظبط، والجدول لازم يخلص قبل الفوتر
-      host.innerHTML = CSS + '<div class="rp">' + top + tOpen.replace('<table', '<table id="pgtable"') + rep.thead + '<tbody id="pgbody"></tbody>' + rep.tfoot + '</table><div class="pfoot">.</div></div>';
+      host.innerHTML = CSS + '<div class="' + RP + '">' + top + tOpen.replace('<table', '<table id="pgtable"') + rep.thead + '<tbody id="pgbody"></tbody>' + rep.tfoot + '</table><div class="pfoot">.</div></div>';
       var table = fd.getElementById('pgtable'), body = fd.getElementById('pgbody'), used = [];
       var limit = fd.querySelector('.pfoot').getBoundingClientRect().top - 6;
       while (i < rows.length) {
@@ -229,14 +247,14 @@
     } while (i < rows.length);
     fr.remove();
     return pages.map(function (p, k) {
-      return CSS + '<div class="rp">' + p.top + tOpen + rep.thead + '<tbody>' + p.rows + '</tbody>' + (k === pages.length - 1 ? rep.tfoot : '') + '</table>' +
+      return CSS + '<div class="' + RP + '">' + p.top + tOpen + rep.thead + '<tbody>' + p.rows + '</tbody>' + (k === pages.length - 1 ? rep.tfoot : '') + '</table>' +
         '<div class="pfoot"><span dir="ltr">' + esc(BRAND) + '</span><span>طُبع في ' + esc(nowText()) + '</span><span>صفحة ' + (k + 1) + ' من ' + pages.length + '</span></div></div>';
     });
   }
 
   // المتصفح نفسه بيرسم الصفحة (عشان العربي يتوصل صح)، وبعدين تتحط في PDF
   function renderPage(html) {
-    var W = 1080, H = 763, SC = 2;
+    var pt = html.indexOf('rp pt') !== -1, W = pt ? 763 : 1080, H = pt ? 1080 : 763, SC = 2;
     var el = document.createElement('div'); el.innerHTML = html;
     var x = new XMLSerializer().serializeToString(el);
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '"><foreignObject x="0" y="0" width="' + W + '" height="' + H + '">' + x + '</foreignObject></svg>';
@@ -254,9 +272,9 @@
   function toPdf(rep, name) {
     var J = window.jspdf && window.jspdf.jsPDF;
     if (!J) return Promise.reject(new Error('مكتبة الـ PDF متحملتش. جرب زرار الطباعة.'));
-    var pages = paginate(rep), pdf = new J({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    var pages = paginate(rep), pt = !!rep.portrait, pdf = new J({ orientation: pt ? 'portrait' : 'landscape', unit: 'mm', format: 'a4' });
     return pages.reduce(function (p, html, k) {
-      return p.then(function () { return renderPage(html); }).then(function (data) { if (k) pdf.addPage(); pdf.addImage(data, 'JPEG', 0, 0, 297, 210); });
+      return p.then(function () { return renderPage(html); }).then(function (data) { if (k) pdf.addPage(); pdf.addImage(data, 'JPEG', 0, 0, pt ? 210 : 297, pt ? 297 : 210); });
     }, Promise.resolve()).then(function () { pdf.save(name + '.pdf'); return pages.length; });
   }
   function printHtml(rep, title) {
@@ -266,7 +284,7 @@
     document.body.appendChild(f);
     var doc = f.contentDocument;
     doc.open();
-    doc.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 landscape;margin:0}body{margin:0}.pg{width:297mm;height:209mm;overflow:hidden;page-break-after:always;display:flex;justify-content:center;align-items:flex-start}.pg>.wrap{transform-origin:top center;transform:scale(1.04)}</style></head><body>' +
+    doc.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 ' + (rep.portrait ? 'portrait' : 'landscape') + ';margin:0}body{margin:0}.pg{width:' + (rep.portrait ? '210mm;height:296mm' : '297mm;height:209mm') + ';overflow:hidden;page-break-after:always;display:flex;justify-content:center;align-items:flex-start}.pg>.wrap{transform-origin:top center;transform:scale(1.04)}</style></head><body>' +
       pages.map(function (h) { return '<div class="pg"><div class="wrap">' + h + '</div></div>'; }).join('') + '</body></html>');
     doc.close();
     setTimeout(function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { } setTimeout(function () { f.remove(); }, 60000); }, 300);
@@ -304,8 +322,9 @@
 
   // ---------- PDF حقيقي: الصفحات بتتفتح في نافذة طباعة، والمتصفح بيحفظها PDF بنص ولينكات ----------
   function printDoc(pages, title, auto) {
-    return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 landscape;margin:0}body{margin:0;background:#e9e4d8}' +
-      '.pg{width:297mm;height:209.9mm;overflow:hidden;page-break-after:always;break-after:page;display:flex;justify-content:center;align-items:flex-start;background:#fff;margin:0 auto}' +
+    var pt = pages[0] && pages[0].indexOf('rp pt') !== -1;
+    return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 ' + (pt ? 'portrait' : 'landscape') + ';margin:0}body{margin:0;background:#e9e4d8}' +
+      '.pg{width:' + (pt ? '210mm;height:296.9mm' : '297mm;height:209.9mm') + ';overflow:hidden;page-break-after:always;break-after:page;display:flex;justify-content:center;align-items:flex-start;background:#fff;margin:0 auto}' +
       '.pg>.wrap{transform-origin:top center;transform:scale(1.04)}' +
       '.tb{position:sticky;top:0;z-index:9;display:flex;gap:10px;align-items:center;justify-content:center;background:#1f1a14;color:#efe6d2;padding:10px;font:14px Tahoma,sans-serif}' +
       '.tb button{background:#c9a24a;color:#1f1a14;border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer}' +
