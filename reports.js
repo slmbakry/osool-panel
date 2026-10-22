@@ -64,6 +64,7 @@
     '.rp th{font-size:9.5px;padding:3px 4px}' +
     '.rp td{font-size:10.5px;line-height:1.2;padding:1.5px 4px;white-space:nowrap;vertical-align:middle}' +
     '.rp .el{display:inline-block;max-width:var(--w,150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}' +
+    '.rp table.fx td{overflow:hidden}.rp table.fx .el{max-width:100%}' +
     '.rp .chip{font-size:9.5px;padding:0 6px;line-height:1.3}' +
     '.rp h2{font-size:11.5px;margin:0 0 4px}.rp .two{gap:10px;margin-bottom:7px}' +
     '.rp .grp td{background:#f5eedc!important;color:#6e531b;font-weight:700;font-size:10px;padding:2px 6px;border-bottom:1px solid #e3d6b5}' +
@@ -192,10 +193,22 @@
     var host = fd.body;
     var pages = [], i = 0, rows = rep.rows || [];
     // عرض الأعمدة بيتقاس مرة واحدة على كل السطور، وكل الصفحات بتاخده ثابت (عشان كل صفحة متطلعش بشكل)
-    host.innerHTML = CSS + '<div class="rp"><table id="fullt">' + rep.thead + '<tbody>' + rows.join('') + '</tbody>' + rep.tfoot + '</table></div>';
-    var ft = fd.getElementById('fullt'), hr = ft.tHead && ft.tHead.rows.length ? ft.tHead.rows[ft.tHead.rows.length - 1] : null, cg = '', tw = 0;
-    if (hr) { cg = '<colgroup>' + Array.prototype.map.call(hr.cells, function (c) { var w = Math.ceil(c.getBoundingClientRect().width); tw += w; return '<col style="width:' + w + 'px">'; }).join('') + '</colgroup>'; }
-    var tOpen = cg ? '<table style="table-layout:fixed;width:' + tw + 'px">' + cg : '<table>';
+    // العرض الطبيعي لكل عمود (من غير ما الجدول يتمط)، مرة بحدود الأسامي العادية ومرة بحدود أوسع،
+    // وبعدين المساحة الفاضية في الصفحة بتروح للأعمدة اللي فيها كلام بيتقص (زي الأسامي) بدل ما تتوزع على الكل
+    var measure = function (k) {
+      host.innerHTML = CSS + '<style>.rp #fullt{width:auto}.rp #fullt .el{max-width:calc(var(--w) * ' + k + ')}</style><div class="rp"><table id="fullt">' + rep.thead + '<tbody>' + rows.join('') + '</tbody>' + rep.tfoot + '</table></div>';
+      var t = fd.getElementById('fullt'), h = t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length - 1] : null;
+      return { w: h ? Array.prototype.map.call(h.cells, function (c) { return Math.ceil(c.getBoundingClientRect().width); }) : null, avail: Math.floor(fd.querySelector('.rp').clientWidth - 32) };
+    };
+    var m1 = measure(1), m2 = m1.w ? measure(1.8) : m1, cg = '', tw = 0;
+    if (m1.w) {
+      var sum = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); }, A = m1.avail, lo = sum(m1.w), hi = sum(m2.w), ws;
+      if (hi <= A) { var gain = m2.w.map(function (w, i) { return w - m1.w[i]; }), g = sum(gain) || 1; ws = m2.w.map(function (w, i) { return w + Math.floor((A - hi) * (sum(gain) ? gain[i] / g : 1 / m2.w.length)); }); }
+      else if (lo <= A) { var k = (A - lo) / Math.max(1, hi - lo); ws = m1.w.map(function (w, i) { return Math.floor(w + (m2.w[i] - w) * k); }); }
+      else ws = m1.w.map(function (w) { return Math.floor(w * A / lo); });
+      tw = sum(ws); cg = '<colgroup>' + ws.map(function (w) { return '<col style="width:' + w + 'px">'; }).join('') + '</colgroup>';
+    }
+    var tOpen = cg ? '<table class="fx" style="table-layout:fixed;width:' + tw + 'px">' + cg : '<table>';
     do {
       var top = pages.length === 0 ? rep.top : '<div class="mini"><span>' + esc(rep.title) + ' · ' + esc(rep.sub) + '</span><span dir="ltr">' + esc(BRAND) + '</span></div>';
       // نفس شكل الصفحة النهائية بالظبط، والجدول لازم يخلص قبل الفوتر
