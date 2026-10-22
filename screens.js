@@ -296,9 +296,9 @@
       '<label id="cMonthL">عن شهر</label><select id="cMonth">' + keys.map(function (k) { return '<option value="' + k + '"' + (k === sg.month ? ' selected' : '') + '>' + L.monthLabel(k) + (x.dues[k] ? ' — ' + money(x.dues[k]) : '') + '</option>'; }).join('') + '</select>' +
       '<div class="grid2"><div><label>من</label><input type="date" id="cFrom" value="' + L.toISO(sg.from) + '"></div><div><label>إلى</label><input type="date" id="cTo" value="' + L.toISO(sg.to) + '"></div></div>' +
       '<div id="cRows" style="margin-top:6px"></div><div id="cPart"></div>'+'<div class="grid2"><div><label>رقم المستند</label><input id="cDoc" class="ltr"></div><div><label>البيان</label><input id="cNote" value="' + esc(r.name) + '"></div></div>' +
-      '<div id="cMsg" style="margin-top:10px"></div>' +
-      '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="cBack">رجوع</button><button class="btn ghost" id="cStmt">كشف حساب</button>' +
-      (r.idx >= 0 ? '<button class="btn ghost" id="cGo">سطر العقد</button>' : '') + '<button class="btn primary" id="cSave">تسجيل</button></div>');
+      '<div class="sbar"><div id="cMsg"></div>' +
+      '<div style="display:flex;gap:8px"><button class="btn ghost" id="cBack">رجوع</button><button class="btn ghost" id="cStmt">كشف حساب</button>' +
+      (r.idx >= 0 ? '<button class="btn ghost" id="cGo">سطر العقد</button>' : '') + '<button class="btn primary" id="cSave">تسجيل</button></div></div>');
     var cN = 1, cRows = [], drawC = function () {};
     var fx = function () { $('cFxBox').classList.toggle('hide', !F.isForeign($('cCash').value) || cN > 1); if (cN > 1) drawC(); };
     $('cCash').onchange = fx; fx();
@@ -354,7 +354,7 @@
       var total = list.reduce(function (a, o) { return a + (Number(o.amount) || 0); }, 0);
       var what = list.length > 1 ? list.length + ' شهور (' + L.monthLabel(list[0].month) + ' ← ' + L.monthLabel(list[list.length - 1].month) + ')، سطر لكل شهر،' : 'عن ' + L.monthLabel(e.month);
       if (!armed) {
-        armed = true; this.textContent = 'تأكيد التسجيل';
+        armed = true; this.textContent = 'تأكيد';
         $('cMsg').innerHTML = dupHtml(list.map(F.entryValues)) + '<div class="msg warn">هيتسجل ' + money(total) + ' ج تحصيل إيجار ' + what + ' في ' + esc(e.cash) + '. اضغط تأكيد.</div>';
         return;
       }
@@ -366,7 +366,7 @@
         C.flash = 'اتسجل تحصيل ' + money(total) + ' لـ ' + (r.name || r.code) + (vals.length > 1 ? ' في ' + vals.length + ' سطور خزينة من ' + res.rows[0] + '.' : ' في سطر الخزينة ' + res.rows[0] + '.');
         C.check = App.checkHtml(res);
         drawColl();
-      }).catch(function (err) { btn.disabled = false; btn.textContent = 'تأكيد التسجيل'; $('cMsg').innerHTML = errHtml(err); });
+      }).catch(function (err) { btn.disabled = false; btn.textContent = 'تأكيد'; $('cMsg').innerHTML = errHtml(err); });
     };
   }
 
@@ -767,7 +767,7 @@
       '<div id="eGenM"><label>عن شهر <span class="r2">(اختياري)</span></label><select id="eGenMonth"></select></div>' +
       '<div class="grid2"><div><label>رقم المستند</label><input id="eDoc" class="ltr"></div><div><label>البيان</label><input id="eNote"></div></div>' +
       '<details class="more"><summary>شيك وملاحظات</summary><div class="grid2"><div><label>رقم الشيك</label><input id="eChq" class="ltr"></div><div><label>تاريخ الشيك</label><input type="date" id="eChqD"></div></div><label>ملاحظات</label><input id="eNotes"></details>' +
-      '<div id="eMsg" style="margin-top:10px"></div><div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="eBack">رجوع</button><button class="btn primary" id="eSave">تسجيل</button></div>');
+      '<div class="sbar"><div id="eMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="eBack">رجوع</button><button class="btn primary" id="eSave">تسجيل</button></div></div>');
     var setSide = function (sd2) { EN.side = sd2; document.querySelectorAll('#eSide button').forEach(function (b) { b.classList.toggle('on', b.dataset.s === sd2); }); };
     document.querySelectorAll('#eSide button').forEach(function (b) { b.onclick = function () { setSide(b.dataset.s); disarm(); }; });
     $('eCat').onchange = function () { EN.cat = this.value; if (EN.sd[EN.cat]) setSide(EN.sd[EN.cat].side); refreshEntry(); };
@@ -1026,7 +1026,7 @@
       '<textarea id="bPaste" rows="5" class="ltr" placeholder="70002102   1500&#10;70002107   2000&#10;…" style="width:100%;font-family:inherit"></textarea>' +
       '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="bRead">ضيف اللي لصقته</button><button class="btn ghost" id="bAdd">+ وحدة</button><button class="link" id="bClear" style="margin-inline-start:auto">مسح الكل</button></div>' +
       '<div id="bRows" style="margin-top:10px"></div>' +
-      '<div id="bMsg" style="margin-top:10px"></div><div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="bBack">رجوع</button><button class="btn primary" id="bSave">تسجيل</button></div>');
+      '<div class="sbar"><div id="bMsg"></div><div style="display:flex;gap:8px"><button class="btn ghost" id="bBack">رجوع</button><button class="btn primary" id="bSave">تسجيل</button></div></div>');
     var setSide = function (x) { BK.side = x; document.querySelectorAll('#bSide button').forEach(function (b) { b.classList.toggle('on', b.dataset.s === x); }); };
     document.querySelectorAll('#bSide button').forEach(function (b) { b.onclick = function () { setSide(b.dataset.s); disarmB(); }; });
     $('bCat').onchange = function () { if (sd[this.value]) setSide(sd[this.value].side); disarmB(); };

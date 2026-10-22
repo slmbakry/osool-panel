@@ -65,7 +65,7 @@
         '<div class="grid2">' + inp('ofDep', 'التأمين', row['التأمين'], 'ltr') + '<div><label>التسويات</label>' + sel('ofSet', Object.keys(settles).sort().map(function (x) { return [x, x || 'بدون']; }), row['تسويات'] || '') + '</div></div>' +
         inp('ofInfo', 'Info', row['Info']) + '</details>' +
         '<div id="ofRows" style="margin-top:10px"></div><div id="ofMsg" style="margin-top:10px"></div>' +
-        '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="ofBack">رجوع</button><button class="btn ghost" id="ofCalc">' + (m === 'edit' ? 'شوف التغييرات' : 'احسب الشهور') + '</button><button class="btn primary" id="ofSave">تسجيل</button></div>';
+        '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn ghost" id="ofBack">رجوع</button><button class="btn ghost" id="ofCalc">' + (m === 'edit' ? 'شوف التغييرات' : 'احسب الشهور') + '</button><button class="btn primary" id="ofSave">تسجيل</button></div></div>';
       App.openSheet(html);
       OF.armed = false; OF.plan = null;
       var dis = function () { OF.armed = false; OF.plan = null; $('ofSave').textContent = 'تسجيل'; $('ofMsg').innerHTML = ''; };
