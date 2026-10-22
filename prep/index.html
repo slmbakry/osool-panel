@@ -52,29 +52,42 @@ details.more{margin-top:8px}details.more summary{cursor:pointer;font-size:12.5px
 .sheet .btn{width:auto;flex:1}.sheet .btn.ghost{flex:0 0 auto}.sheet .btn.primary{background:var(--brand);color:#fff}
 .loading{padding:30px;text-align:center;color:var(--muted)}.loading .spin{display:block;margin:0 auto 8px}
 .item .ed{margin-inline-start:6px}
+.top .tl{display:flex;justify-content:space-between;align-items:center;gap:8px}.top .acts{display:flex;gap:6px}
+.top .acts button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#efe6d2;border-radius:8px;padding:3px 9px;font-size:12px;cursor:pointer}
+.nav{display:flex;gap:4px;background:#fff;border-bottom:1px solid var(--line);padding:0 10px;position:sticky;top:0;z-index:5}
+.nav button{flex:1;border:0;background:none;padding:10px 4px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer}
+.nav button.on{color:var(--brand);border-bottom-color:var(--brand)}
+.srch{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-size:14px;outline:none}.srch:focus{border-color:var(--brand)}
+.ct{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
+.ct .hd{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.ct .rows{margin-top:6px;border-top:1px dashed var(--line)}
+.ct .row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}.ct .row:last-child{border-bottom:0}
+.ct .go{margin-inline-end:6px;margin-top:8px}.ct .row .p{font-weight:700;font-variant-numeric:tabular-nums}.ct .row .v{font-weight:700}
 input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;padding:14px;background:#fffdf8;cursor:pointer}
 </style>
 </head>
 <body>
 <div class="top">
-  <div class="brand"><span class="mbm" dir="ltr">MBM</span>تجهيز الداتا للسيستم الجديد</div>
+  <div class="tl"><div class="brand"><span class="mbm" dir="ltr">MBM</span>تجهيز الداتا للسيستم الجديد</div>
+    <div class="acts"><button id="refresh" title="اقرا الملف تاني">↻ تحديث</button><button id="gear" title="الإعدادات">⚙ الإعدادات</button></div></div>
   <div class="sub" id="scope">بيقرا الملف…</div>
 </div>
+<nav class="nav"><button data-t="find" class="on">العقود</button><button data-t="rev">المراجعة</button><button data-t="dev">ملف المطور</button></nav>
 <main>
-  <div class="card">
-    <h3><span class="n">1</span>عقود الملاك للسيستم الجديد</h3>
-    <div class="r2">بيقرا شيت الملاك والخزينة من الملف المفتوح دلوقتي (آخر تحديث فيه)، ويملا شكل ملف المطور. الكتابة في ملف أصول بتحصل بس لما تجدد أو تعدل عقد مالك بنفسك.</div>
-    <div class="scp" id="scopeBox"><div class="r2"><span class="spin"></span>بيقرا المشاريع…</div></div>
-    <button class="btn" id="run" style="margin-top:8px">طلّع العقود</button>
-    <div id="out"></div>
-  </div>
-  <div class="card hide" id="dl">
-    <h3><span class="n">2</span>التحميل</h3>
-    <div class="r2">ملف للمطور بنفس شكله: سطر لكل عقد، والخانات اللي محتاجة مراجعة بالبرتقالي وعليها ملاحظة، وفيه شيت "كشف المستحقات" وشيت "تغييرات MBM". وملف مراجعة ليك انت بس.</div>
-    <button class="btn" id="save" style="margin-top:8px">حمّل ملف المطور</button>
-    <button class="btn" id="saveRev" style="margin-top:8px;background:#fff;color:var(--ink,#333);border:1px solid #ccc">حمّل ملف مراجعة العقود والمستحقات</button>
-    <div id="saveMsg"></div>
-  </div>
+  <div id="status"></div>
+  <section id="t-find">
+    <input id="q" class="srch" placeholder="ابحث بالكود، أو العمارة والشقة، أو المالك، أو المستفيد" autocomplete="off">
+    <div id="findRes"><div class="r2" style="padding:8px 2px">اكتب أي جزء من الكود أو الاسم.</div></div>
+  </section>
+  <section id="t-rev" class="hide"><div id="out"></div></section>
+  <section id="t-dev" class="hide">
+    <div id="devSum"></div>
+    <div class="card">
+      <div class="r2">ملف للمطور بنفس شكله: سطر لكل عقد، وفيه شيت "أشهر ملغاة" و"كشف المستحقات" و"تغييرات MBM". وملف مراجعة ليك انت بس.</div>
+      <button class="btn" id="save" style="margin-top:8px">حمّل ملف المطور</button>
+      <button class="btn" id="saveRev" style="margin-top:8px;background:#fff;color:var(--ink,#333);border:1px solid #ccc">حمّل ملف مراجعة العقود والمستحقات</button>
+      <div id="saveMsg"></div>
+    </div>
+  </section>
 </main>
 <div class="overlay" id="ov"><div class="sheet" id="sheet"></div></div>
 <script src="../logic.js"></script>
@@ -92,7 +105,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var S = { settings: null, dev: null, devBuf: null, devName: '', data: null, res: null, view: 'review' };
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
-  var OWNER = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'بداية العقد', 'نهاية العقد', 'قيمة الايجار', 'يسدد كل', 'التأمين', 'الدفع', 'تسويات'];
+  var OWNER = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'بداية العقد', 'نهاية العقد', 'قيمة الايجار', 'يسدد كل', 'التأمين', 'الدفع', 'تسويات', 'Beneficiary Name'];
   var ENTRY = ['تاريخ', 'ايراد', 'مصروف', 'كود', 'فئة', 'شهر', 'بداية الايجار', 'نهاية الايجار'];
 
   // ---------- قراية ملف أصول (على دفعات صغيرة عشان المتصفح مايتقلش) ----------
@@ -215,7 +228,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       errHtml: function (e) { return '<div class="msg err">' + esc((e && e.message) || e) + '</div>'; },
       loadingHtml: function (t) { return '<div class="loading"><span class="spin"></span>' + esc(t) + '</div>'; },
       // بعد الحفظ: نقفل الشاشة ونطلّع العقود تاني من الملف بعد التعديل
-      onDone: function () { $('run').click(); } });
+      onDone: function () { analyze(); } });
     OFM.open(mode, u);
   }
   $('ov').onclick = function (e) { if (e.target === this) this.classList.remove('on'); };
@@ -233,7 +246,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
     var R = S.res, c = R.counts, list, M = function (s) { return L.monthKey(L.serialToDate(s)); };
     var bad = R.dues.filter(function (x) { return x.state !== 'مظبوط'; });
     var reviews = R.changes.filter(function (x) { return x.kind === 'review'; }), notes = R.changes.filter(function (x) { return x.kind === 'note' || x.kind === 'fix'; });
-    var tabs = [['review', 'محتاج قرار', reviews.length], ['dues', 'المستحقات', bad.length], ['note', 'ملاحظات', notes.length], ['new', 'العقود', R.newRows.length], ['skip', 'أشهر ملغاة', R.skipped.length]];
+    var tabs = [['review', 'محتاج قرار', reviews.length], ['dues', 'المستحقات', bad.length], ['note', 'ملاحظات', notes.length], ['skip', 'أشهر ملغاة', R.skipped.length]];
     if (S.view === 'dues') list = bad.sort(function (a, b) { return Math.abs(b.balance) - Math.abs(a.balance); }).map(function (x) {
       var sh = x.months.filter(function (m) { return m.state === 'ناقص' || m.state === 'زايد'; });
       return card(x.code, x.state, x.balance > 0 ? 'review' : 'note', 'مستحق ' + esc(shown('', x.due)) + ' · مدفوع ' + esc(shown('', x.paid)) + ' · الفرق <b>' + esc(shown('', x.balance)) + '</b>' +
@@ -243,34 +256,78 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
     else if (S.view === 'review') list = reviews.map(function (x) { var mk = (/(يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس|سبتمبر|أكتوبر|نوفمبر|ديسمبر) (\d{4})/.exec(x.why) || [])[0]; return card(x.code, 'قرار', 'review', esc(x.why), mk ? keyOfLabel(mk) : ''); });
     else if (S.view === 'new') list = R.newRows.map(function (n) { var v = n.values; return card(n.code, String(v['الحالة'] || '').split(' /')[0], 'new', esc(shown('بداية العقد', v['بداية العقد'])) + ' ← ' + esc(shown('نهاية العقد', v['نهاية العقد'])) + ' · ' + esc(shown('', v['الإيجار الشهري (السنة الأولى)'])) + ' ج · مسدد حتى ' + esc(shown('مسدد حتى', v['مسدد حتى'])) + '<br>' + esc(n.why)); });
     else list = R.skipped.map(function (x) { return card(x.code, 'شهر ملغي', 'skip', esc(L.monthLabel(M(x.month))) + ' فاضي في الشيت', M(x.month)); });
-    $('out').innerHTML = '<div class="sum">' +
-      '<div class="box"><div class="v">' + R.scope + '</div><div class="k">وحدة في نطاق الملف</div></div>' +
-      '<div class="box"><div class="v">' + R.newRows.length + '</div><div class="k">عقد (منهم ' + c.renewals + ' تجديد بعد 1/7)</div></div>' +
-      '<div class="box"><div class="v" style="color:var(--err)">' + reviews.length + '</div><div class="k">محتاج قرار منك</div></div>' +
-      '<div class="box"><div class="v" style="color:var(--err)">' + bad.length + '</div><div class="k">وحدة عليها ناقص</div></div>' +
-      '<div class="box"><div class="v">' + notes.length + '</div><div class="k">ملاحظة</div></div>' +
-      '<div class="box"><div class="v">' + c.outSkipped + '</div><div class="k">OUT اتعدّت</div></div></div>' +
+    $('out').innerHTML = '' +
       '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (S.view === t[0] ? ' on' : '') + '" data-v="' + t[0] + '">' + t[1] + ' (' + t[2] + ')</button>'; }).join('') + '</div>' +
       '<div class="card" style="max-height:60vh;overflow:auto;padding:4px 10px">' + (list.length ? list.slice(0, 400).join('') + (list.length > 400 ? '<div class="r2">ظاهر ٤٠٠ من ' + list.length + '، والكل في ملف المراجعة.</div>' : '') : '<div class="r2" style="padding:8px 0">مفيش.</div>') + '</div>';
     document.querySelectorAll('.tab').forEach(function (b) { b.onclick = function () { S.view = b.dataset.v; draw(); }; });
-    document.querySelectorAll('.go').forEach(function (b) { b.onclick = function () { if (b.dataset.ren) editContract('renew', b.dataset.ren); else if (b.dataset.edt) editContract('edit', b.dataset.edt); else goTo(b.dataset.code, b.dataset.m); }; });
-    $('dl').classList.remove('hide');
+    bindGo($('out'));
+    drawDev(); drawFind();
   }
+  // ملخص ملف المطور
+  function drawDev() {
+    var R = S.res, c = R.counts, bad = R.dues.filter(function (x) { return x.state !== 'مظبوط'; });
+    var nRev = R.changes.filter(function (x) { return x.kind === 'review'; }).length, nNote = R.changes.filter(function (x) { return x.kind === 'note' || x.kind === 'fix'; }).length;
+    $('devSum').innerHTML = '<div class="sum">' +
+      '<div class="box"><div class="v">' + R.scope + '</div><div class="k">وحدة في نطاق الملف</div></div>' +
+      '<div class="box"><div class="v">' + R.newRows.length + '</div><div class="k">عقد (منهم ' + c.renewals + ' تجديد بعد 1/7)</div></div>' +
+      '<div class="box"><div class="v" style="color:var(--err)">' + nRev + '</div><div class="k">محتاج قرار</div></div>' +
+      '<div class="box"><div class="v" style="color:var(--err)">' + bad.length + '</div><div class="k">وحدة عليها ناقص</div></div>' +
+      '<div class="box"><div class="v">' + nNote + '</div><div class="k">ملاحظة</div></div>' +
+      '<div class="box"><div class="v">' + c.outSkipped + '</div><div class="k">وحدة خارج التشغيل اتعدّت</div></div></div>';
+  }
+  // ---------- العقود: بحث ← العقد الحالي ومدته وقيمته ومسدد حتى، وزراير جدّد/عدّل/روح للسطر ----------
+  function drawFind() {
+    if (!S.res) return;
+    var q = L.norm($('q').value || '').trim(), box = $('findRes');
+    if (!q) { box.innerHTML = '<div class="r2" style="padding:8px 2px">اكتب أي جزء من الكود أو الاسم.</div>'; return; }
+    var c = S.data.owner.cols, ws = q.split(/\s+/), hits = [];
+    Object.keys(S.res.units).forEach(function (code) {
+      var u = S.res.units[code], i = u.idx, ben = c['Beneficiary Name'] ? c['Beneficiary Name'][i] : '';
+      var hay = L.norm([code, u.owner, u.title, c['عمارة'] && c['عمارة'][i], c['شقة'] && c['شقة'][i], (c['عمارة'] && c['عمارة'][i]) + '-' + (c['شقة'] && c['شقة'][i]), ben].join(' '));
+      if (ws.every(function (w) { return hay.indexOf(w) !== -1; })) hits.push(code);
+    });
+    box.innerHTML = hits.length ? hits.slice(0, 30).map(contractCard).join('') + (hits.length > 30 ? '<div class="r2">ظاهر ٣٠ من ' + hits.length + '، دقق البحث.</div>' : '') : '<div class="r2" style="padding:8px 2px">مفيش وحدة بالبيانات دي في نطاق الملف.</div>';
+    bindGo(box);
+  }
+  function contractCard(code) {
+    var u = S.res.units[code] || {}, rows = S.res.newRows.filter(function (n) { return n.code === code; }).sort(function (a, b) { return (a.values['بداية العقد'] || 0) - (b.values['بداية العقد'] || 0); });
+    var ben = S.data.owner.cols['Beneficiary Name'] ? S.data.owner.cols['Beneficiary Name'][u.idx] : '';
+    var D = function (v) { return v ? L.fmt(L.serialToDate(v)) : '—'; };
+    var flags = S.res.changes.filter(function (x) { return x.code === code && x.kind === 'review'; }).length;
+    return '<div class="ct"><div class="hd"><b class="ltr">' + esc(code) + '</b> · ' + esc(u.owner || '') + (flags ? '<span class="c review">' + flags + ' قرار</span>' : '') + '</div>' +
+      '<div class="r2">' + esc(u.title || '') + (ben && ben !== u.owner ? ' · المستفيد: ' + esc(ben) : '') + '</div>' +
+      (rows.length ? '<div class="rows">' + rows.map(function (n) {
+        var v = n.values, st = String(v['الحالة'] || '').split(' /')[0];
+        return '<div class="row"><span><span class="p">' + D(v['بداية العقد']) + ' ← ' + D(v['نهاية العقد']) + '</span> <span class="r2">' + esc(st) + '</span></span>' +
+          '<span><span class="v">' + esc(shown('', v['الإيجار الشهري (السنة الأولى)'])) + '</span> <span class="r2">· مسدد حتى ' + D(v['مسدد حتى']) + '</span></span></div>';
+      }).join('') + '</div>' : '<div class="r2">مفيش عقد طالع للوحدة دي.</div>') +
+      '<button class="go" data-code="' + esc(code) + '">روح للسطر</button><button class="go ed" data-ren="' + esc(code) + '">جدّد العقد</button><button class="go ed" data-edt="' + esc(code) + '">عدّل العقد</button></div>';
+  }
+  function bindGo(root) { root.querySelectorAll('.go').forEach(function (b) { b.onclick = function () { if (b.dataset.ren) editContract('renew', b.dataset.ren); else if (b.dataset.edt) editContract('edit', b.dataset.edt); else goTo(b.dataset.code, b.dataset.m); }; }); }
   var AR_M = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
   function keyOfLabel(t) { var p = t.split(' '); var mi = AR_M.indexOf(p[0]); return mi < 0 ? '' : L.monthKey(new Date(Date.UTC(+p[1], mi, 1))); }
-  $('run').onclick = function () {
-    var btn = this; btn.disabled = true;
-    var say = function (t) { $('out').innerHTML = '<div class="msg"><span class="spin"></span>' + esc(t) + '</div>'; };
-    say('بيقرا ملف أصول…');
-    readBook(say).then(function (data) { // كل مرة من الملف المفتوح، عشان آخر تحديث
-      S.data = data; say('بيقارن…');
-      var cc = data.owner.cols, us = []; for (var i = 0; i < cc['كود'].length; i++) us.push({ project: cc['المشروع'] ? cc['المشروع'][i] : '', settle: cc['تسويات'] ? cc['تسويات'][i] : '' });
-      var gs = F.groupsIn(us.filter(function (u) { return u.project && F.inScope(u, S.settings); }));
-      if (!S.projects && gs.length && gs.length < F.GROUPS.length) { S.scopeName = gs.map(function (g) { return GRP[g] || g; }).join(' و'); $('scope').textContent = 'الملف ده: ' + S.scopeName; }
-    }).then(function () {
+  // بيقرا الملف ويحلل (أول ما الأداة تتفتح، وبعد أي تعديل، ومن زرار التحديث)
+  function analyze() {
+    var say = function (t) { $('status').innerHTML = '<div class="msg"><span class="spin"></span>' + esc(t) + '</div>'; };
+    say('بيقرا ملف أصول…'); $('refresh').disabled = true;
+    return readBook(say).then(function (data) {
+      S.data = data; say('بيحلل…');
       S.res = P.reconcile({ devRows: [], owner: S.data.owner, treasury: S.data.treasury, settings: S.settings });
-      btn.disabled = false; btn.textContent = 'طلّع تاني'; draw();
-    }).catch(function (e) { btn.disabled = false; $('out').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+      $('status').innerHTML = ''; $('refresh').disabled = false; draw();
+    }).catch(function (e) { $('refresh').disabled = false; $('status').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+  }
+  $('refresh').onclick = analyze;
+  var qt; $('q').oninput = function () { clearTimeout(qt); qt = setTimeout(drawFind, 150); };
+  document.querySelectorAll('.nav button').forEach(function (b) { b.onclick = function () {
+    document.querySelectorAll('.nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    ['find', 'rev', 'dev'].forEach(function (t) { $('t-' + t).classList.toggle('hide', t !== b.dataset.t); });
+  }; });
+  // الإعدادات: اختيار المشاريع
+  $('gear').onclick = function () {
+    $('sheet').innerHTML = '<h2>الإعدادات</h2><div class="scp" id="scopeBox"></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn ghost" id="stX">قفل</button><button class="btn primary" id="stGo">طبّق وحلل تاني</button></div>';
+    $('ov').classList.add('on'); S.pick0 = JSON.stringify(S.pick); drawScope();
+    $('stX').onclick = function () { S.pick = JSON.parse(S.pick0); applyPick(); $('ov').classList.remove('on'); };
+    $('stGo').onclick = function () { $('ov').classList.remove('on'); analyze(); };
   };
   $('save').onclick = function () {
     var btn = this; btn.disabled = true; $('saveMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيجهز الملف…</div>';
@@ -296,7 +353,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
     return Excel.run(function (ctx) { return head(ctx, 'owner').then(function (O) { return readCols(ctx, O.t, O.H, ['المشروع'], function () { }); }).then(function (c) { return c['المشروع'] || []; }); });
   }
   function drawScope() {
-    var box = $('scopeBox'), P0 = S.projects || [], on = S.pick;
+    var box = $('scopeBox'), P0 = S.projects || [], on = S.pick; if (!box) return;
     var html = F.GROUPS.map(function (g) {
       var ps = P0.filter(function (p) { return F.groupOf(p.name) === g; }); if (!ps.length) return '';
       return '<div class="g">' + esc(GRP[g] || g) + ' <button data-g="' + esc(g) + '">' + (ps.every(function (p) { return on[p.key]; }) ? 'شيل الكل' : 'اختار الكل') + '</button></div><div class="chips">' +
@@ -319,7 +376,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       var out = all.filter(function (p) { return mine.indexOf(p) === -1; });
       if (mine.length <= 3) return mine.map(function (p) { return p.name; }).join(' و');
       return (GRP[g] || g) + (out.length <= 3 ? ' ما عدا ' + out.map(function (p) { return p.name; }).join(' و') : ' (جزء)'); }).join(' و') || 'مفيش';
-    $('scope').textContent = 'الملف ده: ' + S.scopeName; $('run').disabled = !sel.length;
+    $('scope').textContent = 'الملف ده: ' + S.scopeName; if ($('stGo')) $('stGo').disabled = !sel.length;
     drawScope();
   }
   function start() {
@@ -329,8 +386,9 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
         var cnt = {}, name = {}; col.forEach(function (v) { var p = String(v == null ? '' : v).trim(); if (!p) return; var k = p.toLowerCase(); cnt[k] = (cnt[k] || 0) + 1; if (!name[k]) name[k] = p; });
         S.projects = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (k) { return { key: k, name: name[k], n: cnt[k] }; });
         pickFrom(st); applyPick();
+        return analyze();
       });
-    }).catch(function (e) { $('scopeBox').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+    }).catch(function (e) { $('status').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   }
   if (window.Office && Office.onReady && !window.PrepMock) Office.onReady(start); else start();
 })();
