@@ -38,6 +38,20 @@ main{padding:12px;max-width:900px;margin:0 auto}
 .spin{width:22px;height:22px;border:3px solid var(--soft);border-top-color:var(--brand);border-radius:50%;display:inline-block;vertical-align:middle;animation:s .8s linear infinite;margin-inline-end:8px}
 @keyframes s{to{transform:rotate(360deg)}}
 .hide{display:none!important}
+/* شاشة تعديل عقد المالك (نفس شاشة اللوحة) */
+:root{--brand-soft:var(--soft);--err-bg:var(--errbg);--ok-bg:var(--okbg);--warn-bg:var(--warnbg);--r:12px}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}label .req{color:var(--err)}
+.sheet input,.sheet select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff;outline:none}
+.sheet input:focus,.sheet select:focus{border-color:var(--brand)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
+table.sch{width:100%;border-collapse:collapse;font-size:13px}table.sch td{padding:5px 0;border-bottom:1px solid var(--line)}table.sch td.m{width:42%}table.sch input{padding:5px 7px}table.sch .note{font-size:11px;color:var(--muted)}
+.unit{border:1px solid var(--brand);background:var(--soft);border-radius:9px;padding:10px}.unit .t{font-weight:700}
+details.more{margin-top:8px}details.more summary{cursor:pointer;font-size:12.5px;color:var(--brand)}
+.overlay{position:fixed;inset:0;background:rgba(20,28,26,.45);display:none;align-items:flex-end;z-index:20}.overlay.on{display:flex}
+.sheet{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px 14px 14px}.sheet h2{margin:0 0 10px;font-size:16px}
+.sheet .btn{width:auto;flex:1}.sheet .btn.ghost{flex:0 0 auto}.sheet .btn.primary{background:var(--brand);color:#fff}
+.loading{padding:30px;text-align:center;color:var(--muted)}.loading .spin{display:block;margin:0 auto 8px}
+.item .ed{margin-inline-start:6px}
 input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;padding:14px;background:#fffdf8;cursor:pointer}
 </style>
 </head>
@@ -49,7 +63,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
 <main>
   <div class="card">
     <h3><span class="n">1</span>عقود الملاك للسيستم الجديد</h3>
-    <div class="r2">بيقرا شيت الملاك والخزينة من الملف المفتوح دلوقتي (آخر تحديث فيه)، ويملا شكل ملف المطور. مفيش أي حاجة بتتكتب في ملف أصول.</div>
+    <div class="r2">بيقرا شيت الملاك والخزينة من الملف المفتوح دلوقتي (آخر تحديث فيه)، ويملا شكل ملف المطور. الكتابة في ملف أصول بتحصل بس لما تجدد أو تعدل عقد مالك بنفسك.</div>
     <div class="scp" id="scopeBox"><div class="r2"><span class="spin"></span>بيقرا المشاريع…</div></div>
     <button class="btn" id="run" style="margin-top:8px">طلّع العقود</button>
     <div id="out"></div>
@@ -62,9 +76,12 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
     <div id="saveMsg"></div>
   </div>
 </main>
+<div class="overlay" id="ov"><div class="sheet" id="sheet"></div></div>
 <script src="../logic.js"></script>
 <script src="../followup.js"></script>
 <script src="../store.js"></script>
+<script src="../excel.js"></script>
+<script src="../ownerform.js"></script>
 <script src="leases.js"></script>
 <script src="book.js"></script>
 <script>
@@ -168,8 +185,40 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       '<span class="c ' + cls + '">' + esc(badge) + '</span></div>' +
       (u.title ? '<div class="r2 ut">' + esc(u.title) + '</div>' : '') +
       '<div class="r2">' + body + '</div>' +
-      (u.idx !== undefined ? '<button class="go" data-code="' + esc(code) + '"' + (mkey ? ' data-m="' + esc(mkey) + '"' : '') + '>روح للسطر' + (mkey ? ' (' + esc(L.monthLabel(mkey)) + ')' : '') + '</button>' : '') + '</div>';
+      (u.idx !== undefined ? '<button class="go" data-code="' + esc(code) + '"' + (mkey ? ' data-m="' + esc(mkey) + '"' : '') + '>روح للسطر' + (mkey ? ' (' + esc(L.monthLabel(mkey)) + ')' : '') + '</button>' +
+        '<button class="go ed" data-ren="' + esc(code) + '">جدّد العقد</button><button class="go ed" data-edt="' + esc(code) + '">عدّل العقد</button>' : '') + '</div>';
   }
+  // ---------- تعديل عقد المالك مباشر في الملف (نفس شاشة اللوحة) ----------
+  var OFM = null;
+  function unitsFromData() {
+    var c = S.data.owner.cols, out = [], g = function (k, i) { return c[k] ? c[k][i] : ''; };
+    for (var i = 0; i < (c['كود'] || []).length; i++) {
+      var code = String(g('كود', i) == null ? '' : g('كود', i)).trim(); if (!code) continue;
+      var e = g('نهاية العقد', i);
+      out.push({ idx: i, code: code, project: g('المشروع', i) || '', block: g('بلوك', i) || '', building: String(g('عمارة', i) || ''), apt: String(g('شقة', i) || ''), owner: g('الاسم', i) || '', settle: g('تسويات', i) || '', ownerEnd: e ? L.serialToDate(e) : null, every: Number(g('يسدد كل', i)) || 1 });
+    }
+    return out;
+  }
+  function editContract(mode, code) {
+    var A = window.__prepA || window.OsoolExcel; // __prepA للتجربة بس
+    if (!A || !window.OsoolOwnerForm) return;
+    var units = unitsFromData(), u = units.filter(function (x) { return x.code === String(code); })[0]; if (!u) return;
+    var App = {
+      openSheet: function (h) { $('sheet').innerHTML = h; $('ov').classList.add('on'); },
+      closeSheet: function () { $('ov').classList.remove('on'); },
+      unitTitle: function (x) { var ok = function (v) { return v && v !== '0'; }; return [x.project, ok(x.block) && ('بلوك ' + x.block), ok(x.building) && ('عمارة ' + x.building), ok(x.apt) && ('شقة ' + x.apt)].filter(Boolean).join(' · '); },
+      checkHtml: function (res) { var m = (res && res.mismatch) || []; return m.length ? '<div class="msg err">اتكتب، بس فيه ' + m.length + ' خانة مختلفة عن المطلوب. راجعها في الشيت.</div>' : '<div class="msg ok">اتأكدت: رجعت قريت كل الخانات من الملف واتكتبت صح.</div>'; }
+    };
+    OFM = OsoolOwnerForm.create({ S: { units: units, ownerMonths: S.data.owner.months }, A: A, L: L, F: F, $: $, esc: esc,
+      money: function (n) { return Math.round(Number(n) || 0).toLocaleString('en-US'); }, digits: function (v) { return String(v == null ? '' : v).replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }).replace(/[^\d.\-]/g, ''); },
+      today: function () { return L.todayUTC(); }, App: App,
+      errHtml: function (e) { return '<div class="msg err">' + esc((e && e.message) || e) + '</div>'; },
+      loadingHtml: function (t) { return '<div class="loading"><span class="spin"></span>' + esc(t) + '</div>'; },
+      // بعد الحفظ: نقفل الشاشة ونطلّع العقود تاني من الملف بعد التعديل
+      onDone: function () { $('run').click(); } });
+    OFM.open(mode, u);
+  }
+  $('ov').onclick = function (e) { if (e.target === this) this.classList.remove('on'); };
   function goTo(code, mkey) {
     var u = (S.res.units || {})[code]; if (!u) return;
     if (window.PrepMock) { window.__goto = [code, u.idx, mkey || '']; return; }
@@ -204,7 +253,7 @@ input[type=file]{width:100%;border:1.5px dashed #d8c9a6;border-radius:10px;paddi
       '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (S.view === t[0] ? ' on' : '') + '" data-v="' + t[0] + '">' + t[1] + ' (' + t[2] + ')</button>'; }).join('') + '</div>' +
       '<div class="card" style="max-height:60vh;overflow:auto;padding:4px 10px">' + (list.length ? list.slice(0, 400).join('') + (list.length > 400 ? '<div class="r2">ظاهر ٤٠٠ من ' + list.length + '، والكل في ملف المراجعة.</div>' : '') : '<div class="r2" style="padding:8px 0">مفيش.</div>') + '</div>';
     document.querySelectorAll('.tab').forEach(function (b) { b.onclick = function () { S.view = b.dataset.v; draw(); }; });
-    document.querySelectorAll('.go').forEach(function (b) { b.onclick = function () { goTo(b.dataset.code, b.dataset.m); }; });
+    document.querySelectorAll('.go').forEach(function (b) { b.onclick = function () { if (b.dataset.ren) editContract('renew', b.dataset.ren); else if (b.dataset.edt) editContract('edit', b.dataset.edt); else goTo(b.dataset.code, b.dataset.m); }; });
     $('dl').classList.remove('hide');
   }
   var AR_M = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
