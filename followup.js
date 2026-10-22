@@ -445,11 +445,13 @@
     renters.forEach(function (r) { if (r.unit && r.start && r.end) (by[r.unit] = by[r.unit] || []).push(r); });
     return units.filter(function (u) { return settings === 'all' || inScope(u, settings, true); }).map(function (u) {
       var mine = by[u.code] || [];
-      var cur = mine.filter(function (r) { return r.start <= today && r.end >= today; }).sort(function (a, b) { return b.end - a.end; })[0] || null;
+      // اللي داخل النهارده مش ساكن لسه: الشقة بتظهر متاحة والدخول في خانة الحجز
+      var cur = mine.filter(function (r) { return r.start < today && r.end >= today; }).sort(function (a, b) { return b.end - a.end; })[0] || null;
+      var arrive = mine.filter(function (r) { return +r.start === +today && r.end >= today; }).sort(function (a, b) { return b.end - a.end; })[0] || null;
       // اتسجل استلامها في يوم الخروج: الشقة متاحة من النهارده، وملاحظة "تم الاستلام" بتظهر النهارده بس
       var recvToday = null;
       if (cur && +cur.end === +today && str(cur.receipt) === RECEIVED) { recvToday = cur; cur = null; }
-      var next = mine.filter(function (r) { return r.start > today; }).sort(function (a, b) { return a.start - b.start; })[0] || null;
+      var next = arrive || mine.filter(function (r) { return r.start > today; }).sort(function (a, b) { return a.start - b.start; })[0] || null;
       var freeFrom = cur ? cur.end : today;
       var rem = '';
       if (u.ownerEnd && u.ownerEnd > today) {
@@ -462,9 +464,9 @@
         var last = mine.filter(function (r) { return r.end < today && r.end.getUTCFullYear() < 2090; }).sort(function (a, b) { return b.end - a.end; })[0];
         if (last && !isReceived(last) && L.daysBetween(last.end, today) <= PENDING_DAYS) pending = last;
       }
-      var status = cur ? 'مشغولة' : pending ? 'لم تستلم' : next ? 'محجوزة' : 'فاضية';
-      var upcoming = mine.filter(function (r) { return r.start > today; }).length;
-      return { unit: u, current: cur, receivedToday: recvToday, pending: pending, next: next, upcoming: upcoming, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
+      var status = cur ? 'مشغولة' : arrive ? 'دخول النهارده' : pending ? 'لم تستلم' : next ? 'محجوزة' : 'فاضية';
+      var upcoming = mine.filter(function (r) { return r.start >= today; }).length;
+      return { unit: u, current: cur, checkInToday: !!arrive, receivedToday: recvToday, pending: pending, next: next, upcoming: upcoming, freeFrom: freeFrom, daysToFree: cur ? L.daysBetween(today, cur.end) : 0, status: status, remaining: rem.trim() };
     // الفاضي الأول، وبعده اللي خارج النهارده، وبعده الباقي بتاريخ الخروج
     }).sort(function (a, b) { return (a.current ? 1 : 0) - (b.current ? 1 : 0) || a.daysToFree - b.daysToFree || String(a.unit.project).localeCompare(String(b.unit.project)); });
   }

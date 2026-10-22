@@ -716,14 +716,15 @@
     var sd = F.sideDefaults(S.treasury);
     var cats = (S.categories && S.categories.length) ? S.categories.slice() : Object.keys(sd).sort();
     var top = Object.keys(sd).sort(function (a, b) { return sd[b].n - sd[a].n; }).slice(0, 10);
-    EN = { side: 'out', cat: '', unit: null, sd: sd, ownerN: 1, ownerRows: [] };
+    EN = { side: 'out', cat: '', unit: null, sd: sd, ownerN: 1, ownerRows: [], tenN: 1, tenRows: [] };
     var opt = function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; };
     App.openSheet('<h2 style="display:flex;align-items:baseline">حركة خزينة جديدة<button class="link" id="eBulk" style="margin-inline-start:auto;font-size:13px">لأكتر من وحدة؟</button></h2>' +
       '<div class="seg" id="eSide"><button data-s="in">وارد</button><button data-s="out" class="on">منصرف</button></div>' +
       '<label>الفئة <span class="req">*</span></label><select id="eCat"><option value="">اختار الفئة…</option><optgroup label="الأكثر استخدام">' + top.map(opt).join('') + '</optgroup><optgroup label="كل الفئات">' + cats.map(opt).join('') + '</optgroup></select>' +
       '<label>الوحدة <span class="r2" id="eUnitHint">(سيبها فاضية للمصروفات العامة)</span></label>' +
       '<div id="ePick"><input id="eUnitQ" placeholder="ابحث بالكود أو العمارة أو الشقة" autocomplete="off"><div id="eUnitRes" class="results hide"></div></div><div id="eUnitCard"></div>' +
-      '<div id="eTen" class="hide"><label>المستأجر <span class="req">*</span></label><select id="eTenant"></select></div>' +
+      '<div id="eTen" class="hide"><label>المستأجر <span class="req">*</span></label><select id="eTenant"></select>' +
+      '<div id="eTenNBox" class="hide"><label>عدد الشهور</label><input id="eTenN" class="ltr" inputmode="numeric" value="1" style="width:70px"><div id="eTenRows" style="margin-top:6px"></div></div></div>' +
       '<div id="eOwn" class="hide"><div class="r2" id="eOwnInfo" style="margin-top:8px"></div><label>عدد الشهور</label><input id="eOwnN" class="ltr" inputmode="numeric" value="1" style="width:70px"><div id="eOwnRows" style="margin-top:6px"></div></div>' +
       '<div id="ePeriod" class="hide"><label>عن شهر</label><select id="eMonth"></select><div class="grid2"><div><label>من</label><input type="date" id="eFrom"></div><div><label>إلى</label><input type="date" id="eTo"></div></div></div>' +
       '<div class="grid2"><div><label>التاريخ</label><input type="date" id="eDate" value="' + L.toISO(today()) + '" max="' + L.toISO(today()) + '"></div>' +
@@ -746,6 +747,8 @@
     };
     $('eUnitRes').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; EN.unit = unitOf(b.dataset.code); drawEntryUnit(); refreshEntry(); };
     $('eTenant').onchange = function () { refreshTenant(); };
+    // التحصيل من المستأجر زي سداد الملاك: تحدد عدد الشهور، وكل شهر بيتسجل سطر لوحده
+    $('eTenN').oninput = function () { EN.tenN = Math.max(1, Math.min(24, parseInt(digits(this.value), 10) || 1)); refreshTenant(); };
     $('eOwnN').oninput = function () { EN.ownerN = Math.max(1, Math.min(24, parseInt(digits(this.value), 10) || 1)); refreshOwner(); };
     $('eCash').onchange = function () { $('eFxBox').classList.toggle('hide', !F.isForeign(this.value)); disarm(); };
     ['eDate', 'eAmt', 'eFx', 'eMonth', 'eFrom', 'eTo'].forEach(function (id) { $(id).addEventListener('input', disarm); });
@@ -830,6 +833,12 @@
     if (!it) { $('eMonth').innerHTML = monthOptions(recentKeys(), L.monthKey(today())); return; }
     var sg = F.suggestCollection(it, today());
     EN.sg = sg; EN.item = it;
+    var multi = EN.cat === 'تحصيل ايجار';
+    $('eTenNBox').classList.toggle('hide', !multi);
+    $('ePeriod').classList.toggle('hide', multi && EN.tenN > 1);
+    $('eAmtBox').classList.toggle('hide', multi && EN.tenN > 1);
+    if (multi && EN.tenN > 1) { drawTenRows(r, it, sg); return; }
+    $('eTenRows').innerHTML = ''; EN.tenRows = [];
     var keys = Object.keys(it.dues).filter(function (k) { return F.cmpKey(k, F.FOLLOW_FROM) >= 0; });
     if (keys.indexOf(sg.month) === -1) keys.push(sg.month);
     keys.sort(F.cmpKey);
@@ -837,6 +846,26 @@
     $('eFrom').value = L.toISO(sg.from); $('eTo').value = L.toISO(sg.to);
     if (EN.cat === 'تحصيل ايجار' && sg.amount && !$('eAmt').value) $('eAmt').value = sg.amount;
     $('ePart').innerHTML = '';
+    $('eNote').value = r.name || $('eNote').value;
+  }
+  // شهور التحصيل بالترتيب من أول شهر عليه باقي، والمبلغ = الباقي من الشهر (أو مستحقه)
+  function drawTenRows(r, it, sg) {
+    var rows = [], from = sg.from;
+    for (var i = 0; i < EN.tenN; i++) {
+      var key = L.monthKey(L.addMonths(F.keyToDate(sg.month), i)), f = i ? L.addMonths(sg.from, i) : from;
+      if (r.end && f > r.end) break;
+      var to = new Date(L.addMonths(f, 1).getTime() - 864e5); if (r.end && to > r.end) to = r.end;
+      var amt = i === 0 && sg.amount ? sg.amount : Math.round(F.monthRemaining ? F.monthRemaining(it, key) : (it.dues[key] || 0)) || Math.round(it.dues[key] || 0);
+      rows.push({ key: key, from: f, to: to, amount: amt });
+    }
+    EN.tenRows = rows;
+    $('eTenRows').innerHTML = '<table class="sch">' + rows.map(function (x, i) {
+      return '<tr><td class="m">' + L.monthLabel(x.key) + '<div class="note">' + L.fmt(x.from) + ' ← ' + L.fmt(x.to) + '</div></td><td><input class="ltr" data-trow="' + i + '" value="' + (x.amount || '') + '"></td></tr>';
+    }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="eTenTot">' + money(rows.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0)) + '</span></div>' +
+      (rows.length < EN.tenN ? '<div class="r2">العقد بيخلص ' + L.fmt(r.end) + '، فطلع ' + rows.length + ' شهر بس.</div>' : '');
+    document.querySelectorAll('#eTenRows input[data-trow]').forEach(function (inp) {
+      inp.oninput = function () { EN.tenRows[+inp.dataset.trow].amount = Number(digits(inp.value)) || 0; $('eTenTot').textContent = money(EN.tenRows.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0)); disarm(); };
+    });
     $('eNote').value = r.name || $('eNote').value;
   }
   function refreshOwner() {
@@ -866,7 +895,10 @@
     };
     var list = [];
     var clone = function (extra) { var o = {}; for (var k in base) o[k] = base[k]; for (var j in extra) o[j] = extra[j]; return o; };
-    if (cat === 'سداد ايجار' && EN.unit) {
+    if (cat === 'تحصيل ايجار' && EN.unit && EN.tenN > 1 && EN.tenRows.length) {
+      if (base.fx && EN.tenRows.length > 1) { $('eMsg').innerHTML = '<div class="msg err">في الخزينة الأجنبية سجّل شهر واحد في المرة.</div>'; return; }
+      EN.tenRows.forEach(function (x) { list.push(clone({ amount: x.amount, month: x.key, from: x.from, to: x.to, tenantCode: EN.tenant ? EN.tenant.code : '', contractEnd: EN.tenant ? EN.tenant.end : null })); });
+    } else if (cat === 'سداد ايجار' && EN.unit) {
       if (base.fx && EN.ownerRows.length > 1) { $('eMsg').innerHTML = '<div class="msg err">في الخزينة الأجنبية سجّل شهر واحد في المرة.</div>'; return; }
       EN.ownerRows.forEach(function (r) { list.push(clone({ amount: r.amount, month: r.key, from: r.from, to: r.to, contractEnd: EN.unit.ownerEnd })); });
     } else {
@@ -1627,7 +1659,7 @@
           kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'date', 'date', 'text', 'text'],
           headers: ['المكان', 'المشروع', 'كود الوحدة', 'تمييز', 'بلوك', 'عمارة', 'شقة', 'غرف', 'التسويات', 'الحالة', 'فاضية من', 'الساكن', 'الحجز الجاي من', 'الحجز الجاي لحد', 'اسم الحجز الجاي', 'ملاحظة'],
           rows: l.map(function (x) { var u = x.unit, c = x.current, n = x.next;
-            var st = c ? (c.end.getUTCFullYear() >= 2090 ? 'خارج التشغيل' : +c.end === +today() ? 'خروج النهارده' : 'مشغولة') : x.pending ? 'لسه متستلمتش' : 'متاحة';
+            var st = c ? (c.end.getUTCFullYear() >= 2090 ? 'خارج التشغيل' : +c.end === +today() ? 'خروج النهارده' : 'مشغولة') : x.pending ? 'لسه متستلمتش' : x.checkInToday ? 'متاحة · دخول النهارده' : 'متاحة';
             var cls = R.unitClass(u); return [F.groupOf(u.project), u.project, u.code, cls, cls ? '' : u.block, u.building, u.apt, u.bedrooms, u.settle, st, c && c.end.getUTCFullYear() < 2090 ? new Date(c.end.getTime() + 864e5) : '', c ? c.name : x.pending ? x.pending.name : '', n ? n.start : '', n ? n.end : '', n ? n.name : '', x.receivedToday ? F.RECEIVED : '']; }) })
           .then(function () { $('avMsg').textContent = l.length + ' وحدة'; }, function (e) { $('avMsg').textContent = e.message || 'التحميل مش متاح هنا.'; });
       };
@@ -1652,7 +1684,7 @@
       else if (c && +c.end === +today()) st = '<span class="badge" style="background:#c62828;color:#fff">خروج النهارده</span>';
       else if (c) st = '<span class="badge book">لحد ' + L.fmt(c.end) + '</span>';
       else if (x.pending) st = '<span class="badge late">لسه متستلمتش</span>';
-      else st = '<span class="badge live">Available</span>' + (x.receivedToday ? ' <span class="badge done">تم الاستلام</span>' : '');
+      else st = '<span class="badge live">Available</span>' + (x.receivedToday ? ' <span class="badge done">تم الاستلام</span>' : '') + (x.checkInToday ? ' <span class="badge" style="background:#1565c0;color:#fff">دخول النهارده</span>' : '');
       return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2"><span dir="ltr">' + esc(u.code) + '</span>' + (u.bedrooms ? ' · ' + esc(u.bedrooms) + ' غرف' : '') + (u.settle ? ' · ' + esc(u.settle) : '') + '</div></div>' + st + '</div>' +
         ((c && c.end.getUTCFullYear() < 2090) || n || x.pending ? '<dl class="kv">' + (c && c.end.getUTCFullYear() < 2090 ? '<dt>الساكن</dt><dd>' + esc(c.name || '—') + '</dd>' : '') +
         (x.pending ? '<dt>خرج</dt><dd>' + esc(x.pending.name || '—') + ' · ' + L.fmt(x.pending.end) + '</dd>' : '') +
