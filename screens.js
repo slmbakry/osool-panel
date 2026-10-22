@@ -299,7 +299,8 @@
       '<div id="cMsg" style="margin-top:10px"></div>' +
       '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn ghost" id="cBack">رجوع</button><button class="btn ghost" id="cStmt">كشف حساب</button>' +
       (r.idx >= 0 ? '<button class="btn ghost" id="cGo">سطر العقد</button>' : '') + '<button class="btn primary" id="cSave">تسجيل</button></div>');
-    var fx = function () { $('cFxBox').classList.toggle('hide', !F.isForeign($('cCash').value)); };
+    var cN = 1, cRows = [], drawC = function () {};
+    var fx = function () { $('cFxBox').classList.toggle('hide', !F.isForeign($('cCash').value) || cN > 1); if (cN > 1) drawC(); };
     $('cCash').onchange = fx; fx();
     $('cBack').onclick = App.closeSheet;
     $('cStmt').onclick = function () { openStatement('tenant', r.idx); };
@@ -314,17 +315,19 @@
     };
     $('cAmt').addEventListener('input', syncPartial); $('cMonth').addEventListener('change', syncPartial);
     // أكتر من شهر: سطر خزينة لكل شهر، بادئ من الشهر المختار
-    var cN = 1, cRows = [];
     var period = $('cFrom').parentNode.parentNode;
-    var drawC = function () {
+    drawC = function () {
       var multi = cN > 1;
       $('cAmt').parentNode.classList.toggle('hide', multi); period.classList.toggle('hide', multi);
       $('cMonthL').textContent = multi ? 'من شهر' : 'عن شهر';
-      if (!multi) { cRows = []; $('cRows').innerHTML = ''; return; }
+      if (!multi) { cRows = []; $('cRows').innerHTML = ''; $('cFxBox').classList.toggle('hide', !F.isForeign($('cCash').value)); return; }
       $('cPart').innerHTML = '';
       var mk = $('cMonth').value, off = Math.round((F.keyToDate(mk) - F.keyToDate(sg.month)) / (30.44 * 864e5));
       cRows = tenMonthRows(r, x, sg, cN, off);
-      $('cRows').innerHTML = tenRowsHtml(cRows, cN, r, 'c');
+      var cfx = F.isForeign($('cCash').value);
+      $('cFxBox').classList.add('hide');
+      $('cRows').innerHTML = tenRowsHtml(cRows, cN, r, 'c', cfx);
+      bindFx(cRows, 'c', function () { armed = false; $('cSave').textContent = 'تسجيل'; $('cMsg').innerHTML = ''; });
       document.querySelectorAll('#cRows input[data-crow]').forEach(function (inp) {
         inp.oninput = function () { cRows[+inp.dataset.crow].amount = Number(digits(inp.value)) || 0; $('cTenTot').textContent = money(cRows.reduce(function (a, y) { return a + (Number(y.amount) || 0); }, 0)); armed = false; $('cSave').textContent = 'تسجيل'; $('cMsg').innerHTML = ''; };
       });
@@ -341,8 +344,9 @@
       var list = [e];
       if (cN > 1) {
         if (!cRows.length) return;
-        if (e.fx && cRows.length > 1) { $('cMsg').innerHTML = '<div class="msg err">في الخزينة الأجنبية سجّل شهر واحد في المرة.</div>'; return; }
-        list = cRows.map(function (y) { var o = {}; for (var k in e) o[k] = e[k]; o.amount = y.amount; o.month = y.key; o.from = y.from; o.to = y.to; return o; });
+        var mfx = F.isForeign(e.cash);
+        if (mfx && fxMissing(cRows)) { $('cMsg').innerHTML = '<div class="msg err">اكتب المبلغ بالعملة قدام كل شهر.</div>'; return; }
+        list = cRows.map(function (y) { var o = {}; for (var k in e) o[k] = e[k]; o.amount = y.amount; o.fx = mfx ? y.fx : ''; o.month = y.key; o.from = y.from; o.to = y.to; return o; });
       }
       var errs = [];
       list.forEach(function (o) { F.validateEntry(o, today()).forEach(function (m) { if (errs.indexOf(m) < 0) errs.push(m); }); });
@@ -778,7 +782,11 @@
     // التحصيل من المستأجر زي سداد الملاك: تحدد عدد الشهور، وكل شهر بيتسجل سطر لوحده
     $('eTenN').oninput = function () { EN.tenN = Math.max(1, Math.min(24, parseInt(digits(this.value), 10) || 1)); refreshTenant(); };
     $('eOwnN').oninput = function () { EN.ownerN = Math.max(1, Math.min(24, parseInt(digits(this.value), 10) || 1)); refreshOwner(); };
-    $('eCash').onchange = function () { $('eFxBox').classList.toggle('hide', !F.isForeign(this.value)); disarm(); };
+    $('eCash').onchange = function () {
+      $('eFxBox').classList.toggle('hide', !F.isForeign(this.value)); disarm();
+      if (EN.cat === 'تحصيل ايجار' && EN.unit && EN.tenN > 1) refreshTenant();
+      else if (EN.cat === 'سداد ايجار' && EN.unit) refreshOwner();
+    };
     ['eDate', 'eAmt', 'eFx', 'eMonth', 'eFrom', 'eTo'].forEach(function (id) { $(id).addEventListener('input', disarm); });
     $('eGenMonth').innerHTML = '<option value="">—</option>' + monthOptions(recentKeys(), L.monthKey(today()));
     // بحث في أسامي الموظفين: أي جزء من الاسم، وبعدها تختار من النتايج
@@ -867,6 +875,7 @@
     $('eAmtBox').classList.toggle('hide', multi && EN.tenN > 1);
     if (multi && EN.tenN > 1) { drawTenRows(r, it, sg); return; }
     $('eTenRows').innerHTML = ''; EN.tenRows = [];
+    $('eFxBox').classList.toggle('hide', !F.isForeign($('eCash').value));
     var keys = Object.keys(it.dues).filter(function (k) { return F.cmpKey(k, F.FOLLOW_FROM) >= 0; });
     if (keys.indexOf(sg.month) === -1) keys.push(sg.month);
     keys.sort(F.cmpKey);
@@ -891,22 +900,36 @@
     }
     return rows;
   }
-  function tenRowsHtml(rows, n, r, pre) {
-    return '<table class="sch">' + rows.map(function (x, i) {
-      return '<tr><td class="m">' + L.monthLabel(x.key) + '<div class="note">' + L.fmt(x.from) + ' ← ' + L.fmt(x.to) + '</div></td><td><input class="ltr" data-' + pre + 'row="' + i + '" value="' + (x.amount || '') + '"></td></tr>';
-    }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="' + pre + 'TenTot">' + money(rows.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0)) + '</span></div>' +
+  // fx: خزينة بعملة أجنبية، فكل شهر ليه خانة بالجنيه وخانة بالعملة
+  function fxCell(x, i, pre, fx) {
+    return fx ? '<td><input class="ltr" data-' + pre + 'fx="' + i + '" placeholder="بالعملة" value="' + (x.fx || '') + '"></td>' : '';
+  }
+  function fxHead(fx) { return fx ? '<tr><th></th><th class="r2">بالجنيه</th><th class="r2">بالعملة</th></tr>' : ''; }
+  function sumOf(rows, k) { return rows.reduce(function (a, x) { return a + (Number(x[k]) || 0); }, 0); }
+  function fxTotal(rows, pre, fx) { return fx ? '<div class="total"><span>الإجمالي بالعملة</span><span id="' + pre + 'FxTot">' + money(sumOf(rows, 'fx')) + '</span></div>' : ''; }
+  function bindFx(rows, pre, after) {
+    document.querySelectorAll('[data-' + pre + 'fx]').forEach(function (inp) {
+      inp.oninput = function () { rows[+inp.getAttribute('data-' + pre + 'fx')].fx = digits(inp.value); var t = $(pre + 'FxTot'); if (t) t.textContent = money(sumOf(rows, 'fx')); if (after) after(); };
+    });
+  }
+  function fxMissing(rows) { return rows.some(function (x) { return !(Number(x.fx) > 0); }); }
+  function tenRowsHtml(rows, n, r, pre, fx) {
+    return '<table class="sch">' + fxHead(fx) + rows.map(function (x, i) {
+      return '<tr><td class="m">' + L.monthLabel(x.key) + '<div class="note">' + L.fmt(x.from) + ' ← ' + L.fmt(x.to) + '</div></td><td><input class="ltr" data-' + pre + 'row="' + i + '" value="' + (x.amount || '') + '"></td>' + fxCell(x, i, pre, fx) + '</tr>';
+    }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="' + pre + 'TenTot">' + money(rows.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0)) + '</span></div>' + fxTotal(rows, pre, fx) +
       (rows.length < n ? '<div class="r2">العقد بيخلص ' + L.fmt(r.end) + '، فطلع ' + rows.length + ' شهر بس.</div>' : '');
   }
   function drawTenRows(r, it, sg) {
     var rows = tenMonthRows(r, it, sg, EN.tenN, 0);
+    var fx = F.isForeign($('eCash').value);
+    (EN.tenRows || []).forEach(function (o) { rows.forEach(function (x) { if (x.key === o.key && o.fx) x.fx = o.fx; }); });
     EN.tenRows = rows;
-    $('eTenRows').innerHTML = '<table class="sch">' + rows.map(function (x, i) {
-      return '<tr><td class="m">' + L.monthLabel(x.key) + '<div class="note">' + L.fmt(x.from) + ' ← ' + L.fmt(x.to) + '</div></td><td><input class="ltr" data-trow="' + i + '" value="' + (x.amount || '') + '"></td></tr>';
-    }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="eTenTot">' + money(rows.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0)) + '</span></div>' +
-      (rows.length < EN.tenN ? '<div class="r2">العقد بيخلص ' + L.fmt(r.end) + '، فطلع ' + rows.length + ' شهر بس.</div>' : '');
+    $('eFxBox').classList.add('hide');
+    $('eTenRows').innerHTML = tenRowsHtml(rows, EN.tenN, r, 't', fx).replace('id="tTenTot"', 'id="eTenTot"');
     document.querySelectorAll('#eTenRows input[data-trow]').forEach(function (inp) {
       inp.oninput = function () { EN.tenRows[+inp.dataset.trow].amount = Number(digits(inp.value)) || 0; $('eTenTot').textContent = money(EN.tenRows.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0)); disarm(); };
     });
+    bindFx(EN.tenRows, 't', disarm);
     $('eNote').value = r.name || $('eNote').value;
   }
   function refreshOwner() {
@@ -914,9 +937,12 @@
     EN.ownerRows = sg.rows;
     $('eOwnInfo').innerHTML = sg.lastPaid ? 'آخر شهر اتسدد: <b>' + L.monthLabel(L.monthKey(sg.lastPaid)) + '</b>' + (sg.lastAmount ? ' بمبلغ ' + money(sg.lastAmount) : '') : 'مفيش سداد ايجار متسجل للوحدة دي.';
     var src = { sheet: 'من عقد المالك', last: 'زي آخر سداد', rent: 'قيمة الإيجار' };
-    $('eOwnRows').innerHTML = '<table class="sch">' + sg.rows.map(function (r, i) {
-      return '<tr><td class="m">' + L.monthLabel(r.key) + '<div class="note" data-onote="' + i + '">' + L.fmt(r.from) + ' ← ' + L.fmt(r.to) + ' · ' + src[r.source] + '</div></td><td><input class="ltr" data-orow="' + i + '" value="' + (r.amount || '') + '"></td></tr>';
-    }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="eOwnTot">' + money(sg.rows.reduce(function (a, r) { return a + (Number(r.amount) || 0); }, 0)) + '</span></div>';
+    var ofx = F.isForeign($('eCash').value) && sg.rows.length > 1;
+    $('eFxBox').classList.toggle('hide', !F.isForeign($('eCash').value) || ofx);
+    $('eOwnRows').innerHTML = '<table class="sch">' + fxHead(ofx) + sg.rows.map(function (r, i) {
+      return '<tr><td class="m">' + L.monthLabel(r.key) + '<div class="note" data-onote="' + i + '">' + L.fmt(r.from) + ' ← ' + L.fmt(r.to) + ' · ' + src[r.source] + '</div></td><td><input class="ltr" data-orow="' + i + '" value="' + (r.amount || '') + '"></td>' + fxCell(r, i, 'o', ofx) + '</tr>';
+    }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="eOwnTot">' + money(sg.rows.reduce(function (a, r) { return a + (Number(r.amount) || 0); }, 0)) + '</span></div>' + fxTotal(sg.rows, 'o', ofx);
+    bindFx(EN.ownerRows, 'o', function () { disarm(); });
     document.querySelectorAll('#eOwnRows input[data-orow]').forEach(function (inp) {
       inp.oninput = function () {
         var r = EN.ownerRows[+inp.dataset.orow]; r.amount = Number(digits(inp.value)) || 0;
@@ -937,11 +963,13 @@
     var list = [];
     var clone = function (extra) { var o = {}; for (var k in base) o[k] = base[k]; for (var j in extra) o[j] = extra[j]; return o; };
     if (cat === 'تحصيل ايجار' && EN.unit && EN.tenN > 1 && EN.tenRows.length) {
-      if (base.fx && EN.tenRows.length > 1) { $('eMsg').innerHTML = '<div class="msg err">في الخزينة الأجنبية سجّل شهر واحد في المرة.</div>'; return; }
-      EN.tenRows.forEach(function (x) { list.push(clone({ amount: x.amount, month: x.key, from: x.from, to: x.to, tenantCode: EN.tenant ? EN.tenant.code : '', contractEnd: EN.tenant ? EN.tenant.end : null })); });
+      var tfx = F.isForeign(cash);
+      if (tfx && fxMissing(EN.tenRows)) { $('eMsg').innerHTML = '<div class="msg err">اكتب المبلغ بالعملة قدام كل شهر.</div>'; return; }
+      EN.tenRows.forEach(function (x) { list.push(clone({ fx: tfx ? x.fx : '', amount: x.amount, month: x.key, from: x.from, to: x.to, tenantCode: EN.tenant ? EN.tenant.code : '', contractEnd: EN.tenant ? EN.tenant.end : null })); });
     } else if (cat === 'سداد ايجار' && EN.unit) {
-      if (base.fx && EN.ownerRows.length > 1) { $('eMsg').innerHTML = '<div class="msg err">في الخزينة الأجنبية سجّل شهر واحد في المرة.</div>'; return; }
-      EN.ownerRows.forEach(function (r) { list.push(clone({ amount: r.amount, month: r.key, from: r.from, to: r.to, contractEnd: EN.unit.ownerEnd })); });
+      var many = F.isForeign(cash) && EN.ownerRows.length > 1;
+      if (many && fxMissing(EN.ownerRows)) { $('eMsg').innerHTML = '<div class="msg err">اكتب المبلغ بالعملة قدام كل شهر.</div>'; return; }
+      EN.ownerRows.forEach(function (r) { list.push(clone(many ? { fx: r.fx, amount: r.amount, month: r.key, from: r.from, to: r.to, contractEnd: EN.unit.ownerEnd } : { amount: r.amount, month: r.key, from: r.from, to: r.to, contractEnd: EN.unit.ownerEnd })); });
     } else {
       var extra = { amount: digits($('eAmt').value) };
       if (!$('ePeriod').classList.contains('hide')) { extra.month = $('eMonth').value; extra.from = L.parseISO($('eFrom').value); extra.to = L.parseISO($('eTo').value); }
