@@ -140,7 +140,8 @@
       try {
         Office.context.document.settings.set(SETTINGS_KEY, JSON.stringify(obj));
         // البانل يفتح لوحده مع الملف (لكل اللي مركّبينه)
-        Office.context.document.settings.set('Office.AutoShowTaskpaneWithDocument', !!obj.autoOpen);
+        if (obj.autoOpen) Office.context.document.settings.set('Office.AutoShowTaskpaneWithDocument', true);
+        else Office.context.document.settings.remove('Office.AutoShowTaskpaneWithDocument');
         var St = window.OsoolStore, doneX = St ? St.write(obj) : Promise.resolve(false);
         Office.context.document.settings.saveAsync(function (r) {
           doneX.then(function (x) { (r.status === 'succeeded' || x) ? ok() : no(new Error('مقدرتش أحفظ الإعداد في الملف.')); });
@@ -150,12 +151,15 @@
   }
 
   // البانل يفتح لوحده مع الملف افتراضيًا، إلا لو حد قفلها من الإعدادات
+  // الإعداد الأساسي جوه الملف (store.js). لكن علامة الفتح التلقائي متسجلة لكل نسخة إضافة اتركبت على الملف،
+  // فلو الإضافة اترفعت أكتر من مرة بيبقى فيه نسخة قديمة لسه علامتها شغالة وبتفتح البانل.
+  // عشان كده أي نسخة بتفتح بتظبط علامتها هي على إعداد الملف، سواء فتح أو قفل
   function ensureAutoOpen(settings) {
     try {
-      if (settings && settings.autoOpen === false) return;
-      var st = Office.context.document.settings;
-      if (st.get('Office.AutoShowTaskpaneWithDocument') === true) return;
-      st.set('Office.AutoShowTaskpaneWithDocument', true);
+      if (!settings) return; // لو مقدرناش نقرا الإعداد منغيرش حاجة
+      var want = settings.autoOpen !== false, st = Office.context.document.settings;
+      if ((st.get('Office.AutoShowTaskpaneWithDocument') === true) === want) return;
+      if (want) st.set('Office.AutoShowTaskpaneWithDocument', true); else st.remove('Office.AutoShowTaskpaneWithDocument');
       st.saveAsync(function () { });
     } catch (e) { }
   }
