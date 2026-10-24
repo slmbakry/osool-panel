@@ -228,6 +228,27 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 @media (min-width:1150px){
   main{padding-inline:34px}.top{padding-inline:34px}
 }
+
+/* الإدارة ← المطور (تجهيز داتا عقود الملاك) */
+#tab-dev .dv-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+#tab-dev .dv-acts{display:flex;gap:6px}
+#tab-dev #dvTabs,#tab-dev .dv-sub{margin-bottom:8px}
+#tab-dev .dv-acts button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:var(--ink)}
+#tab-dev .dv-srch{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font:inherit;outline:none}#tab-dev .dv-srch:focus{border-color:var(--brand)}
+#tab-dev .dv-list{max-height:62vh;overflow:auto;padding:4px 10px}
+#tab-dev .sum{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+#tab-dev .dv-item{border-top:1px solid #f0e9da;padding:8px 0;font-size:13px}#tab-dev .dv-item:first-child{border-top:0}
+#tab-dev .hd{display:flex;align-items:center;gap:4px;flex-wrap:wrap}#tab-dev .ut{font-size:11px;opacity:.8}
+#tab-dev .c{display:inline-block;font-size:11px;border-radius:6px;padding:0 6px;margin-inline-start:6px}
+#tab-dev .c.fix{background:#fff2cc;color:#7a5c00}#tab-dev .c.review{background:var(--err-bg);color:var(--err)}#tab-dev .c.note{background:#e8eefc;color:#2b4a8a}#tab-dev .c.new{background:var(--ok-bg);color:var(--ok)}#tab-dev .c.skip{background:#eee;color:#555}
+#tab-dev .dv-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+#tab-dev .go{border:1px solid #d8c9a6;background:#fffdf8;border-radius:7px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:#6e531b}#tab-dev .go:hover{background:#f5eedc}
+#tab-dev .dv-ct{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
+#tab-dev .dv-ct .rows{margin-top:6px;border-top:1px dashed var(--line)}
+#tab-dev .dv-ct .row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px;flex-wrap:wrap}#tab-dev .dv-ct .row:last-child{border-bottom:0}
+#tab-dev .dv-ct .p,#tab-dev .dv-ct .v{font-weight:700;font-variant-numeric:tabular-nums}
+#tab-dev .spin{width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-inline-end:6px}
+.scp{margin-top:8px}.scp .g{margin:6px 0 2px;font-size:12px;font-weight:700;color:#6e531b;display:flex;align-items:center;gap:6px}.scp .g button{font:inherit;font-size:11px;border:0;background:none;color:#8a6d2b;text-decoration:underline;cursor:pointer;padding:0}.scp .chips{display:flex;flex-wrap:wrap;gap:5px}.scp .ch{border:1px solid #d8c9a6;background:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:#555}.scp .ch.on{background:#8a6d2b;border-color:#8a6d2b;color:#fff}.scp .ch i{font-style:normal;font-size:10px;opacity:.75;margin-inline-start:6px;padding:0 5px;border-radius:999px;background:rgba(0,0,0,.08)}.scp .ft{margin-top:6px;font-size:12px;color:#777;display:flex;gap:10px;flex-wrap:wrap}.scp .ft button{font:inherit;font-size:12px;border:0;background:none;color:#8a6d2b;text-decoration:underline;cursor:pointer;padding:0}
 </style>
 </head>
 <body>
@@ -504,7 +525,7 @@ function showTab(t){
   window.scrollTo(0,0);
   if (t==='search') setTimeout(function(){ $('sQ').focus(); }, 30);
   if (t==='home' && window.OsoolHome) OsoolHome.render();
-  if (t==='dev' && !$('tab-dev').innerHTML) $('tab-dev').innerHTML = '<div class="card"><h3>تجهيز الداتا للمطور</h3><div class="r2">هنا هتيجي أداة التجهيز كلها: البحث في العقود، محتاج قرار، المستحقات، وملف المطور.</div></div>';
+  if (t==='dev' && window.OsoolDev) OsoolDev.open();
   if (window.OsoolScreens && OsoolScreens.onTab) OsoolScreens.onTab(t);
 }
 document.querySelectorAll('#nav button').forEach(function(b){ b.addEventListener('click', function(){ showTab(LAST[b.dataset.g]); }); });
@@ -783,5 +804,6 @@ if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); els
 <script src="ownerform.js"></script>
 <script src="screens.js"></script>
 <script src="home.js"></script>
+<script src="dev.js"></script>
 </body>
 </html>
