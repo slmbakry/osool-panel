@@ -443,13 +443,13 @@ function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option
 var GROUPS = {
   home: { title: '', sub: null },
   tenants: { title: 'المستأجرين', sub: [['search','العقود'],['new','عقد جديد'],['coll','التحصيل'],['avail','المتاح']] },
-  owners: { title: 'الملاك', sub: [['owners','السداد'],['ownerc','العقود']] },
+  owners: { title: 'الملاك', sub: [['ownerc','العقود'],['ownernew','عقد جديد'],['owners','السداد']] },
   treasury: { title: 'الخزينة', sub: [['treas','الحركات'],['review','المراجعة']] },
   admin: { title: 'الإدارة', sub: [['prof','الربحية'],['cmp','المقارنة'],['occ','الإشغال'],['dev','المطور']] }
 };
 var GROUP_OF = { home:'home', search:'tenants', 'new':'tenants', transfer:'tenants', coll:'tenants', avail:'tenants', owners:'owners', ownerc:'owners', treas:'treasury', review:'treasury', prof:'admin', cmp:'admin', occ:'admin', dev:'admin' };
 var ALL_TABS = ['prof','occ','ownerc','cmp','dev','home','new','search','coll','transfer','avail','treas','owners','review'];
-var LAST = { tenants:'search', owners:'owners', treasury:'treas', admin:'prof', home:'home' };
+var LAST = { tenants:'search', owners:'ownerc', treasury:'treas', admin:'prof', home:'home' };
 var ADMIN_TABS = ['prof','cmp','occ','dev'];
 // ---------- شاشة المقارنة: مخفية ومبتظهرش غير بعد كود على الجهاز ----------
 var CMP_KEY = 'osoolPanel.cmp';
@@ -508,7 +508,12 @@ function showTab(t){
   if (window.OsoolScreens && OsoolScreens.onTab) OsoolScreens.onTab(t);
 }
 document.querySelectorAll('#nav button').forEach(function(b){ b.addEventListener('click', function(){ showTab(LAST[b.dataset.g]); }); });
-$('subnav').addEventListener('click', function(e){ var b=e.target.closest('button[data-t]'); if(b) showTab(b.dataset.t); });
+$('subnav').addEventListener('click', function(e){
+  var b=e.target.closest('button[data-t]'); if(!b) return;
+  // عقد مالك جديد = تكويد وحدة جديدة: بيفتح الفورم فوق شاشة عقود الملاك
+  if (b.dataset.t==='ownernew'){ if (S.tab!=='ownerc') showTab('ownerc'); OsoolScreens.openOwnerNew(); return; }
+  showTab(b.dataset.t);
+});
 $('hSearch').addEventListener('click', function(){ showTab('search'); });
 $('reload').addEventListener('click', load);
 $('adminPill').addEventListener('click', cmpLock);

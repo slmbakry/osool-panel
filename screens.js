@@ -1385,9 +1385,8 @@
   var OC = { q: '' };
   function renderOwnerC() {
     var box = $('tab-ownerc'); if (!box) return;
-    if (!App.cmpOn()) { box.innerHTML = '<div class="empty">الشاشة دي مقفولة على الجهاز ده.</div>'; return; }
     var t = today(), lim = new Date(t.getTime() + 90 * 864e5), cur = L.monthKey(t);
-    box.innerHTML = '<button class="btn primary addbtn" id="ocNew">+ وحدة جديدة وعقد مالك</button>' +
+    box.innerHTML = '<button class="btn primary addbtn hide" id="ocNew">+ وحدة جديدة وعقد مالك</button>' +
       '<input id="ocQ" placeholder="ابحث بالكود أو العمارة أو اسم المالك" value="' + esc(OC.q) + '" autocomplete="off" style="margin:4px 0 10px">' +
       '<div id="ocRes"></div>';
     var draw = function () {
@@ -1770,7 +1769,7 @@
 
   window.OsoolScreens = {
     onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); else if (t === 'occ') renderOcc(); else if (t === 'prof') renderProf(); },
-    startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
+    openOwnerNew: function () { openOwnerForm('new', null); }, startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
     ensureTreasury: ensureTreasury, openBulk: openBulk, openDeposits: openDeposits, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
     setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }
   };
