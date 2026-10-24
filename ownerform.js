@@ -89,6 +89,13 @@
       $('ofCalc').onclick = function () { ownerPlan(true); };
       $('ofSave').onclick = saveOwner;
     }
+    // نص الزيادة المختصر: "زيادة 10% في نوفمبر 2027 ونوفمبر 2028" (ولو مفيش زيادة مبيتكتبش حاجة)
+    function incWhen(inc, rows) {
+      if (!inc) return '';
+      var ks = rows.filter(function (r, i) { return i > 0 && r.year !== rows[i - 1].year; }).map(function (r) { return L.monthLabel(r.key); });
+      if (!ks.length) return '';
+      return 'زيادة ' + (inc.pct ? inc.pct + '%' : money(inc.amt) + ' ج') + ' في ' + ks.join(' و');
+    }
     function ocInc() { var v = ocNum($('ofI').value); return v ? ($('ofIT').value === 'amt' ? { amt: v } : { pct: v }) : null; }
     // بيحسب اللي هيتكتب ويعرضه (الشهور والخانات اللي هتتغير)
     function ownerPlan(show) {
@@ -116,14 +123,22 @@
           fields['كود'] = Number(code) || code; fields['المشروع'] = pj; put('بلوك', $('ofBl').value.trim()); put('عمارة', $('ofB').value.trim()); put('شقة', $('ofA').value.trim());
           put('الاسم', $('ofN').value.trim()); put('التليفون', $('ofTel').value.trim()); put('رقم البطاقة', $('ofId').value.trim()); opt('Bedrooms', 'ofBeds', true);
           if (s0) fields['بداية العقد'] = L.dateToSerial(s0);
-          comments.push({ key: 'كود', text: 'وحدة جديدة اتسجلت ' + tday + ' من لوحة أصول: عقد ' + (s0 ? L.fmt(s0) : '') + ' ← ' + (e0 ? L.fmt(e0) : '') + '، إيجار ' + money(rent) + '، ' + ocIncText(inc) });
         }
         if (!errs.length) {
           F.planOwnerMonths(s0, e0, rent, inc).forEach(function (x) { months[x.key] = x.amount; monthsRows.push({ key: x.key, amount: x.amount, year: x.year, old: Number(row[x.key]) || 0 }); });
+          var iw = incWhen(inc, monthsRows), span = L.fmt(s0) + ' ← ' + L.fmt(e0) + ' بـ ' + money(rent) + (iw ? '، ' + iw : '');
+          if (m === 'new') comments.push({ key: 'كود', text: 'وحدة جديدة ' + tday + ': ' + span });
+          // تعليق على أول شهر الإيجار فيه اتغير، وعلى كل شهر زيادة
+          var prevRent = m === 'renew' ? (ocLastRent(row, L.monthKey(L.addMonths(s0, -1))) || {}).amount || 0 : 0;
+          monthsRows.forEach(function (r, i) {
+            var before = i ? monthsRows[i - 1].amount : prevRent;
+            if (!before || r.amount === before) return;
+            comments.push({ key: r.key, text: (i ? 'زيادة ' + tday + ': ' : 'تجديد ' + tday + ': ') + money(r.amount) + ' (كان ' + money(before) + ')' });
+          });
           if (m === 'renew') {
             var oe = row['نهاية العقد'];
             fields['نهاية العقد'] = L.dateToSerial(e0); changes.push(['نهاية العقد', oe ? L.fmt(L.serialToDate(oe)) : '', L.fmt(e0)]);
-            comments.push({ key: 'نهاية العقد', text: 'تجديد ' + tday + ': من ' + L.fmt(s0) + ' لـ ' + L.fmt(e0) + '، إيجار أول سنة ' + money(rent) + '، ' + ocIncText(inc) + ' (النهاية كانت ' + (oe ? L.fmt(L.serialToDate(oe)) : 'فاضية') + ')' });
+            comments.push({ key: 'نهاية العقد', text: 'تجديد ' + tday + ': ' + span + ' (كانت ' + (oe ? L.fmt(L.serialToDate(oe)) : 'فاضية') + ')' });
             put('قيمة الايجار', rent, 'قيمة الإيجار');
           } else { fields['نهاية العقد'] = L.dateToSerial(e0); fields['قيمة الايجار'] = rent; }
         }
@@ -169,6 +184,7 @@
         });
         monthsRows = monthsRows.filter(function (r) { return cols.indexOf(r.key) !== -1; });
         pend.sort(function (a, b) { return F.cmpKey(a.key, b.key); });
+        comments = comments.filter(function (c) { return !MRE.test(c.key) || cols.indexOf(c.key) !== -1; });
         if (pend.length) comments.push({ key: lastCol, pending: true, text: pendText(pend, tday) });
       }
       OF.plan = errs.length ? null : { idx: m === 'new' ? null : OF.u.idx, code: m === 'new' ? OF.code : OF.u.code, fields: fields, months: months, comments: comments, changes: changes, rows: monthsRows, pend: pend, lastCol: lastCol, before: before };
