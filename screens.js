@@ -406,7 +406,7 @@
     $('tDate').onchange = function () { T.date = L.parseISO(this.value); T.oldEdits = {}; T.newEdits = {}; drawPreview(); };
     $('tRent').oninput = function () { T.rent = digits(this.value); T.newEdits = {}; drawPreview(); };
     $('tUnitQ').oninput = function () {
-      var res = L.searchUnits(S.units, this.value).filter(function (x) { return x.code !== r.unit; }), box = $('tUnitRes');
+      var res = L.searchUnits(App.scopeUnits(), this.value).filter(function (x) { return x.code !== r.unit; }), box = $('tUnitRes');
       if (!this.value.trim()) { box.classList.add('hide'); return; }
       box.classList.remove('hide');
       box.innerHTML = res.length ? res.map(function (x) { return '<button data-code="' + esc(x.code) + '"><div class="r1">' + esc(App.unitTitle(x) || x.code) + '</div><div class="r2">كود ' + esc(x.code) + '</div></button>'; }).join('') : '<div class="r2" style="padding:10px">مفيش وحدة بالبيانات دي.</div>';
@@ -772,7 +772,7 @@
     document.querySelectorAll('#eSide button').forEach(function (b) { b.onclick = function () { setSide(b.dataset.s); disarm(); }; });
     $('eCat').onchange = function () { EN.cat = this.value; if (EN.sd[EN.cat]) setSide(EN.sd[EN.cat].side); refreshEntry(); };
     $('eUnitQ').oninput = function () {
-      var res = L.searchUnits(S.units, this.value), box = $('eUnitRes');
+      var res = L.searchUnits(App.scopeUnits(), this.value), box = $('eUnitRes');
       if (!this.value.trim()) { box.classList.add('hide'); return; }
       box.classList.remove('hide');
       box.innerHTML = res.length ? res.map(function (u) { return '<button data-code="' + esc(u.code) + '"><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2">كود ' + esc(u.code) + ' · ' + esc(u.owner) + '</div></button>'; }).join('') : '<div class="r2" style="padding:10px">مفيش وحدة بالبيانات دي.</div>';
@@ -1391,9 +1391,9 @@
       '<div id="ocRes"></div>';
     var draw = function () {
       var q = OC.q.trim(), list, head;
-      if (q) { list = L.searchUnits(S.units, q); head = ''; }
+      if (q) { list = L.searchUnits(App.scopeUnits(), q); head = ''; }
       else {
-        list = S.units.filter(function (u) { return u.ownerEnd && u.ownerEnd >= new Date(t.getTime() - 60 * 864e5) && u.ownerEnd <= lim && String(u.settle || '').toUpperCase() !== 'OUT'; }).sort(function (a, b) { return a.ownerEnd - b.ownerEnd; });
+        list = App.scopeUnits().filter(function (u) { return u.ownerEnd && u.ownerEnd >= new Date(t.getTime() - 60 * 864e5) && u.ownerEnd <= lim && String(u.settle || '').toUpperCase() !== 'OUT'; }).sort(function (a, b) { return a.ownerEnd - b.ownerEnd; });
         head = '<div class="lh">عقود ملاك بتخلص خلال ٣ شهور (' + list.length + ')</div>';
       }
       $('ocRes').innerHTML = head + (list.length ? list.map(function (u) {

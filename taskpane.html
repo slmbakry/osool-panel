@@ -567,9 +567,12 @@ $('bigOpen').addEventListener('click', openBig);
 $('bigClose').addEventListener('click', function(){ window.OsoolBig && window.OsoolBig.close(); });
 
 // ---------- الوحدة ----------
+// البحث في نطاق الملف بس (إعدادات ⚙): الوحدات والمستأجرين اللي وحدتهم جوه النطاق
+function scopeUnits(){ var F=window.OsoolFollow, st=S.settings||F.DEFAULT_SETTINGS; return S.units.filter(function(u){ return F.inScope(u, st, true); }); }
+function scopeRenters(){ var ok={}; scopeUnits().forEach(function(u){ ok[u.code]=1; }); return S.renters.filter(function(r){ return ok[r.unit]; }); }
 function unitTitle(u){ var ok=function(v){ return v && v!=='0'; }; return [u.project, ok(u.block) && ('بلوك '+u.block), ok(u.building) && ('عمارة '+u.building), ok(u.apt) && ('شقة '+u.apt)].filter(Boolean).join(' · '); }
 $('unitQ').addEventListener('input', function(){
-  var res = L.searchUnits(S.units, this.value), box = $('unitRes');
+  var res = L.searchUnits(scopeUnits(), this.value), box = $('unitRes');
   if (!this.value.trim()) { box.classList.add('hide'); return; }
   box.classList.remove('hide');
   box.innerHTML = res.length ? res.map(function(u){
@@ -752,7 +755,7 @@ $('clear').addEventListener('click', function(){ if (confirm('تفريغ كل ا
 
 // ---------- البحث ----------
 $('sQ').addEventListener('input', function(){
-  var res = L.searchRenters(S.renters, this.value, 30), today = L.todayUTC();
+  var res = L.searchRenters(scopeRenters(), this.value, 30), today = L.todayUTC();
   var q = this.value.trim();
   if (q.length < 2){ $('sRes').innerHTML=''; return; }
   if (!res.length){ $('sRes').innerHTML='<div class="empty" style="padding:6px">مفيش نتايج.</div>'; return; }
@@ -788,7 +791,7 @@ function checkHtml(res){
   if (!m.length) return '<div class="msg ok">اتأكدت: رجعت قريت كل الخانات من الملف واتكتبت صح.</div>';
   return '<div class="msg err"><b>اتكتب، بس فيه '+m.length+' خانة مختلفة عن المطلوب. راجعها:</b>'+m.slice(0,8).map(function(x){ return '<div>'+esc(x.table||'')+' · سطر '+x.row+' · '+esc(x.key)+': المفروض '+esc(x.expected)+'، اتكتب '+esc(x.got)+'</div>'; }).join('')+'</div>';
 }
-window.OsoolApp = { cmpOn:cmpOn, cmpLock:cmpLock, S:S, A:A, L:L, $:$, esc:esc, money:money, digits:digits, unitTitle:unitTitle, showTab:showTab, copyText:copyText, checkHtml:checkHtml,
+window.OsoolApp = { scopeUnits:scopeUnits, scopeRenters:scopeRenters, cmpOn:cmpOn, cmpLock:cmpLock, S:S, A:A, L:L, $:$, esc:esc, money:money, digits:digits, unitTitle:unitTitle, showTab:showTab, copyText:copyText, checkHtml:checkHtml,
   openSheet:function(html){ $('sheet').innerHTML=html; $('ov').classList.add('on'); }, closeSheet:function(){ $('ov').classList.remove('on'); } };
 
 // ---------- البداية ----------
