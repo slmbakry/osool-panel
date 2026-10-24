@@ -18,8 +18,8 @@
   }
   function libs() {
     var p = Promise.resolve();
-    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261024c'); });
-    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261024c'); });
+    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261024d'); });
+    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261024d'); });
     return p;
   }
   function loadExcelJS() { return window.ExcelJS ? Promise.resolve() : script('vendor/exceljs.min.js'); }
@@ -68,7 +68,8 @@
   var DATE_COLS = ['تاريخ الإنهاء', 'تاريخ التوقيع', 'بداية العقد', 'نهاية العقد', 'تاريخ أول دفعة', 'مسدد حتى'];
   function shown(col, v) { if (v === null || v === undefined || v === '') return '—'; if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.fmt(L.serialToDate(v)); return typeof v === 'number' ? v.toLocaleString('en-US') : String(v); }
   function template() { return fetch('prep/template.xlsx', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error('شكل ملف المطور متحملش.'); return r.arrayBuffer(); }); }
-  function buildFile() { return template().then(readDev).then(function (d) { OsoolBook.applyDev(d.wb, D.res, D.scopeName, { fresh: true }); return d.wb.xlsx.writeBuffer(); }); }
+  function buildFile() { return template().then(readDev).then(function (d) { OsoolBook.applyDev(d.wb, D.res, D.scopeName, { fresh: true, pure: true }); return d.wb.xlsx.writeBuffer(); }); }
+  function buildExtras() { return loadExcelJS().then(function () { return OsoolBook.extrasBook(ExcelJS, D.res, D.scopeName).xlsx.writeBuffer(); }); }
   function buildReview() { return loadExcelJS().then(function () { return OsoolBook.reviewBook(ExcelJS, [{ src: D.scopeName, R: D.res }]).xlsx.writeBuffer(); }); }
   function download(buf, name) {
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -87,8 +88,9 @@
       '<div id="dvFind"><div class="r2" style="padding:8px 2px">اكتب أي جزء من الكود أو الاسم.</div></div></section>' +
       '<section id="dv-rev" class="hide"><div id="dvOut"></div></section>' +
       '<section id="dv-dev" class="hide"><div id="dvSum"></div><div class="card">' +
-      '<div class="r2">ملف للمطور بنفس شكله: سطر لكل عقد، وفيه شيت "أشهر ملغاة" و"كشف المستحقات" و"تغييرات MBM". وملف مراجعة ليك انت بس.</div>' +
+      '<div class="r2">ملف المطور بنفس شكله وشيتاته بالظبط: سطر لكل عقد، والأشهر الملغاة، والتعليمات. والتغييرات وكشف المستحقات في ملف لوحده، وملف المراجعة ليك انت بس.</div>' +
       '<button class="btn primary" id="dvSave" style="width:100%;margin-top:8px">حمّل ملف المطور</button>' +
+      '<button class="btn ghost" id="dvSaveExt" style="width:100%;margin-top:8px">حمّل ملف التغييرات وكشف المستحقات</button>' +
       '<button class="btn ghost" id="dvSaveRev" style="width:100%;margin-top:8px">حمّل ملف مراجعة العقود والمستحقات</button><div id="dvMsg"></div></div></section>';
     $('dvTabs').onclick = function (e) {
       var b = e.target.closest('button[data-t]'); if (!b) return; D.tab = b.dataset.t;
@@ -98,6 +100,7 @@
     $('dvRe').onclick = function () { analyze(); };
     var qt; $('dvQ').oninput = function () { clearTimeout(qt); qt = setTimeout(drawFind, 150); };
     $('dvSave').onclick = function () { save(this, buildFile, 'عقود الملاك للسيستم', 'لو هتكمّل على ملف أصول تاني، افتحه وطلّع ملفه من نفس المكان.'); };
+    $('dvSaveExt').onclick = function () { save(this, buildExtras, 'تغييرات وكشف مستحقات الملاك', 'ده جنب ملف المطور، للتوضيح.'); };
     $('dvSaveRev').onclick = function () { save(this, buildReview, 'مراجعة العقود والمستحقات', 'ده ليك انت بس، مش للمطور.'); };
   }
   function save(btn, build, title, tip) {

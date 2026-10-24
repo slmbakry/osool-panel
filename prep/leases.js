@@ -464,8 +464,13 @@
     v[C.start] = st || ''; v[C.end] = en || ''; v[C.signed] = unsigned ? '' : (st || ''); v[C.firstPay] = st || '';
     v[C.rent] = Y[0] || ''; v[C.cycle] = CYCLE[u.cycle];
     var base = Y[0], differs = Y.some(function (x) { return x && base && Math.abs(x - base) > 0.5; });
-    v[C.incType] = differs ? INC.amt : INC.none;
-    if (differs) for (var y = 1; y < Y.length && y <= 7; y++) if (Y[y]) v[YEARS[y - 1]] = Y[y];
+    // الزيادة: لو نسبة ثابتة صحيحة (زي 10% كل سنة) تتكتب "نسبة %" لكل سنين العقد، حتى السنين اللي ملهاش أعمدة في الشيت.
+    // غير كده "إيجار جديد" بالمبالغ اللي في الشيت
+    var pcts = [];
+    for (var q = 1; q < Y.length; q++) if (Y[q] && Y[q - 1]) pcts.push(Math.round((Y[q] / Y[q - 1] - 1) * 10000) / 100);
+    var pct = pcts.length && pcts.every(function (x) { return Math.abs(x - pcts[0]) < 0.05; }) && pcts[0] > 0 && Math.abs(pcts[0] - Math.round(pcts[0])) < 0.05 ? Math.round(pcts[0]) : 0;
+    v[C.incType] = !differs ? INC.none : pct ? INC.pct : INC.amt;
+    if (differs) for (var y = 1; y < Y.length && y <= 7; y++) { if (pct) v[YEARS[y - 1]] = pct; else if (Y[y]) v[YEARS[y - 1]] = Y[y]; }
     if (u.deposit) v[C.deposit] = u.deposit;
     v[C.auto] = 'لا / No';
     // مسدد حتى من الخزينة (مظبوط بنسبة كبيرة حتى لو فيه شهور ناقصة قبله). العقد اللي اتجدد لحد نهايته بالكتير، والعقد اللي لسه مبدأش مبيتحطلوش

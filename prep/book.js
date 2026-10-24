@@ -60,13 +60,18 @@
       var ri = last + 1 + k, row = ws.getRow(ri);
       Object.keys(n.values).forEach(function (h) { var ci = colOf(h); if (ci < 1) return; var cell = row.getCell(ci); cell.value = out(h, n.values[h]); if (fresh) { if (DATE_COLS.indexOf(h) !== -1) { var st = JSON.parse(JSON.stringify(cell.style || {})); st.numFmt = 'dd/mm/yyyy'; cell.style = st; } } else paint(cell, GREEN, DATE_COLS.indexOf(h) !== -1); });
       var pc = colOf('قيمة الدفعة'); if (pc > 0) row.getCell(pc).value = { formula: 'IF(OR(L' + ri + '="",M' + ri + '=""),"",L' + ri + '*IFERROR(VLOOKUP(M' + ri + ',Lists!$G$2:$H$6,2,FALSE),1))' };
-      row.getCell(colOf('كود الوحدة')).note = 'MBM: ' + n.why;
+      if (!(opts && opts.pure)) row.getCell(colOf('كود الوحدة')).note = 'MBM: ' + n.why;
     });
     var sk = wb.getWorksheet(SKIP);
     if (sk && R.skipped.length) {
       var sl = Math.max(2, lastRow(sk));
-      R.skipped.forEach(function (x, k) { var row = sk.getRow(sl + 1 + k); row.getCell(1).value = x.code; row.getCell(2).value = x.no || null; row.getCell(3).value = L.serialToDate(x.month); row.getCell(4).value = x.why; [1, 2, 3, 4].forEach(function (i) { paint(row.getCell(i), YELLOW, i === 3); }); });
+      R.skipped.forEach(function (x, k) { var row = sk.getRow(sl + 1 + k); row.getCell(1).value = x.code; row.getCell(2).value = x.no || null; row.getCell(3).value = L.serialToDate(x.month); row.getCell(4).value = x.why; [1, 2, 3, 4].forEach(function (i) { if (fresh) { if (i === 3) { var st3 = JSON.parse(JSON.stringify(row.getCell(i).style || {})); st3.numFmt = 'dd/mm/yyyy'; row.getCell(i).style = st3; } } else paint(row.getCell(i), YELLOW, i === 3); }); });
     }
+    // ملف المطور نضيف بنفس شيتاته بس، والسجل وكشف المستحقات في ملف لوحده (extrasBook)
+    if (opts && opts.pure) return wb;
+    return addExtras(wb, R, src);
+  }
+  function addExtras(wb, R, src) {
     // السجل: بيتجمع من كل الملفات. "مش عندنا" بتفضل بس لو مش موجودة في أي ملف اتراجع
     var dev1 = {}; R.devOnly.forEach(function (c) { dev1[c] = 1; });
     var hadLog = !!wb.getWorksheet(LOG), logRows = [];
@@ -80,6 +85,9 @@
     dw.eachRow(function (row, i) { if (i < 2) return; var f = STATE_FILL[String(cellVal(row.getCell(11).value) || '').replace(' *', '')]; if (f) row.getCell(11).fill = f; });
     return wb;
   }
+
+  // تغييرات MBM وكشف المستحقات في ملف منفصل عن ملف المطور
+  function extrasBook(ExcelJS, R, src) { return addExtras(new ExcelJS.Workbook(), R, src); }
 
   // runs: [{ src, R }]
   function reviewBook(ExcelJS, runs) {
@@ -114,6 +122,6 @@
     return wb;
   }
 
-  var api = { applyDev: applyDev, reviewBook: reviewBook, cellVal: cellVal, shown: shown, SHEET: SHEET, SKIP: SKIP, DATE_COLS: DATE_COLS };
+  var api = { applyDev: applyDev, extrasBook: extrasBook, reviewBook: reviewBook, cellVal: cellVal, shown: shown, SHEET: SHEET, SKIP: SKIP, DATE_COLS: DATE_COLS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.OsoolBook = api;
 })(this);
