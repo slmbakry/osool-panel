@@ -1401,11 +1401,12 @@
         return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2">كود ' + esc(u.code) + ' · ' + esc(u.owner || '—') + '</div></div>' +
           (d === null ? '' : d < 0 ? '<span class="badge done">خلص</span>' : d <= 30 ? '<span class="badge book">باقي ' + d + ' يوم</span>' : '') + '</div>' +
           '<dl class="kv"><dt>نهاية العقد</dt><dd>' + (u.ownerEnd ? L.fmt(u.ownerEnd) : '—') + '</dd><dt>إيجار الشهر ده</dt><dd>' + (rent ? money(rent) : '—') + '</dd>' + (u.bedrooms ? '<dt>الغرف</dt><dd>' + esc(u.bedrooms) + '</dd>' : '') + '</dl>' +
-          '<div style="display:flex;gap:14px;margin-top:6px"><button class="link" data-ocr="' + esc(u.code) + '">تجديد</button><button class="link" data-oce="' + esc(u.code) + '">تعديل</button></div></div>';
+          '<div style="display:flex;gap:14px;margin-top:6px"><button class="link" data-ocr="' + esc(u.code) + '">تجديد</button><button class="link" data-oce="' + esc(u.code) + '">تعديل</button><button class="link" data-ocg="' + esc(u.code) + '">روح للسطر</button></div></div>';
       }).join('') : '<div class="empty">' + (q ? 'مفيش نتايج.' : 'مفيش عقود بتخلص قريب.') + '</div>');
     };
     var tm; $('ocQ').oninput = function () { OC.q = this.value; clearTimeout(tm); tm = setTimeout(draw, 150); };
-    $('ocRes').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; if (b.dataset.ocr) openOwnerForm('renew', unitOf(b.dataset.ocr)); else if (b.dataset.oce) openOwnerForm('edit', unitOf(b.dataset.oce)); };
+    $('ocRes').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; if (b.dataset.ocr) openOwnerForm('renew', unitOf(b.dataset.ocr)); else if (b.dataset.oce) openOwnerForm('edit', unitOf(b.dataset.oce));
+      else if (b.dataset.ocg) { var gu = unitOf(b.dataset.ocg); if (gu && gu.idx >= 0) A.goTo('owner', gu.idx).catch(function (er) { App.openSheet('<h2>عقود الملاك</h2>' + errHtml(er) + '<button class="btn ghost" onclick="OsoolApp.closeSheet()">رجوع</button>'); }); } };
     $('ocNew').onclick = function () { openOwnerForm('new', null); };
     draw();
   }
