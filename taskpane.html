@@ -36,6 +36,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .crumb{margin-top:8px;font-size:18px;font-weight:700;color:#fff;position:relative;z-index:1}
 .subnav{display:flex;gap:6px;margin-top:10px;position:relative;z-index:1}
 .subnav button{flex:1;border:1px solid rgba(226,196,124,.25);background:transparent;color:#cdbf9f;border-radius:9px;padding:6px 4px;cursor:pointer;font-weight:500;font-size:13px}
+.adminpill{flex:0 0 auto;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2c47c;background:rgba(226,196,124,.18);color:#e2c47c;border-radius:50%;padding:0;cursor:pointer}.adminpill svg{width:13px;height:13px}
 .subnav button.on{background:var(--gold);border-color:var(--gold);color:var(--night);font-weight:600}
 .nav{position:fixed;bottom:0;inset-inline:0;height:62px;background:#fff;border-top:1px solid var(--line);display:flex;padding:5px 8px 7px;z-index:7}
 .nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:500;color:#9a8f7b;background:none;border:0;border-radius:12px;cursor:pointer;padding-top:5px}
@@ -233,6 +234,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
   <symbol fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
   <symbol fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></symbol>
   <symbol fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="i-doc" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
   <symbol fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="i-cash" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M7 9v.01M17 15v.01"/></symbol>
@@ -256,7 +258,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 </defs></svg>
 <div class="top" id="top">
   <div class="brandrow">
-    <div class="brand"><span dir="ltr" class="mbm">MBM</span>لوحة أصول <span class="stat" id="stat">بيحمّل…</span><button class="trialpill" id="trialBtn" title="ادعم البانل">تجريبي</button></div>
+    <div class="brand"><span dir="ltr" class="mbm">MBM</span>لوحة أصول <span class="stat" id="stat">بيحمّل…</span><button class="adminpill hide" id="adminPill" title="اقفل الإدارة وارجع لشكل الفريق" aria-label="اقفل الإدارة"><svg><use href="#i-lock"/></svg></button></div>
     <button class="iconbtn" id="bigOpen" title="افتح في نافذة كبيرة" aria-label="افتح في نافذة كبيرة"><svg><use href="#i-big"/></svg></button>
     <button class="iconbtn" id="bigClose" title="اقفل النافذة" aria-label="اقفل النافذة"><svg><use href="#i-x"/></svg></button>
     <button class="iconbtn" id="hSearch" title="بحث" aria-label="بحث"><svg><use href="#i-search"/></svg></button>
@@ -355,6 +357,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   <section id="tab-coll" class="hide"></section>
   <section id="tab-owners" class="hide"></section>
   <section id="tab-review" class="hide"></section>
+  <section id="tab-dev" class="hide"></section>
   <section id="tab-cmp" class="hide"></section>
   <section id="tab-ownerc" class="hide"></section>
   <section id="tab-occ" class="hide"></section>
@@ -379,9 +382,10 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 
 <nav class="nav" id="nav">
   <button data-g="home" class="on"><svg><use href="#i-home"/></svg>الرئيسية</button>
-  <button data-g="contracts"><svg><use href="#i-doc"/></svg>العقود</button>
-  <button data-g="money"><svg><use href="#i-cash"/></svg>الفلوس</button>
-  <button data-g="units"><svg><use href="#i-key"/></svg>الشقق</button>
+  <button data-g="tenants"><svg><use href="#i-user"/></svg>المستأجرين</button>
+  <button data-g="owners"><svg><use href="#i-key"/></svg>الملاك</button>
+  <button data-g="treasury"><svg><use href="#i-cash"/></svg>الخزينة</button>
+  <button data-g="admin" class="hide" id="navAdmin"><svg><use href="#i-lock"/></svg>الإدارة</button>
 </nav>
 
 <div class="overlay" id="ov"><div class="sheet" id="sheet"></div></div>
@@ -435,38 +439,36 @@ function load(){
 function fill(id, vals){ $(id).innerHTML = vals.map(function(v){ return '<option value="'+esc(v)+'">'; }).join(''); }
 
 // ---------- التنقل: ٤ أقسام تحت، وأقسام فرعية فوق ----------
+// التقسيم على حسب الشخص: المستأجر، المالك، الخزينة. والإدارة مخفية بالكود
 var GROUPS = {
   home: { title: '', sub: null },
-  contracts: { title: 'العقود', sub: [['search','بحث'],['new','عقد جديد']] },
-  money: { title: 'الفلوس', sub: [['coll','المستأجرين'],['owners','الملاك'],['treas','الخزينة']] },
-  units: { title: 'الشقق', sub: [['avail','المتاح']] },
-  review: { title: 'المراجعة', sub: null }
+  tenants: { title: 'المستأجرين', sub: [['search','العقود'],['new','عقد جديد'],['coll','التحصيل'],['avail','المتاح']] },
+  owners: { title: 'الملاك', sub: [['owners','السداد'],['ownerc','العقود']] },
+  treasury: { title: 'الخزينة', sub: [['treas','الحركات'],['review','المراجعة']] },
+  admin: { title: 'الإدارة', sub: [['prof','الربحية'],['cmp','المقارنة'],['occ','الإشغال'],['dev','المطور']] }
 };
-var GROUP_OF = { prof:'money', occ:'units', ownerc:'contracts', cmp:'money', home:'home', search:'contracts', 'new':'contracts', transfer:'contracts', coll:'money', owners:'money', treas:'money', avail:'units', review:'review' };
-var ALL_TABS = ['prof','occ','ownerc','cmp','home','new','search','coll','transfer','avail','treas','owners','review'];
-var LAST = { contracts:'search', money:'coll', units:'avail', home:'home' };
+var GROUP_OF = { home:'home', search:'tenants', 'new':'tenants', transfer:'tenants', coll:'tenants', avail:'tenants', owners:'owners', ownerc:'owners', treas:'treasury', review:'treasury', prof:'admin', cmp:'admin', occ:'admin', dev:'admin' };
+var ALL_TABS = ['prof','occ','ownerc','cmp','dev','home','new','search','coll','transfer','avail','treas','owners','review'];
+var LAST = { tenants:'search', owners:'owners', treasury:'treas', admin:'prof', home:'home' };
+var ADMIN_TABS = ['prof','cmp','occ','dev'];
 // ---------- شاشة المقارنة: مخفية ومبتظهرش غير بعد كود على الجهاز ----------
 var CMP_KEY = 'osoolPanel.cmp';
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function lsSet(k,v){ try { if (v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); } catch(e){} }
 function cmpOn(){ return lsGet(CMP_KEY)==='1'; }
-// الأقسام المخفية: المقارنة (الفلوس) وعقود الملاك (العقود)، والتأمينات جوه المستأجرين
-var HIDDEN_TABS = [['money','cmp','المقارنة'],['money','prof','الربحية'],['contracts','ownerc','عقود الملاك'],['units','occ','الإشغال']];
+// الإدارة: زرار خامس تحت وعلامة فوق، بيظهروا بس بعد الكود على الجهاز ده
 function cmpSync(){
-  HIDDEN_TABS.forEach(function(h){
-    var g = GROUPS[h[0]], has = g.sub.some(function(x){ return x[0]===h[1]; });
-    if (cmpOn() && !has) g.sub.push([h[1],h[2]]);
-    if (!cmpOn() && has) g.sub = g.sub.filter(function(x){ return x[0]!==h[1]; });
-  });
+  $('navAdmin').classList.toggle('hide', !cmpOn());
+  $('adminPill').classList.toggle('hide', !cmpOn());
 }
-function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); showTab('coll'); }
+function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); if (ADMIN_TABS.indexOf(S.tab) !== -1) showTab('home'); }
 (function(){
   var taps = 0, tm;
   document.addEventListener('click', function(e){
     if (!e.target.closest('.brand .mbm')) return;
     taps++; clearTimeout(tm); tm = setTimeout(function(){ taps = 0; }, 2500);
     if (taps < 5) return; taps = 0;
-    if (cmpOn()) { showTab('cmp'); return; }
+    if (cmpOn()) { showTab('prof'); return; }
     // window.prompt مبيشتغلش جوه إضافات الأوفيس، فالكود بيتكتب في شاشة جوه البانل
     $('sheet').innerHTML = '<h2>الجزء المخفي</h2><div class="r2" style="margin:-4px 0 10px">اكتب الكود</div>' +
       '<input id="cmpCode" type="password" inputmode="numeric" autocomplete="off" style="width:100%;font-size:20px;text-align:center;letter-spacing:8px;padding:10px;border:1px solid var(--line,#ddd);border-radius:10px">' +
@@ -475,7 +477,7 @@ function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); showTab('coll'); }
     $('ov').classList.add('on');
     var inp = $('cmpCode'); setTimeout(function(){ inp.focus(); }, 50);
     function go(){
-      if (String(inp.value).trim() === '0000') { lsSet(CMP_KEY,'1'); cmpSync(); $('ov').classList.remove('on'); showTab('cmp'); }
+      if (String(inp.value).trim() === '0000') { lsSet(CMP_KEY,'1'); cmpSync(); $('ov').classList.remove('on'); showTab('prof'); }
       else { $('cmpMsg').textContent = 'الكود مش صح'; inp.value = ''; inp.focus(); }
     }
     $('cmpGo').onclick = go;
@@ -484,6 +486,7 @@ function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); showTab('coll'); }
 })();
 cmpSync();
 function showTab(t){
+  if (ADMIN_TABS.indexOf(t) !== -1 && !cmpOn()) t = 'home';
   S.tab = t;
   var g = GROUP_OF[t] || 'home';
   if (LAST[g] !== undefined && t !== 'transfer') LAST[g] = t;
@@ -501,12 +504,14 @@ function showTab(t){
   window.scrollTo(0,0);
   if (t==='search') setTimeout(function(){ $('sQ').focus(); }, 30);
   if (t==='home' && window.OsoolHome) OsoolHome.render();
+  if (t==='dev' && !$('tab-dev').innerHTML) $('tab-dev').innerHTML = '<div class="card"><h3>تجهيز الداتا للمطور</h3><div class="r2">هنا هتيجي أداة التجهيز كلها: البحث في العقود، محتاج قرار، المستحقات، وملف المطور.</div></div>';
   if (window.OsoolScreens && OsoolScreens.onTab) OsoolScreens.onTab(t);
 }
 document.querySelectorAll('#nav button').forEach(function(b){ b.addEventListener('click', function(){ showTab(LAST[b.dataset.g]); }); });
 $('subnav').addEventListener('click', function(e){ var b=e.target.closest('button[data-t]'); if(b) showTab(b.dataset.t); });
 $('hSearch').addEventListener('click', function(){ showTab('search'); });
 $('reload').addEventListener('click', load);
+$('adminPill').addEventListener('click', cmpLock);
 // ---------- النافذة الكبيرة: نفس البانل فوق الإكسيل للعرض ----------
 function openBig(){
   var ui = window.Office && Office.context && Office.context.ui;
@@ -532,7 +537,7 @@ function openBig(){
   }).catch(function(e){ btn.disabled = false; alert(e.message); });
 }
 $('bigOpen').addEventListener('click', openBig);
-$('trialBtn').addEventListener('click', function(){ if (window.OsoolHome) OsoolHome.trialSheet(); });
+
 $('bigClose').addEventListener('click', function(){ window.OsoolBig && window.OsoolBig.close(); });
 
 // ---------- الوحدة ----------
