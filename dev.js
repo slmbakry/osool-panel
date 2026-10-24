@@ -80,7 +80,7 @@
   // ---------- الشاشة ----------
   function shell() {
     $('tab-dev').innerHTML =
-      '<div class="dv-top"><span class="r2" id="dvScope">بيقرا الملف…</span><span class="dv-acts"><button id="dvPick">النطاق</button><button id="dvRe">↻ اقرا تاني</button></span></div>' +
+      '<div class="dv-top"><span class="r2" id="dvScope">بيقرا الملف…</span><span class="dv-acts"><button id="dvRe">↻ اقرا تاني</button></span></div>' +
       '<div class="tgs" id="dvTabs"><button class="tg on" data-t="find">العقود</button><button class="tg" data-t="rev">المراجعة</button><button class="tg" data-t="dev">ملف المطور</button></div>' +
       '<div id="dvStatus"></div>' +
       '<section id="dv-find"><input id="dvQ" class="dv-srch" placeholder="ابحث بالكود، أو العمارة والشقة، أو المالك، أو المستفيد" autocomplete="off">' +
@@ -96,7 +96,6 @@
       ['find', 'rev', 'dev'].forEach(function (t) { $('dv-' + t).classList.toggle('hide', t !== D.tab); });
     };
     $('dvRe').onclick = function () { analyze(); };
-    $('dvPick').onclick = openScope;
     var qt; $('dvQ').oninput = function () { clearTimeout(qt); qt = setTimeout(drawFind, 150); };
     $('dvSave').onclick = function () { save(this, buildFile, 'عقود الملاك للسيستم', 'لو هتكمّل على ملف أصول تاني، افتحه وطلّع ملفه من نفس المكان.'); };
     $('dvSaveRev').onclick = function () { save(this, buildReview, 'مراجعة العقود والمستحقات', 'ده ليك انت بس، مش للمطور.'); };
@@ -211,30 +210,10 @@
     }).catch(function (e) { $('dvStatus').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   }
 
-  // ---------- النطاق: مشاريع الملف، والاختيار بيبدأ من إعداد الملف ومش بيتحفظ ----------
+  // ---------- النطاق: هو نفسه نطاق اللوحة (إعدادات ⚙)، وبيتسمى بأسماء المشاريع اللي جواه ----------
   function scopeName(st) {
     var p = st.projects || []; if (st.mode === 'only') return p.map(function (x) { return GRP[x] || x; }).join(' و');
     return p.length ? 'كل المشاريع ما عدا ' + p.join('، ') : 'كل المشاريع';
-  }
-  function openScope() {
-    App.openSheet('<h2>نطاق ملف المطور</h2><div class="scp" id="scopeBox"></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn ghost" id="stX">قفل</button><button class="btn primary" id="stGo">طبّق وحلل تاني</button></div>');
-    D.pick0 = JSON.stringify(D.pick); drawScope();
-    $('stX').onclick = function () { D.pick = JSON.parse(D.pick0); applyPick(); App.closeSheet(); };
-    $('stGo').onclick = function () { App.closeSheet(); analyze(D.data); };
-  }
-  function drawScope() {
-    var box = $('scopeBox'), P0 = D.projects || [], on = D.pick; if (!box) return;
-    var html = F.GROUPS.map(function (g) {
-      var ps = P0.filter(function (p) { return F.groupOf(p.name) === g; }); if (!ps.length) return '';
-      return '<div class="g">' + esc(GRP[g] || g) + ' <button data-g="' + esc(g) + '">' + (ps.every(function (p) { return on[p.key]; }) ? 'شيل الكل' : 'اختار الكل') + '</button></div><div class="chips">' +
-        ps.map(function (p) { return '<button class="ch' + (on[p.key] ? ' on' : '') + '" data-p="' + esc(p.key) + '"><bdi>' + esc(p.name) + '</bdi><i>' + p.n + '</i></button>'; }).join('') + '</div>';
-    }).join('');
-    var n = P0.filter(function (p) { return on[p.key]; }).reduce(function (a, p) { return a + p.n; }, 0);
-    box.innerHTML = '<div class="r2" style="margin-bottom:2px">اختار المشاريع اللي تطلع عقودها</div>' + html +
-      '<div class="ft"><span>' + n + ' وحدة متختارة</span><button id="scpReset">رجّع إعداد الملف</button></div>';
-    box.querySelectorAll('.ch').forEach(function (b) { b.onclick = function () { on[b.dataset.p] = !on[b.dataset.p]; applyPick(); }; });
-    box.querySelectorAll('.g button').forEach(function (b) { b.onclick = function () { var ps = P0.filter(function (p) { return F.groupOf(p.name) === b.dataset.g; }), all = ps.every(function (p) { return on[p.key]; }); ps.forEach(function (p) { on[p.key] = !all; }); applyPick(); }; });
-    $('scpReset').onclick = function () { pickFrom(D.fileSettings); applyPick(); };
   }
   function pickFrom(st) { D.pick = {}; (D.projects || []).forEach(function (p) { D.pick[p.key] = F.inScope({ project: p.name }, st, true); }); }
   function applyPick() {
@@ -248,8 +227,7 @@
       if (mine.length <= 3) return mine.map(function (p) { return p.name; }).join(' و');
       return (GRP[g] || g) + (out.length <= 3 ? ' ما عدا ' + out.map(function (p) { return p.name; }).join(' و') : ' (جزء)');
     }).join(' و') || 'مفيش';
-    $('dvScope').innerHTML = 'النطاق: <b>' + esc(D.scopeName) + '</b>'; if ($('stGo')) $('stGo').disabled = !sel.length;
-    drawScope();
+    $('dvScope').innerHTML = 'النطاق: <b>' + esc(D.scopeName) + '</b> <span class="r2">(من إعدادات اللوحة)</span>';
   }
 
   // بيقرا الملف ويحلل (أول ما التبويب يتفتح، وبعد أي تعديل، ومن زرار اقرا تاني)
@@ -267,7 +245,7 @@
     $('dvStatus').innerHTML = '<div class="msg"><span class="spin"></span>بيحمّل الأداة…</div>';
     return libs().then(function () { return mock() ? (window.__settings || F.DEFAULT_SETTINGS) : App.S.settings || (window.OsoolStore ? OsoolStore.read() : null); }).then(function (st) {
       st = st || F.DEFAULT_SETTINGS;
-      D.fileSettings = st; D.settings = st; D.scopeName = scopeName(st);
+      D.fileSettings = st; D.settings = st; D.stKey = JSON.stringify(App.S.settings || null); D.scopeName = scopeName(st);
       return readBook(function (t) { $('dvStatus').innerHTML = '<div class="msg"><span class="spin"></span>' + esc(t) + '</div>'; });
     }).then(function (data) {
       var cnt = {}, name = {};
@@ -278,5 +256,10 @@
     }).catch(function (e) { $('dvStatus').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   }
 
-  window.OsoolDev = { open: function () { if (!App.cmpOn()) return; if (!D.started) { D.started = true; start(); } } };
+  // لو نطاق اللوحة اتغير من الإعدادات، نحلل تاني بالنطاق الجديد من غير ما نقرا الملف تاني
+  function resync() {
+    var k = JSON.stringify(App.S.settings || null); if (k === D.stKey || !D.projects || !D.data) return;
+    D.stKey = k; D.fileSettings = App.S.settings || F.DEFAULT_SETTINGS; pickFrom(D.fileSettings); applyPick(); analyze(D.data);
+  }
+  window.OsoolDev = { open: function () { if (!App.cmpOn()) return; if (!D.started) { D.started = true; start(); } else resync(); } };
 })();
