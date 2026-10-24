@@ -99,7 +99,7 @@
     function ocInc() { var v = ocNum($('ofI').value); return v ? ($('ofIT').value === 'amt' ? { amt: v } : { pct: v }) : null; }
     // بيحسب اللي هيتكتب ويعرضه (الشهور والخانات اللي هتتغير)
     function ownerPlan(show) {
-      var m = OF.mode, row = OF.row || {}, errs = [], fields = {}, months = {}, comments = [], changes = [], tday = L.fmt(today());
+      var m = OF.mode, row = OF.row || {}, errs = [], fields = {}, months = {}, comments = [], changes = [];
       var inc = ocInc(), oldInc = ocIncOf(row['زيادة سنوية']);
       var put = function (k, v, label) {
         var old = row[k], same = String(old === null || old === undefined ? '' : old).trim() === String(v === null || v === undefined ? '' : v).trim();
@@ -107,7 +107,7 @@
         if (m === 'new') { if (v !== '' && v !== null && v !== undefined) fields[k] = v; return; }
         if (same) return;
         fields[k] = v; changes.push([label || k, old, v]);
-        if (k !== 'نهاية العقد') comments.push({ key: k, text: (m === 'renew' ? 'تجديد ' : 'تعديل ') + tday + ': كان "' + (old === '' || old === null || old === undefined ? 'فاضي' : (typeof old === 'number' && /عقد/.test(k) ? L.fmt(L.serialToDate(old)) : typeof old === 'number' ? money(old) : old)) + '"' });
+        if (k !== 'نهاية العقد') comments.push({ key: k, text: (m === 'renew' ? 'تجديد' : 'تعديل') + ': كان "' + (old === '' || old === null || old === undefined ? 'فاضي' : (typeof old === 'number' && /عقد/.test(k) ? L.fmt(L.serialToDate(old)) : typeof old === 'number' ? money(old) : old)) + '"' });
       };
       var opt = function (k, id, num) { if (!$(id)) return; var v = $(id).value.trim(); put(k, num && v !== '' ? Number(digits(v)) : v); };
       var monthsRows = [];
@@ -127,18 +127,18 @@
         if (!errs.length) {
           F.planOwnerMonths(s0, e0, rent, inc).forEach(function (x) { months[x.key] = x.amount; monthsRows.push({ key: x.key, amount: x.amount, year: x.year, old: Number(row[x.key]) || 0 }); });
           var iw = incWhen(inc, monthsRows), span = L.fmt(s0) + ' ← ' + L.fmt(e0) + ' بـ ' + money(rent) + (iw ? '، ' + iw : '');
-          if (m === 'new') comments.push({ key: 'كود', text: 'وحدة جديدة ' + tday + ': ' + span });
+          if (m === 'new') comments.push({ key: 'كود', text: 'وحدة جديدة: ' + span });
           // تعليق على أول شهر الإيجار فيه اتغير، وعلى كل شهر زيادة
           var prevRent = m === 'renew' ? (ocLastRent(row, L.monthKey(L.addMonths(s0, -1))) || {}).amount || 0 : 0;
           monthsRows.forEach(function (r, i) {
             var before = i ? monthsRows[i - 1].amount : prevRent;
             if (!before || r.amount === before) return;
-            comments.push({ key: r.key, text: (i ? 'زيادة ' + tday + ': ' : 'تجديد ' + tday + ': ') + money(r.amount) + ' (كان ' + money(before) + ')' });
+            comments.push({ key: r.key, text: (i ? 'زيادة: ' : 'تجديد: ') + money(r.amount) + ' (كان ' + money(before) + ')' });
           });
           if (m === 'renew') {
             var oe = row['نهاية العقد'];
             fields['نهاية العقد'] = L.dateToSerial(e0); changes.push(['نهاية العقد', oe ? L.fmt(L.serialToDate(oe)) : '', L.fmt(e0)]);
-            comments.push({ key: 'نهاية العقد', text: 'تجديد ' + tday + ': ' + span + ' (كانت ' + (oe ? L.fmt(L.serialToDate(oe)) : 'فاضية') + ')' });
+            comments.push({ key: 'نهاية العقد', text: 'تجديد: ' + span + ' (كانت ' + (oe ? L.fmt(L.serialToDate(oe)) : 'فاضية') + ')' });
             put('قيمة الايجار', rent, 'قيمة الإيجار');
           } else { fields['نهاية العقد'] = L.dateToSerial(e0); fields['قيمة الايجار'] = rent; }
         }
@@ -150,7 +150,7 @@
         var useInc = inc || oldInc;
         if (ne && oe2 && ne.getTime() !== oe2.getTime()) {
           fields['نهاية العقد'] = L.dateToSerial(ne); changes.push(['نهاية العقد', L.fmt(oe2), L.fmt(ne)]);
-          comments.push({ key: 'نهاية العقد', text: 'تعديل ' + tday + ': النهاية كانت ' + L.fmt(oe2) });
+          comments.push({ key: 'نهاية العقد', text: 'تعديل: النهاية كانت ' + L.fmt(oe2) });
           if (ne < oe2) Object.keys(om).forEach(function (k) { if (F.cmpKey(k, endK) > 0 && F.cmpKey(k, L.monthKey(oe2)) <= 0 && om[k]) { months[k] = ''; monthsRows.push({ key: k, amount: 0, old: om[k] }); } });
           else {
             var lr = ocLastRent(row, L.monthKey(oe2)), k = L.monthKey(L.addMonths(F.keyToDate(L.monthKey(oe2)), 1));
@@ -165,7 +165,7 @@
             if ((Number(om[k2]) || 0) !== v2) { months[k2] = v2; if (!firstChanged) firstChanged = k2; var ex = monthsRows.filter(function (r) { return r.key === k2; })[0]; if (ex) ex.amount = v2; else monthsRows.push({ key: k2, amount: v2, old: om[k2] || 0 }); }
             k2 = L.monthKey(L.addMonths(F.keyToDate(k2), 1));
           }
-          if (firstChanged) comments.push({ key: firstChanged, text: 'تعديل ' + tday + ': الإيجار من ' + L.monthLabel(fk) + ' بقى ' + money(nr) + ' (كان ' + money(om[firstChanged] || 0) + ')' + ($('ofKeep').checked && useInc ? '، والزيادة السنوية مكملة' : '') });
+          if (firstChanged) comments.push({ key: firstChanged, text: 'تعديل: الإيجار من ' + L.monthLabel(fk) + ' بقى ' + money(nr) + ' (كان ' + money(om[firstChanged] || 0) + ')' + ($('ofKeep').checked && useInc ? '، والزيادة السنوية مكملة' : '') });
         }
         monthsRows.sort(function (a, b) { return F.cmpKey(a.key, b.key); });
       }
@@ -185,7 +185,7 @@
         monthsRows = monthsRows.filter(function (r) { return cols.indexOf(r.key) !== -1; });
         pend.sort(function (a, b) { return F.cmpKey(a.key, b.key); });
         comments = comments.filter(function (c) { return !MRE.test(c.key) || cols.indexOf(c.key) !== -1; });
-        if (pend.length) comments.push({ key: lastCol, pending: true, text: pendText(pend, tday) });
+        if (pend.length) comments.push({ key: lastCol, pending: true, text: pendText(pend) });
       }
       OF.plan = errs.length ? null : { idx: m === 'new' ? null : OF.u.idx, code: m === 'new' ? OF.code : OF.u.code, fields: fields, months: months, comments: comments, changes: changes, rows: monthsRows, pend: pend, lastCol: lastCol, before: before };
       if (show) drawOwnerPlan(errs);
@@ -200,8 +200,8 @@
       });
       return out;
     }
-    function pendText(pend, tday) {
-      return 'مطلوب تسجيله لما نزوّد شهور في جدول الملاك (' + tday + '):\n' + pendRanges(pend).map(function (g) {
+    function pendText(pend) {
+      return 'مطلوب تسجيله لما نزوّد شهور في جدول الملاك:\n' + pendRanges(pend).map(function (g) {
         return (g.from === g.to ? L.monthLabel(g.from) : L.monthLabel(g.from) + ' ← ' + L.monthLabel(g.to)) + ': ' + money(g.amount) + ' شهريًا';
       }).join('\n');
     }
