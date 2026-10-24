@@ -36,7 +36,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 .crumb{margin-top:8px;font-size:18px;font-weight:700;color:#fff;position:relative;z-index:1}
 .subnav{display:flex;gap:6px;margin-top:10px;position:relative;z-index:1}
 .subnav button{flex:1;border:1px solid rgba(226,196,124,.25);background:transparent;color:#cdbf9f;border-radius:9px;padding:6px 4px;cursor:pointer;font-weight:500;font-size:13px}
-.adminpill{flex:0 0 auto;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2c47c;background:rgba(226,196,124,.18);color:#e2c47c;border-radius:50%;padding:0;cursor:pointer}.adminpill svg{width:13px;height:13px}
 .subnav button.on{background:var(--gold);border-color:var(--gold);color:var(--night);font-weight:600}
 .nav{position:fixed;bottom:0;inset-inline:0;height:62px;background:#fff;border-top:1px solid var(--line);display:flex;padding:5px 8px 7px;z-index:7}
 .nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:500;color:#9a8f7b;background:none;border:0;border-radius:12px;cursor:pointer;padding-top:5px}
@@ -148,7 +147,11 @@ table.sch .note{font-size:11px;color:var(--muted)}
 .done{text-align:center;padding:26px 10px}
 .done .big{font-size:40px;color:var(--ok)}
 .hide{display:none!important}
-.mbm{background:var(--gold);color:var(--night);border-radius:5px;padding:0 6px;margin-inline-end:2px;letter-spacing:.5px}
+.mbm{background:var(--gold);color:var(--night);border-radius:5px;padding:0 6px;margin-inline-end:2px;letter-spacing:.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;transition:box-shadow .3s,transform .15s}
+.mbm .pro{display:none;font-weight:800;margin-inline-start:5px;padding-inline-start:5px;border-inline-start:1.5px solid rgba(31,26,20,.35)}
+.mbm.on{background:linear-gradient(135deg,#f3d98b,#c9a24a 55%,#a8822f);box-shadow:0 0 0 1px #f3d98b,0 0 12px rgba(226,196,124,.55);cursor:pointer}
+.mbm.on .pro{display:inline}
+.mbm.hold{transform:scale(.94);box-shadow:0 0 0 2px #f3d98b,0 0 16px rgba(226,196,124,.7);transition:box-shadow 1.2s,transform 1.2s}
 .tgs{display:flex;flex-wrap:wrap;gap:6px}
 .tg{border:1px solid var(--line);background:#fff;border-radius:16px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
 .tg.on{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -279,7 +282,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 </defs></svg>
 <div class="top" id="top">
   <div class="brandrow">
-    <div class="brand"><span dir="ltr" class="mbm">MBM</span>لوحة أصول <span class="stat" id="stat">بيحمّل…</span><button class="adminpill hide" id="adminPill" title="اقفل الإدارة وارجع لشكل الفريق" aria-label="اقفل الإدارة"><svg><use href="#i-lock"/></svg></button></div>
+    <div class="brand"><span dir="ltr" class="mbm" id="brandMbm">MBM<b class="pro">PRO</b></span>لوحة أصول <span class="stat" id="stat">بيحمّل…</span></div>
     <button class="iconbtn" id="bigOpen" title="افتح في نافذة كبيرة" aria-label="افتح في نافذة كبيرة"><svg><use href="#i-big"/></svg></button>
     <button class="iconbtn" id="bigClose" title="اقفل النافذة" aria-label="اقفل النافذة"><svg><use href="#i-x"/></svg></button>
     <button class="iconbtn" id="hSearch" title="بحث" aria-label="بحث"><svg><use href="#i-search"/></svg></button>
@@ -415,11 +418,11 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 <datalist id="dlSpecial"><option>ابو ادم</option><option>Airbnb</option><option>ويستن</option><option>شركات</option></datalist>
 <datalist id="dlUtil"><option>شامل</option><option>غير شامل</option><option>على العميل</option></datalist>
 
-<script src="logic.js?v=20261024d"></script>
-<script src="followup.js?v=20261024d"></script>
-<script src="store.js?v=20261024d"></script>
-<script src="excel.js?v=20261024d"></script>
-<script src="big.js?v=20261024d"></script>
+<script src="logic.js?v=20261024e"></script>
+<script src="followup.js?v=20261024e"></script>
+<script src="store.js?v=20261024e"></script>
+<script src="excel.js?v=20261024e"></script>
+<script src="big.js?v=20261024e"></script>
 <script>
 (function(){
 'use strict';
@@ -480,21 +483,18 @@ function cmpOn(){ return lsGet(CMP_KEY)==='1'; }
 // الإدارة: زرار خامس تحت وعلامة فوق، بيظهروا بس بعد الكود على الجهاز ده
 function cmpSync(){
   $('navAdmin').classList.toggle('hide', !cmpOn());
-  $('adminPill').classList.toggle('hide', !cmpOn());
+  $('brandMbm').classList.toggle('on', cmpOn());
 }
 function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); if (ADMIN_TABS.indexOf(S.tab) !== -1) showTab('home'); }
 (function(){
-  var taps = 0, tm;
-  document.addEventListener('click', function(e){
-    if (!e.target.closest('.brand .mbm')) return;
-    taps++; clearTimeout(tm); tm = setTimeout(function(){ taps = 0; }, 2500);
-    if (taps < 5) return; taps = 0;
-    if (cmpOn()) { showTab('prof'); return; }
+  // وضع البرو: ضغطة طويلة على MBM بتفتحه بالكود، وضغطة طويلة تانية (أو دوسة على PRO) بتقفله
+  var pt = null, fired = false;
+  function proSheet(){
     // window.prompt مبيشتغلش جوه إضافات الأوفيس، فالكود بيتكتب في شاشة جوه البانل
-    $('sheet').innerHTML = '<h2>الجزء المخفي</h2><div class="r2" style="margin:-4px 0 10px">اكتب الكود</div>' +
+    $('sheet').innerHTML = '<h2>MBM PRO</h2><div class="r2" style="margin:-4px 0 10px">اكتب الكود</div>' +
       '<input id="cmpCode" type="password" inputmode="numeric" autocomplete="off" style="width:100%;font-size:20px;text-align:center;letter-spacing:8px;padding:10px;border:1px solid var(--line,#ddd);border-radius:10px">' +
       '<div id="cmpMsg" class="r2" style="min-height:20px;margin:6px 0;text-align:center;color:#a33"></div>' +
-      '<button class="btn primary" id="cmpGo" style="width:100%">فتح</button>';
+      '<button class="btn primary" id="cmpGo" style="width:100%">فعّل</button>';
     $('ov').classList.add('on');
     var inp = $('cmpCode'); setTimeout(function(){ inp.focus(); }, 50);
     function go(){
@@ -503,7 +503,22 @@ function cmpLock(){ lsSet(CMP_KEY,null); cmpSync(); if (ADMIN_TABS.indexOf(S.tab
     }
     $('cmpGo').onclick = go;
     inp.onkeydown = function(ev){ if (ev.key === 'Enter') go(); };
-  });
+  }
+  function lockSheet(){
+    $('sheet').innerHTML = '<h2>MBM PRO</h2><div class="r2" style="margin:-4px 0 12px">تقفل وضع البرو وترجع لشكل الفريق؟</div>' +
+      '<div style="display:flex;gap:8px"><button class="btn ghost" id="proNo">لأ</button><button class="btn primary" id="proOff" style="flex:1">اقفل</button></div>';
+    $('ov').classList.add('on');
+    $('proNo').onclick = function(){ $('ov').classList.remove('on'); };
+    $('proOff').onclick = function(){ $('ov').classList.remove('on'); cmpLock(); };
+  }
+  function held(){ fired = true; $('brandMbm').classList.remove('hold'); if (cmpOn()) lockSheet(); else proSheet(); }
+  function cancel(){ clearTimeout(pt); pt = null; $('brandMbm').classList.remove('hold'); }
+  var el = $('brandMbm');
+  el.addEventListener('pointerdown', function(e){ fired = false; cancel(); el.classList.add('hold'); pt = setTimeout(held, 1200); });
+  ['pointerup','pointerleave','pointercancel'].forEach(function(ev){ el.addEventListener(ev, cancel); });
+  el.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  // دوسة عادية على PRO بتقفل برضه
+  el.addEventListener('click', function(){ if (fired) { fired = false; return; } if (cmpOn()) lockSheet(); });
 })();
 cmpSync();
 function showTab(t){
@@ -537,7 +552,6 @@ $('subnav').addEventListener('click', function(e){
 });
 $('hSearch').addEventListener('click', function(){ showTab('search'); });
 $('reload').addEventListener('click', load);
-$('adminPill').addEventListener('click', cmpLock);
 // ---------- النافذة الكبيرة: نفس البانل فوق الإكسيل للعرض ----------
 function openBig(){
   var ui = window.Office && Office.context && Office.context.ui;
@@ -803,10 +817,10 @@ if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); els
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="reports.js?v=20261024d"></script>
-<script src="ownerform.js?v=20261024d"></script>
-<script src="screens.js?v=20261024d"></script>
-<script src="home.js?v=20261024d"></script>
-<script src="dev.js?v=20261024d"></script>
+<script src="reports.js?v=20261024e"></script>
+<script src="ownerform.js?v=20261024e"></script>
+<script src="screens.js?v=20261024e"></script>
+<script src="home.js?v=20261024e"></script>
+<script src="dev.js?v=20261024e"></script>
 </body>
 </html>

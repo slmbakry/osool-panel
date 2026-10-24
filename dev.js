@@ -18,8 +18,8 @@
   }
   function libs() {
     var p = Promise.resolve();
-    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261024d'); });
-    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261024d'); });
+    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261024e'); });
+    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261024e'); });
     return p;
   }
   function loadExcelJS() { return window.ExcelJS ? Promise.resolve() : script('vendor/exceljs.min.js'); }
