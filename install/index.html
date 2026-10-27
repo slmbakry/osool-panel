@@ -3,39 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تسطيب لوحة أصول</title>
+<title>لوحة أصول</title>
 <style>
 :root{--night:#1f1a14;--gold:#c9a24a;--brand:#8c6b25;--soft:#f5eedc;--ink:#2a241c;--muted:#7a6f60;--line:#e6dcc6;--bg:#f7f3ea}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,sans-serif;line-height:1.7}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,sans-serif;line-height:1.75}
 header{background:var(--night);color:#fff;padding:28px 16px 34px;text-align:center}
 .logo{display:inline-block;background:var(--gold);color:var(--night);font-weight:800;border-radius:8px;padding:2px 12px;letter-spacing:1px}
 h1{margin:12px 0 4px;font-size:26px;color:var(--gold)}
 header p{margin:0;color:#d8cdb6}
-main{max-width:640px;margin:-18px auto 40px;padding:0 16px}
+main{max-width:680px;margin:-18px auto 40px;padding:0 16px}
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:14px}
 .dl{display:block;text-align:center;background:var(--brand);color:#fff;text-decoration:none;font-weight:700;font-size:19px;border-radius:12px;padding:16px}
 .dl:hover{background:#755a1f}
 .small{color:var(--muted);font-size:14px;text-align:center;margin:10px 0 0}
-ol{margin:0;padding-inline-start:22px}
-li{margin:10px 0}
+ol,ul{margin:0;padding-inline-start:22px}
+li{margin:8px 0}
 .en{display:block;direction:ltr;text-align:left;font-family:Consolas,monospace;background:var(--soft);border-radius:8px;padding:6px 10px;margin-top:4px;font-size:14px}
-h2{font-size:18px;margin:0 0 10px;color:var(--brand)}
+h2{font-size:19px;margin:0 0 10px;color:var(--brand)}
+h3{font-size:16px;margin:16px 0 6px;color:var(--ink);display:flex;align-items:center;gap:8px}
+h3:first-of-type{margin-top:4px}
+h3 .tag{font-size:12px;font-weight:600;color:var(--brand);background:var(--soft);border-radius:20px;padding:0 10px}
+.lead{color:var(--muted);margin:-4px 0 10px;font-size:15px}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+nav.toc a{font-size:14px;text-decoration:none;color:var(--brand);border:1px solid var(--line);border-radius:20px;padding:3px 12px;background:#fff}
+nav.toc a:hover{background:var(--soft)}
+.new{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#1f7a45;border-radius:6px;padding:0 6px;margin-inline-start:4px;vertical-align:middle}
+.tip{background:var(--soft);border-radius:10px;padding:10px 14px;margin-top:10px;font-size:15px}
+b{font-weight:700}
 </style>
 </head>
 <body>
 <header>
   <span class="logo">MBM</span>
-  <h1>تسطيب لوحة أصول</h1>
-  <p>مرة واحدة بس على كل جهاز</p>
+  <h1>لوحة أصول</h1>
+  <p>بانل جنب ملف الإكسيل: عقود، تحصيل، ملاك، وخزينة في مكان واحد</p>
 </header>
 <main>
+
   <div class="card">
     <a class="dl" href="../manifest.xml" download="MBM-osool-panel.xml">تحميل ملف التسطيب</a>
-    <p class="small">الملف هينزل في التنزيلات على جهازك.</p>
+    <p class="small">مرة واحدة بس على كل جهاز. الملف هينزل في التنزيلات.</p>
   </div>
+
   <div class="card">
-    <h2>الخطوات</h2>
+    <h2>التسطيب</h2>
     <ol>
       <li>حمّل ملف التسطيب من الزرار اللي فوق.</li>
       <li>افتح ملف الشركة في الإكسيل من المتصفح زي كل يوم.</li>
@@ -48,13 +60,134 @@ h2{font-size:18px;margin:0 0 10px;color:var(--brand)}
       <li>هيظهر زرار البانل في آخر الشريط. دوس عليه والبانل هيفتح جنب الملف.</li>
     </ol>
   </div>
+
+  <div class="card">
+    <h2>اللوحة فيها إيه</h2>
+    <p class="lead">4 أزرار تحت، وكل زرار جواه تبويبات صغيرة فوق. كل حاجة متقسمة على حسب الشخص: المستأجر، المالك، والخزينة.</p>
+    <nav class="toc"><a href="#home">الرئيسية</a><a href="#tenants">المستأجرين</a><a href="#owners">الملاك</a><a href="#treasury">الخزينة</a><a href="#top">فوق البانل</a><a href="#safe">الأمان</a></nav>
+  </div>
+
+  <div class="card" id="home">
+    <h2>الرئيسية</h2>
+    <ul>
+      <li>ملخص النهارده: نسبة الإشغال، والمتأخرات، والمتوقع تحصيله، والمطلوب للملاك، والشقق الفاضية.</li>
+      <li>اختار دورك من الزرار اللي فوق: خزينة، مستأجرين، ملاك، أو الكل. الكروت بتتغير على حسب الدور.</li>
+      <li>المفضلة: كروت تختارها وترتبها زي ما تحب، منها:
+        <ul>
+          <li>تحصيلات مستحقة، والمتأخرين، والمستحقين</li>
+          <li>سدادات ملاك مستحقة، وملاك متأخر سدادهم، وعقود ملاك بتخلص قريب</li>
+          <li>مستنية استلام، وعقود بتخلص الأسبوع ده، والمتاح النهارده</li>
+          <li>يومية النهارده وامبارح، وحركات محتاجة مراجعة، والمتأخرين حسب المسؤول</li>
+          <li>اختصارات: عقد أو حجز جديد، وحركة خزينة جديدة</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <div class="card" id="tenants">
+    <h2>المستأجرين</h2>
+
+    <h3>العقود <span class="tag">بحث</span></h3>
+    <ul>
+      <li>ابحث بالاسم أو كود المستأجر أو التليفون أو رقم البطاقة. البحث بيطلع اللي جوه نطاق الملف بس.</li>
+      <li>من كارت العقد: تعديل، تمديد، تسليم مبكر، نقل لوحدة تانية، كشف حساب، وروح للسطر في الشيت.</li>
+    </ul>
+
+    <h3>عقد جديد</h3>
+    <ul>
+      <li>اختار الوحدة، وبعدين النوع: شهري أو بالليلة.</li>
+      <li>البانل بيحسب الشهور والمبالغ، وتراجعها قبل الحفظ، وبيقترح كود المستأجر لوحده.</li>
+    </ul>
+
+    <h3>التحصيل</h3>
+    <ul>
+      <li>قايمة المتأخرين والمستحقين، وكل واحد معاه رصيده وآخر سداد.</li>
+      <li>تسجيل تحصيل لشهر واحد، أو لكذا شهر مرة واحدة من خانة "عدد الشهور". كل شهر بيتسجل في سطر خزينة لوحده. <span class="new">جديد</span></li>
+      <li>في خزينة الدولار أو الريال: قدام كل شهر خانة بالجنيه وخانة بالعملة. <span class="new">جديد</span></li>
+      <li>رسالة واتساب للمستأجر، ورسالة مجمعة للأوبريشن، وتصدير للإكسيل أو الطباعة.</li>
+    </ul>
+
+    <h3>المتاح</h3>
+    <ul>
+      <li>الشقق الفاضية النهارده الأول، وبعدها اللي خارجة النهارده.</li>
+      <li>اللي داخل النهارده بيظهر متاح وعليه علامة "دخول اليوم".</li>
+      <li>كل حجوزات الوحدة تحت بعض في نفس السطر.</li>
+      <li>طباعة بالطول، واسم الملف هو اسم الكشف.</li>
+    </ul>
+  </div>
+
+  <div class="card" id="owners">
+    <h2>الملاك</h2>
+
+    <h3>العقود <span class="new">جديد</span></h3>
+    <ul>
+      <li>ابحث بالكود أو العمارة أو اسم المالك، أو شوف العقود اللي بتخلص قريب.</li>
+      <li>من كل كارت: تجديد، تعديل، وروح للسطر في شيت الملاك.</li>
+      <li>الشهور بتتكتب في أعمدة الشهور الموجودة في الجدول بس. اللي بعد آخر عمود بيتكتب تعليق "مطلوب تسجيله" على آخر شهر، عشان يتسجل لما نزوّد شهور.</li>
+      <li>بيتكتب تعليق قصير على نهاية العقد، وعلى كل شهر الإيجار اتغير فيه. الزيادة بتتذكر بس لو موجودة، زي "زيادة 10% في نوفمبر 2027".</li>
+    </ul>
+
+    <h3>عقد جديد</h3>
+    <ul>
+      <li>تكويد وحدة جديدة من الأول: الكمبوند، والعمارة والشقة، والمالك، والعقد.</li>
+      <li>كود الوحدة بيتقترح لوحده من وحدات نفس الكمبوند.</li>
+    </ul>
+
+    <h3>السداد</h3>
+    <ul>
+      <li>الملاك المتأخر سدادهم، والمستحقين خلال عدد أيام تختاره.</li>
+      <li>تسجيل السداد لشهر أو لكذا شهر، وبيانات التحويل للبنك، وتصدير للإكسيل أو الطباعة.</li>
+    </ul>
+  </div>
+
+  <div class="card" id="treasury">
+    <h2>الخزينة</h2>
+
+    <h3>الحركات</h3>
+    <ul>
+      <li>حركة خزينة جديدة: وارد أو منصرف، والفئة، والوحدة، والموظف، والشيك.</li>
+      <li>حركة لأكتر من وحدة: نفس البند لكذا وحدة، وكل وحدة بمبلغها، وممكن تلصق الوحدات من الإكسيل. زي يوم شحن الكهرباء.</li>
+      <li>طباعة اليومية لأي يوم، والبحث في الحركات بالتاريخ والخزينة والفئة، والتصدير.</li>
+    </ul>
+
+    <h3>المراجعة <span class="new">جديد للكل</span></h3>
+    <ul>
+      <li>حركات عليها علامة مراجعة، زي كود مستأجر أو مالك مش مظبوط.</li>
+      <li>حركات تاريخها غلط، أو سطر فيه وارد ومنصرف مع بعض.</li>
+      <li>عقود مستأجرين داخلة في بعض على نفس الشقة، أو بتخلص بعد عقد المالك.</li>
+    </ul>
+  </div>
+
+  <div class="card" id="top">
+    <h2>فوق البانل</h2>
+    <ul>
+      <li><b>الإعدادات:</b> نطاق الملف (المشاريع اللي الملف ده بيتابعها)، وفتح البانل لوحده مع الملف. الإعداد بيتحفظ جوه الملف، فكل الفريق بيشوف نفس النطاق.</li>
+      <li><b>تحديث:</b> بيقرا الملف تاني بآخر تعديل.</li>
+      <li><b>بحث:</b> بيوديك على بحث العقود على طول.</li>
+      <li><b>النافذة الكبيرة:</b> نفس البانل فوق الإكسيل بحجم الشاشة، للعرض.</li>
+    </ul>
+  </div>
+
+  <div class="card" id="safe">
+    <h2>الأمان في التسجيل</h2>
+    <ul>
+      <li>أي تسجيل بيتعرض الأول، ومحتاج "تأكيد". رسالة التأكيد والزرار ثابتين تحت الشاشة.</li>
+      <li>بعد الكتابة البانل بيرجع يقرا الخانات من الملف، ويتأكد إنها اتكتبت صح.</li>
+      <li>لو الحركة شكلها متسجلة قبل كده (نفس اليوم والكود والمبلغ)، بيحذرك.</li>
+    </ul>
+  </div>
+
   <div class="card">
     <h2>ملاحظات</h2>
     <ol>
-      <li>لو مسحت بيانات المتصفح أو فتحت من جهاز تاني، كرر الخطوات.</li>
       <li>التحديثات بتوصل لوحدها، مش محتاج تسطّب تاني.</li>
+      <li>لو مش شايف آخر تحديث، اقفل البانل واعمل تحديث كامل للصفحة:
+        <span class="en">Ctrl + F5</span></li>
+      <li>لو مسحت بيانات المتصفح أو فتحت من جهاز تاني، كرر خطوات التسطيب.</li>
+      <li>لو البانل مش ظاهر في قايمة الإضافات، ارفع ملف التسطيب تاني.</li>
     </ol>
   </div>
+
 </main>
 </body>
 </html>
