@@ -326,7 +326,9 @@
     // العقد خلص واتدفع بعد نهايته (مسدد حتى في الخزينة أبعد من النهاية) = اتفاق سنة جديدة لسه متوقعش، سنة بسنة لحد ما تغطي "مسدد حتى"
     var E0 = E;
     CTX.lastRent[u.code] = at(firstOf(E0));
-    while (u.paid && u.paid > E) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
+    // مدفوع بعد النهاية = شهر "مسدد حتى" بعد شهر النهاية (مش يوم واحد زيادة زي نهاية 30/10 ومسدد لحد 31/10)
+    var afterEnd = function () { return u.paid && L.dateToSerial(firstOf(u.paid)) > L.dateToSerial(firstOf(E)); };
+    while (afterEnd()) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
     // والشيت بيحسب شهور بعد النهاية لحد النهارده حتى من غير سداد = برضه اتفاق سنة جديدة لسه متوقعش (اتفاق 29-10)
     var billed = 0; for (var bd = L.addMonths(firstOf(E0), 1), blim = firstOf(today); bd <= blim; bd = L.addMonths(bd, 1)) if (at(bd) > 0) billed = L.dateToSerial(bd);
     while (billed && billed > E) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
@@ -388,7 +390,7 @@
       var md = F.keyToDate(lastMid), nv = at(md), steady = true;
       for (var q2 = L.addMonths(md, 1), qe2 = firstOf(Math.min(E, L.dateToSerial(L.addMonths(firstOf(today), 12)))); q2 <= qe2; q2 = L.addMonths(q2, 1)) { var vq = at(q2); if (vq > 0 && Math.abs(vq - nv) > 0.5) { steady = false; break; } }
       if (steady && L.dateToSerial(md) > cur.rs) {
-        var dd0 = Math.min(28, L.serialToDate(E + 1).getUTCDate()), ns2 = L.dateToSerial(new Date(Date.UTC(md.getUTCFullYear(), md.getUTCMonth(), dd0)));
+        var dd0 = L.serialToDate(E + 1).getUTCDate(); dd0 = dd0 >= 28 ? 1 : dd0; var ns2 = L.dateToSerial(new Date(Date.UTC(md.getUTCFullYear(), md.getUTCMonth(), dd0)));
         if (ns2 > CUTOFF && cur.s <= CUTOFF) prev = { s: cur.s, e: ns2 - 1, rs: cur.rs, why: 'العقد اللي مغطي 1/7/2026 (قبل تغيير الإيجار في ' + L.monthLabel(lastMid) + ')' };
         cur = { s: ns2, e: E, rs: L.dateToSerial(md), why: 'الإيجار اتغير في نص السنة (' + L.monthLabel(lastMid) + '): عقد جديد من شهر التغيير لحد نهاية الشيت' };
         var midNote = 'ملاحظة: الإيجار اتغير في ' + L.monthLabel(lastMid) + ' لـ ' + money(nv) + '، فاتسجل عقد جديد من ' + fmtS(ns2) + ' لحد ' + fmtS(E);
