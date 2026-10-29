@@ -706,6 +706,10 @@
       if (beyond.length) sec.push({ id: 'be', title: 'عقود بتعدّي نهاية عقد المالك', why: 'نهاية عقد المستأجر بعد نهاية عقد المالك.', kind: 'renter', items: beyond });
       if (dates.length) sec.push({ id: 'dt', title: 'تواريخ غريبة في الخزينة', why: 'قبل ٢٠٢١ أو بعد النهارده.', kind: 'entry', items: dates });
       if (both.length) sec.push({ id: 'bo', title: 'سطور فيها وارد ومنصرف مع بعض', why: 'السطر الواحد المفروض يا وارد يا منصرف.', kind: 'entry', items: both });
+      // صحة بيانات عقود الملاك: نفس المشاكل اللي المطور لقاها، بتتصلح من هنا
+      F.ownerHealth(S.units, S.raw && S.raw.owner ? S.raw.owner.cols : null, S.ownerMonths, S.treasury, st, t).forEach(function (g) {
+        sec.push({ id: 'oh' + g.key, title: 'الملاك: ' + g.title, why: g.why, kind: 'owner', items: g.items });
+      });
       var total = sec.reduce(function (a, x) { return a + x.items.length; }, 0);
       box.innerHTML = stSeg('rvSeg', RV.st) + '<div class="sum"><div class="box"><div class="v ' + (total ? 'late' : 'okc') + '">' + total + '</div><div class="k">ملاحظة محتاجة مراجعة</div></div>' +
         '<div class="box"><div class="v">' + sec.length + '</div><div class="k">نوع</div></div></div>' +
@@ -716,11 +720,18 @@
       bindSeg('rvSeg', function (v) { RV.st = v; renderReview(); });
       box.querySelectorAll('h3[data-sec]').forEach(function (h) { h.onclick = function () { var id = h.dataset.sec; RV.open[id] = !RV.open[id]; $('sec-' + id).classList.toggle('hide', !RV.open[id]); }; });
       box.querySelectorAll('button[data-go]').forEach(function (b) { b.onclick = function () { var p = b.dataset.go.split(':'); (p[0] === 'entry' ? A.goTo('entry', +p[1]) : A.goToRow(+p[1])).catch(function (e) { alert(e.message); }); }; });
+      box.querySelectorAll('button[data-og]').forEach(function (b) { b.onclick = function () { A.goTo('owner', +b.dataset.og).catch(function (e) { alert(e.message); }); }; });
+      box.querySelectorAll('button[data-oe]').forEach(function (b) { b.onclick = function () { openOwnerForm('edit', unitOf(b.dataset.oe)); }; });
     }).catch(function (e) { box.innerHTML = errHtml(e); });
   }
   function secItems(x) {
     var c = S.treasury.cols, list = x.items.slice();
     if (x.kind === 'entry') list.sort(function (a, b) { return b - a; });
+    if (x.kind === 'owner') return list.slice(0, 80).map(function (it) {
+      var u = it.u;
+      return '<div class="rcard"><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2">كود <span dir="ltr">' + esc(u.code) + '</span> · ' + esc(u.owner || '—') + (it.note ? ' · ' + esc(it.note) : '') + '</div>' +
+        '<div style="display:flex;gap:14px;margin-top:6px"><button class="link" data-oe="' + esc(u.code) + '">عدّل العقد</button><button class="link" data-og="' + u.idx + '">روح للسطر</button></div></div>';
+    }).join('') + (list.length > 80 ? '<div class="r2">ظاهر ٨٠ من ' + list.length + '.</div>' : '');
     var more = list.length > 60 ? '<div class="r2">ظاهر ٦٠ من ' + list.length + '.</div>' : '';
     return list.slice(0, 60).map(function (it) {
       if (x.kind === 'entry') {

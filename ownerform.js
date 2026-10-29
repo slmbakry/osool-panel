@@ -36,7 +36,7 @@
         html += '<div class="grid2"><div><label>الكمبوند <span class="req">*</span></label>' + sel('ofP', [['', 'اختار…']].concat(Object.keys(projects).sort()).concat([['__new', 'كمبوند جديد…']]), '') + '<input id="ofPN" class="hide" placeholder="اسم الكمبوند" style="margin-top:4px"></div>' + inp('ofBl', 'بلوك', '') + '</div>' +
           '<div class="grid2">' + inp('ofB', 'العمارة <span class="req">*</span>', '') + inp('ofA', 'الشقة <span class="req">*</span>', '') + '</div>' +
           '<div class="grid2"><div><label>كود الوحدة <span class="req">*</span></label><input id="ofC" class="ltr" inputmode="numeric"><div class="r2" id="ofCH" style="font-size:11.5px"></div></div>' + inp('ofBeds', 'عدد الغرف', '', 'ltr') + '</div>' +
-          '<div class="grid2">' + inp('ofN', 'اسم المالك <span class="req">*</span>', '') + inp('ofTel', 'التليفون', '', 'ltr') + '</div>' + inp('ofId', 'رقم البطاقة', '', 'ltr');
+          '<div class="grid2">' + inp('ofN', 'اسم المالك <span class="req">*</span>', '') + inp('ofTel', 'التليفون <span class="req">*</span>', '', 'ltr') + '</div>' + inp('ofId', 'رقم البطاقة', '', 'ltr');
       }
       if (m !== 'edit') {
         var oldEnd = L.serialToDate(row['نهاية العقد']), st0 = m === 'renew' && oldEnd ? new Date(oldEnd.getTime() + 864e5) : null;
@@ -45,6 +45,7 @@
         html += '<div class="grid2"><div><label>' + (m === 'renew' ? 'بداية التجديد' : 'بداية العقد') + ' <span class="req">*</span></label><input type="date" id="ofS" value="' + d(st0) + '"></div>' +
           '<div><label>المدة</label><div style="display:flex;gap:6px"><input id="ofDn" class="ltr" value="' + (m === 'renew' ? 1 : 3) + '" style="width:60px">' + sel('ofDu', [['y', 'سنين'], ['m', 'شهور']], 'y') + '</div></div></div>' +
           '<div class="grid2"><div><label>النهاية</label><input type="date" id="ofE"></div>' + inp('ofR', (m === 'renew' ? 'إيجار أول سنة في التجديد' : 'الإيجار الشهري') + ' <span class="req">*</span>', first, 'ltr') + '</div>' +
+          (m === 'renew' ? '<div class="grid2">' + inp('ofTel', 'تليفون المالك <span class="req">*</span>', row['التليفون'], 'ltr') + '<div></div></div>' : '') +
           (last ? '<div class="r2" style="margin-top:-4px">آخر إيجار متسجل: ' + money(last.amount) + ' (' + L.monthLabel(last.key) + ')' + (inc ? '، والمقترح بعد الزيادة' : '') + '</div>' : '');
       }
       var incV = inc ? (inc.pct || inc.amt) : '', incT = inc && inc.amt ? 'amt' : 'pct';
@@ -59,14 +60,20 @@
           '<div class="grid2"><div><label>نهاية العقد</label><input type="date" id="ofE" value="' + d(row['نهاية العقد']) + '"></div>' + inp('ofN', 'اسم المالك', row['الاسم']) + '</div>' +
           '<div class="grid2">' + inp('ofTel', 'التليفون', row['التليفون'], 'ltr') + inp('ofBeds', 'عدد الغرف', row['Bedrooms'], 'ltr') + '</div>' + inp('ofId', 'رقم البطاقة', row['رقم البطاقة'], 'ltr');
       }
+      // طريقة الدفع مطلوبة في العقد الجديد والتجديد (المطور محتاجها)، وبتتختار من اللي متسجل قبل كده
+      var pays = {}; (S.units || []).forEach(function (x) { if (x.payMethod) pays[x.payMethod] = 1; });
+      ['تحويل بنكي', 'كاش', 'شيك'].forEach(function (x) { pays[x] = 1; });
+      html += '<datalist id="dlPay">' + Object.keys(pays).sort().map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>';
+      if (m !== 'edit') html += '<div class="grid2">' + inp('ofPay', 'طريقة الدفع <span class="req">*</span>', row['الدفع']) + inp('ofBank', 'البنك', row['البنك']) + '</div>';
       html += '<details class="more"' + (m === 'edit' ? ' open' : '') + '><summary>التحويل والتأمين وباقي البيانات</summary>' +
         '<div class="grid2">' + inp('ofBen', 'المستفيد', row['Beneficiary Name']) + inp('ofAcc', 'رقم الحساب', row['Beneficiary Acc. No.'], 'ltr') + '</div>' +
-        '<div class="grid2">' + inp('ofBank', 'البنك', row['البنك']) + inp('ofPay', 'طريقة الدفع', row['الدفع']) + '</div>' +
+        (m === 'edit' ? '<div class="grid2">' + inp('ofBank', 'البنك', row['البنك']) + inp('ofPay', 'طريقة الدفع', row['الدفع']) + '</div>' : '') +
         '<div class="grid2">' + inp('ofDep', 'التأمين', row['التأمين'], 'ltr') + '<div><label>التسويات</label>' + sel('ofSet', Object.keys(settles).sort().map(function (x) { return [x, x || 'بدون']; }), row['تسويات'] || '') + '</div></div>' +
         inp('ofInfo', 'Info', row['Info']) + '</details>' +
         '<div id="ofRows" style="margin-top:10px"></div><div id="ofMsg" style="margin-top:10px"></div>' +
         '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn ghost" id="ofBack">رجوع</button><button class="btn ghost" id="ofCalc">' + (m === 'edit' ? 'شوف التغييرات' : 'احسب الشهور') + '</button><button class="btn primary" id="ofSave">تسجيل</button></div></div>';
       App.openSheet(html);
+      if ($('ofPay')) $('ofPay').setAttribute('list', 'dlPay');
       OF.armed = false; OF.plan = null;
       var dis = function () { OF.armed = false; OF.plan = null; $('ofSave').textContent = 'تسجيل'; $('ofMsg').innerHTML = ''; };
       document.querySelectorAll('#sheet input, #sheet select').forEach(function (e) { e.addEventListener('input', dis); e.addEventListener('change', dis); });
@@ -170,6 +177,13 @@
         monthsRows.sort(function (a, b) { return F.cmpKey(a.key, b.key); });
       }
       put('زيادة سنوية', ocIncCell(inc), 'الزيادة السنوية'); opt('يسدد كل', 'ofEv', true);
+      if (m === 'renew') put('التليفون', $('ofTel').value.trim());
+      // التليفون وطريقة الدفع مطلوبين في الجديد والتجديد، إلا ملك صاحب الشركة
+      var ownerNm = m === 'new' ? $('ofN').value : (row['الاسم'] || '');
+      if (m !== 'edit' && String(ownerNm).indexOf('فراس') === -1) {
+        if (!$('ofTel').value.trim()) errs.push('اكتب تليفون المالك.');
+        if (!$('ofPay').value.trim()) errs.push('اكتب طريقة الدفع (تحويل بنكي، كاش، شيك).');
+      }
       put('Beneficiary Name', $('ofBen').value.trim(), 'المستفيد'); put('Beneficiary Acc. No.', $('ofAcc').value.trim(), 'رقم الحساب'); put('البنك', $('ofBank').value.trim());
       put('الدفع', $('ofPay').value.trim(), 'طريقة الدفع'); opt('التأمين', 'ofDep', true); put('تسويات', $('ofSet').value); put('Info', $('ofInfo').value.trim());
       // الكتابة في حدود أعمدة الشهور الموجودة بس. اللي بعد آخر عمود يتكتب تعليق على آخر شهر في الجدول

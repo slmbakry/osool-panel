@@ -9,6 +9,8 @@
   function serialToDate(s) {
     if (s === null || s === undefined || s === '') return null;
     if (s instanceof Date) return s;
+    // تاريخ متكتب نص في الشيت (زي "31/12/2026")
+    if (typeof s === 'string' && /^\s*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}\s*$/.test(s)) { var p = s.trim().split(/[\/\-.]/); return new Date(Date.UTC(+p[2], +p[1] - 1, +p[0])); }
     var n = Number(s);
     if (!isFinite(n) || n <= 0) return null;
     return new Date(Math.round((n - 25569) * DAY));

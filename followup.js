@@ -516,7 +516,9 @@
     var rows = [];
     for (var k = 0; k < (count || 1); k++) {
       var key = k === 0 ? firstKey : L.monthKey(L.addMonths(keyToDate(firstKey), k));
-      var f = from || keyToDate(key), to = new Date(L.addMonths(f, 1).getTime() - DAY);
+      // أول سداد للوحدة: الفترة بتمشي على يوم العقد (لو العقد من 16 يبقى من 16 لـ 15)، مش من أول الشهر
+      var cday = unit.ownerEnd ? new Date(unit.ownerEnd.getTime() + DAY).getUTCDate() : 1, kd = keyToDate(key);
+      var f = from || (cday > 1 && cday < 28 ? new Date(Date.UTC(kd.getUTCFullYear(), kd.getUTCMonth(), cday)) : kd), to = new Date(L.addMonths(f, 1).getTime() - DAY);
       var amt = full(key);
       if (k === 0 && last && lp.onlyPartial && key === L.monthKey(L.serialToDate(last))) amt = Math.max(0, Math.round(amt - (lp.byMonth[key] || 0)));
       var src = sheetAmt(key) ? 'sheet' : lp && lp.amt ? 'last' : 'rent';
@@ -703,6 +705,62 @@
     return { rows: rows, cats: allCats };
   }
 
+
+  // ---------- صحة بيانات عقود الملاك (اتفاق 29-10: المطور لقى المشاكل دي، فبنمسكها من الإدخال) ----------
+  // بيرجع [{key, title, why, items:[{u, note}]}] للوحدات اللي جوه النطاق ومش OUT
+  var OWNER_KEY = 'فراس';
+  function ownerHealth(units, ownerCols, ownerMonths, treasury, settings, today) {
+    var DAYMS = 864e5, t = today, tk = L.monthKey(t);
+    var raw = function (h, i) { return ownerCols && ownerCols[h] ? ownerCols[h][i] : ''; };
+    var months = Object.keys(ownerMonths || {}).sort(cmpKey);
+    var tc = (treasury && treasury.cols) || {}, paidBy = {}, lastTo = {};
+    (tc['كود'] || []).forEach(function (code, j) {
+      if (str(tc['فئة'][j]) !== 'سداد ايجار') return;
+      var k = str(code); paidBy[k] = (paidBy[k] || 0) + 1;
+      // آخر سداد فترته بتخلص آخر الشهر (يعني السداد متسجل بالشهر من أوله)
+      var to = Number(tc['نهاية الايجار'] && tc['نهاية الايجار'][j]) || 0, td = to ? L.serialToDate(to) : null;
+      if (td && td.getUTCDate() === new Date(Date.UTC(td.getUTCFullYear(), td.getUTCMonth() + 1, 0)).getUTCDate() && to > (lastTo[k] || 0)) lastTo[k] = to;
+    });
+    var G = {
+      text: { title: 'تاريخ مكتوب نص', why: 'بداية أو نهاية العقد مكتوبة كلام مش تاريخ، فالحسابات مش بتقراها. اكتبها تاريخ.' },
+      noEnd: { title: 'نهاية العقد فاضية', why: 'الوحدة عليها شهور محسوبة ومفيش نهاية للعقد.' },
+      d30: { title: 'نهاية العقد يوم 30 في شهر 31 يوم', why: 'غالبًا غلط إدخال، والنهاية آخر الشهر.' },
+      after: { title: 'الشيت بيحسب بعد نهاية العقد', why: 'العقد خلص والشهور لسه محسوبة بعده: حدّث نهاية العقد لو اتجدد.' },
+      ended: { title: 'عقد خلص والوحدة مش OUT', why: 'مفيش شهور محسوبة بعد النهاية: لو خرجت اكتب OUT في التسويات، ولو لسه معانا حدّث العقد.' },
+      unpaid: { title: 'شهور محسوبة من غير ولا سداد', why: 'من يناير 2025 مفيش ولا "سداد ايجار" للوحدة دي في الخزينة. اتدفع من خزينة تانية ولا فعلًا مدفعش؟' },
+      day: { title: 'يوم العقد مختلف عن فترات السداد', why: 'العقد بيبدأ في نص الشهر، والسداد في الخزينة متسجل بالشهر من أوله.' },
+      pay: { title: 'طريقة الدفع فاضية', why: 'المطور محتاجها (تحويل، كاش، شيك).' },
+      tel: { title: 'تليفون المالك فاضي', why: 'المطور محتاج تليفون حقيقي لكل مالك.' }
+    };
+    Object.keys(G).forEach(function (k) { G[k].key = k; G[k].items = []; });
+    var add = function (k, u, note) { G[k].items.push({ u: u, note: note || '' }); };
+    units.forEach(function (u) {
+      if (!inScope(u, settings) || str(u.settle).toUpperCase() === 'OUT') return;
+      var i = u.idx, rs = raw('بداية العقد', i), re = raw('نهاية العقد', i);
+      var mine = str(u.owner).indexOf(OWNER_KEY) !== -1;
+      if ((typeof rs === 'string' && rs.trim()) || (typeof re === 'string' && re.trim())) add('text', u, (typeof re === 'string' && re.trim() ? 'النهاية: "' + re + '"' : 'البداية: "' + rs + '"'));
+      var billed = months.filter(function (k) { return cmpKey(k, tk) <= 0 && Number(ownerMonths[k][i]) > 0; });
+      if (!mine) {
+        var E = u.ownerEnd;
+        if (!E && billed.length) add('noEnd', u);
+        if (E) {
+          var dim = new Date(Date.UTC(E.getUTCFullYear(), E.getUTCMonth() + 1, 0)).getUTCDate();
+          if (E.getUTCDate() === 30 && dim === 31) add('d30', u, L.fmt(E));
+          var ek = L.monthKey(E), aft = billed.filter(function (k) { return cmpKey(k, ek) > 0; });
+          if (aft.length) add('after', u, 'خلص ' + L.fmt(E) + '، ومحسوب ' + aft.length + ' شهر بعده لحد ' + L.monthLabel(aft[aft.length - 1]));
+          else if (E < t) add('ended', u, 'خلص ' + L.fmt(E));
+          var dd = new Date(E.getTime() + DAYMS).getUTCDate();
+          var lt = lastTo[u.code] ? L.serialToDate(lastTo[u.code]) : null;
+          if (dd > 1 && dd < 28 && lt && cmpKey(L.monthKey(lt), L.monthKey(new Date(t.getTime() - 120 * DAYMS))) >= 0) add('day', u, 'العقد من يوم ' + dd + '، والسداد متسجل لحد ' + L.fmt(lt));
+        }
+        if (billed.length >= 3 && !paidBy[u.code]) add('unpaid', u, billed.length + ' شهر محسوب من ' + L.monthLabel(billed[0]));
+      }
+      if (!str(u.payMethod)) add('pay', u);
+      if (!str(u.phone)) add('tel', u);
+    });
+    return Object.keys(G).map(function (k) { return G[k]; }).filter(function (g) { return g.items.length; });
+  }
+
   // ---------- الإشغال ----------
   // لكل وحدة في الفترة: الأيام المتاحة (عقد المالك ساري، ومش خارج التشغيل) والأيام المشغولة من عقود المستأجرين.
   // عقود الليالي (أقل من ٣٠ يوم): يوم الخروج مش محسوب ليلة. العقود الملغية مش محسوبة.
@@ -863,7 +921,7 @@
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
     ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, unitProfit: unitProfit, PROFIT_SKIP: PROFIT_SKIP, keyRange: keyRange, occupancy: occupancy, occSum: occSum, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
-    inScope: inScope, isNF: isNF, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
+    ownerHealth: ownerHealth, inScope: inScope, isNF: isNF, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
     entryValues: entryValues, availability: availability, planTransfer: planTransfer, depositMoves: depositMoves
   };
