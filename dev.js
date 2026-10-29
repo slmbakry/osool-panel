@@ -5,7 +5,12 @@
   var App = window.OsoolApp, L = window.OsoolLogic, F = window.OsoolFollow;
   var $ = function (id) { return document.getElementById(id); };
   var esc = App.esc;
-  var D = { started: false, settings: null, data: null, res: null, view: 'review', tab: 'find' };
+  var D = { started: false, settings: null, data: null, res: null, view: 'review', tab: 'find', skip: [] };
+  // التصدير: أنواع التسويات اللي تتشال من ملف المطور (زي N-F)، ومحفوظة على الجهاز ده
+  var SKIP_KEY = 'osoolPanel.devSkip';
+  try { D.skip = JSON.parse(localStorage.getItem(SKIP_KEY) || '[]') || []; } catch (e) { D.skip = []; }
+  var KINDS = [['', 'العادي'], ['F', 'F'], ['N-F', 'N-F']];
+  function kindOf(v) { return String(v == null ? '' : v).trim().toUpperCase().replace(/[_\s]/g, '-'); }
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
   var OWNER = ['كود', 'المشروع', 'بلوك', 'عمارة', 'شقة', 'الاسم', 'بداية العقد', 'نهاية العقد', 'قيمة الايجار', 'يسدد كل', 'التأمين', 'الدفع', 'تسويات', 'Beneficiary Name'];
   var ENTRY = ['تاريخ', 'ايراد', 'مصروف', 'كود', 'فئة', 'شهر', 'بداية الايجار', 'نهاية الايجار'];
@@ -18,8 +23,8 @@
   }
   function libs() {
     var p = Promise.resolve();
-    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261024e'); });
-    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261024e'); });
+    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261029a'); });
+    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261029a'); });
     return p;
   }
   function loadExcelJS() { return window.ExcelJS ? Promise.resolve() : script('vendor/exceljs.min.js'); }
@@ -87,7 +92,7 @@
       '<section id="dv-find"><input id="dvQ" class="dv-srch" placeholder="ابحث بالكود، أو العمارة والشقة، أو المالك، أو المستفيد" autocomplete="off">' +
       '<div id="dvFind"><div class="r2" style="padding:8px 2px">اكتب أي جزء من الكود أو الاسم.</div></div></section>' +
       '<section id="dv-rev" class="hide"><div id="dvOut"></div></section>' +
-      '<section id="dv-dev" class="hide"><div id="dvSum"></div><div class="card">' +
+      '<section id="dv-dev" class="hide"><div class="card"><h3 style="margin:0 0 6px">التصدير</h3><div class="r2" style="margin-bottom:6px">الوحدات اللي تدخل الملفات (حسب خانة التسويات):</div><div class="tgs" id="dvKinds"></div></div><div id="dvSum"></div><div class="card">' +
       '<div class="r2">ملف المطور بنفس شكله وشيتاته بالظبط: سطر لكل عقد، والأشهر الملغاة، والتعليمات. والتغييرات وكشف المستحقات في ملف لوحده، وملف المراجعة ليك انت بس.</div>' +
       '<button class="btn primary" id="dvSave" style="width:100%;margin-top:8px">حمّل ملف المطور</button>' +
       '<button class="btn ghost" id="dvSaveExt" style="width:100%;margin-top:8px">حمّل ملف التغييرات وكشف المستحقات</button>' +
@@ -106,7 +111,7 @@
   function save(btn, build, title, tip) {
     btn.disabled = true; $('dvMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيجهز الملف…</div>';
     build().then(function (buf) {
-      var name = title + ' - ' + D.scopeName + ' - ' + stamp() + '.xlsx';
+      var name = title + ' - ' + D.scopeName + (D.skip.length ? ' - من غير ' + D.skip.join(' و') : '') + ' - ' + stamp() + '.xlsx';
       download(buf, name); btn.disabled = false;
       $('dvMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. ' + tip + '</div>';
     }).catch(function (e) { btn.disabled = false; $('dvMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
@@ -234,12 +239,35 @@
   }
 
   // بيقرا الملف ويحلل (أول ما التبويب يتفتح، وبعد أي تعديل، ومن زرار اقرا تاني)
+  // اختيار أنواع التسويات في التصدير، وعدد وحدات كل نوع جوه النطاق
+  function drawKinds() {
+    var box = $('dvKinds'); if (!box || !D.data) return;
+    var c = D.data.owner.cols, n = {};
+    (c['كود'] || []).forEach(function (code, i) {
+      if (!String(code == null ? '' : code).trim()) return;
+      var u = { project: c['المشروع'] ? c['المشروع'][i] : '', settle: c['تسويات'] ? c['تسويات'][i] : '' };
+      if (!F.inScope(u, Object.assign({}, D.settings, { nf: true }), true)) return;
+      var k = kindOf(u.settle); if (k === 'OUT') return; if (k !== 'F' && k !== 'N-F') k = '';
+      n[k] = (n[k] || 0) + 1;
+    });
+    box.innerHTML = KINDS.filter(function (x) { return x[0] === '' || n[x[0]]; }).map(function (x) {
+      var on = D.skip.indexOf(x[0]) === -1;
+      return '<button class="tg' + (on ? ' on' : '') + '" data-k="' + esc(x[0]) + '"' + (x[0] === '' ? ' disabled' : '') + '><bdi>' + esc(x[1]) + '</bdi> <bdi>' + (n[x[0]] || 0) + '</bdi></button>';
+    }).join('');
+    box.querySelectorAll('button[data-k]').forEach(function (b) { b.onclick = function () {
+      var k = b.dataset.k, i = D.skip.indexOf(k); if (!k) return;
+      if (i === -1) D.skip.push(k); else D.skip.splice(i, 1);
+      try { localStorage.setItem(SKIP_KEY, JSON.stringify(D.skip)); } catch (e) { }
+      analyze(D.data);
+    }; });
+  }
   function analyze(have) {
     var say = function (t) { $('dvStatus').innerHTML = '<div class="msg"><span class="spin"></span>' + esc(t) + '</div>'; };
     say('بيقرا ملف أصول…'); $('dvRe').disabled = true;
     return (have && have.owner ? Promise.resolve(have) : readBook(say)).then(function (data) {
       D.data = data; say('بيحلل…');
-      D.res = OsoolPrep.reconcile({ devRows: [], owner: D.data.owner, treasury: D.data.treasury, settings: D.settings });
+      D.res = OsoolPrep.reconcile({ devRows: [], owner: D.data.owner, treasury: D.data.treasury, settings: Object.assign({}, D.settings, { devSkip: D.skip }) });
+      drawKinds();
       $('dvStatus').innerHTML = ''; $('dvRe').disabled = false; draw();
     }).catch(function (e) { $('dvRe').disabled = false; $('dvStatus').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   }

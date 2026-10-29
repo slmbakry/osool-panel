@@ -38,6 +38,9 @@
       if (!u.project && !str(c['شقة'] && c['شقة'][i])) continue;
       // وحدات N-F بتدخل هنا (ليها عقود ملاك برضه)، وOUT بنعدّيها تحت
       if (!F.inScope(u, Object.assign({}, settings || F.DEFAULT_SETTINGS, { nf: true }), true)) continue;
+      // التصدير: أنواع تسويات اتشالت من الملف (زي N-F)
+      var sk = (settings && settings.devSkip) || [], kd = u.settle.toUpperCase().replace(/[_\s]/g, '-');
+      if (sk.length && sk.indexOf(kd === 'F' || kd === 'N-F' ? kd : '') !== -1) continue;
       var start = day(c['بداية العقد'] && c['بداية العقد'][i]), end = day(c['نهاية العقد'] && c['نهاية العقد'][i]);
       var val = (function (ii) { return function (k) { return m[k] ? num(m[k][ii]) : 0; }; })(i);
       var every = num(c['يسدد كل'] && c['يسدد كل'][i]);
