@@ -337,6 +337,22 @@
         else { var p0 = lastYear(CUTOFF); prev = { s: p0, e: ch[0].a - 1, rs: p0 + 3, why: 'العقد اللي مغطي 1/7/2026 (آخر سنة قبل التجديد)' }; }
       }
     }
+    // تجديد متسجل في الشيت وبادئ في المستقبل (بداية العقد بعد النهارده) = عقدين (اتفاق 29-10):
+    // العقد اللي مغطي 1/7 من أول شهر الإيجار القديم ثابت فيه لحد قبل التجديد، والتجديد من تاريخ البداية بالإيجار الجديد
+    var fut = u.start && u.start > today && u.start <= E ? u.start : 0;
+    if (fut) {
+      var fm = firstOf(fut + 3), bm = L.addMonths(fm, -1), r0 = at(bm);
+      if (r0 > 0) {
+        var sm = bm; for (var g = 0; g < 120; g++) { var pm = L.addMonths(sm, -1), pv = at(pm); if (pv > 0 && Math.abs(pv - r0) < 0.5) sm = pm; else break; }
+        var dday = Math.min(28, L.serialToDate(fut).getUTCDate()), ps = L.dateToSerial(new Date(Date.UTC(sm.getUTCFullYear(), sm.getUTCMonth(), dday))), prs = L.dateToSerial(sm);
+        // الإيجار ثابت أكتر من سنتين: ناخد آخر سنة في العقد قبل 1/7
+        if (fut - ps > 731) { ps = lastYear(Math.min(CUTOFF, fut - 1)); prs = L.dateToSerial(firstOf(ps + 3)); }
+        if (ps <= CUTOFF) {
+          prev = { s: ps, e: fut - 1, rs: prs, why: 'العقد اللي مغطي 1/7/2026 (قبل التجديد اللي بيبدأ ' + fmtS(fut) + ')' };
+          cur = { s: fut, e: E, rs: L.dateToSerial(fm), why: 'تجديد بيبدأ ' + fmtS(fut) + ' (لسه مبدأش)' };
+        }
+      }
+    }
     // العقد اللي قبل التجديد لازم يكون ليه شهور في الشيت، وإلا تبقى الوحدة جديدة من التجديد ده
     if (prev) { var any = false; for (var q = firstOf(prev.rs), qe = firstOf(cur.rs); q < qe; q = L.addMonths(q, 1)) if (at(q) > 0) { any = true; break; } if (!any) prev = null; }
     if (u.start && cur.s < u.start) { cur.s = u.start; if (cur.rs < u.start) cur.rs = u.start; }
