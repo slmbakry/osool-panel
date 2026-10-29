@@ -149,13 +149,17 @@
       if (!live.length) {
         if (u.out) { R.counts.outSkipped++; return; }
         // وحدة من غير عقد (زي ملك صاحب الشركة): عقد طويل رمزي بجنيه، زي ما المطور مسجلها
-        if (!sg && !u.end && !u.start && !hasAny(u)) {
+        // وكمان أي وحدة اسم مالكها فيه اسم صاحب الشركة (من إعداد المطور، مش متكتب في الكود)
+        var ok0 = o.settings && o.settings.devOwnerKey ? L.norm(o.settings.devOwnerKey).trim() : '';
+        var mine = ok0 && L.norm(u.owner || '').indexOf(ok0) !== -1;
+        if (mine || (!sg && !u.end && !u.start && !hasAny(u))) {
           var s0 = L.dateToSerial(new Date(Date.UTC(2019, 0, 1))), e0 = L.dateToSerial(new Date(Date.UTC(2050, 0, 1)));
-          var nr0 = newRow(u, null, s0, e0, today, 'وحدة من غير عقد (غالبًا ملك الشركة): عقد رمزي بجنيه من 2019 لـ 2050');
-          for (var q0 = R.changes.length - 1; q0 >= 0; q0--) if (R.changes[q0].code === u.code && /فاضي في شيت الملاك/.test(R.changes[q0].why)) R.changes.splice(q0, 1);
+          var nr0 = newRow(u, null, s0, e0, today, mine ? 'ملك صاحب الشركة: عقد رمزي بجنيه من 2019 لـ 2050' : 'وحدة من غير عقد (غالبًا ملك الشركة): عقد رمزي بجنيه من 2019 لـ 2050');
+          for (var q0 = R.changes.length - 1; q0 >= 0; q0--) if (R.changes[q0].code === u.code && (mine || /فاضي في شيت الملاك/.test(R.changes[q0].why))) R.changes.splice(q0, 1);
+          if (mine) { nr0.values[C.incType] = 'بدون زيادة / None'; YEARS.forEach(function (h) { delete nr0.values[h]; }); delete nr0.values[C.paid]; }
           nr0.values[C.rent] = 1; nr0.values[C.signed] = ''; nr0.values[C.notes] = 'عقد رمزي، ملك الشركة (MBM)';
           R.newRows.push(nr0); R.counts.added++;
-          R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: 'ملاحظة: وحدة من غير عقد، اتسجلت بعقد رمزي بجنيه من 1/1/2019 لـ 1/1/2050' });
+          R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: mine ? 'ملاحظة: ملك صاحب الشركة، اتسجلت بعقد رمزي بجنيه من 1/1/2019 لـ 1/1/2050' : 'ملاحظة: وحدة من غير عقد، اتسجلت بعقد رمزي بجنيه من 1/1/2019 لـ 1/1/2050' });
           return;
         }
         if (!sg) { R.newRows.push(newRow(u, null, u.start, u.end, today, 'وحدة في ملف أصول ومش في ملف المطور (البداية من شيت الملاك، وهي أول عقد)')); R.counts.added++; addGaps(u, '', u.start, u.end); return; }

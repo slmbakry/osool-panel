@@ -9,6 +9,9 @@
   // التصدير: أنواع التسويات اللي تتشال من ملف المطور (زي N-F)، ومحفوظة على الجهاز ده
   var SKIP_KEY = 'osoolPanel.devSkip';
   try { D.skip = JSON.parse(localStorage.getItem(SKIP_KEY) || '[]') || []; } catch (e) { D.skip = []; }
+  // اسم صاحب الشركة: أي مالك اسمه فيه الكلمة دي بيتسجل بعقد رمزي بجنيه. محفوظ على الجهاز بس، مش في الكود
+  var OWNER_KEY = 'osoolPanel.devOwner';
+  try { D.ownerKey = localStorage.getItem(OWNER_KEY) || ''; } catch (e) { D.ownerKey = ''; }
   var KINDS = [['', 'العادي'], ['F', 'F'], ['N-F', 'N-F']];
   function kindOf(v) { return String(v == null ? '' : v).trim().toUpperCase().replace(/[_\s]/g, '-'); }
   var MONTH_RE = /^[A-Z][a-z]{2}-\d{2}$/;
@@ -23,8 +26,8 @@
   }
   function libs() {
     var p = Promise.resolve();
-    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261029c'); });
-    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261029c'); });
+    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261029d'); });
+    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261029d'); });
     return p;
   }
   function loadExcelJS() { return window.ExcelJS ? Promise.resolve() : script('vendor/exceljs.min.js'); }
@@ -92,7 +95,9 @@
       '<section id="dv-find"><input id="dvQ" class="dv-srch" placeholder="ابحث بالكود، أو العمارة والشقة، أو المالك، أو المستفيد" autocomplete="off">' +
       '<div id="dvFind"><div class="r2" style="padding:8px 2px">اكتب أي جزء من الكود أو الاسم.</div></div></section>' +
       '<section id="dv-rev" class="hide"><div id="dvOut"></div></section>' +
-      '<section id="dv-dev" class="hide"><div class="card"><h3 style="margin:0 0 6px">التصدير</h3><div class="r2" style="margin-bottom:6px">الوحدات اللي تدخل الملفات (حسب خانة التسويات):</div><div class="tgs" id="dvKinds"></div></div><div id="dvSum"></div><div class="card">' +
+      '<section id="dv-dev" class="hide"><div class="card"><h3 style="margin:0 0 6px">التصدير</h3><div class="r2" style="margin-bottom:6px">الوحدات اللي تدخل الملفات (حسب خانة التسويات):</div><div class="tgs" id="dvKinds"></div>' +
+      '<label style="display:block;margin:10px 0 3px;font-size:12px;color:var(--muted)">ملك صاحب الشركة: أي مالك اسمه فيه الكلمة دي بيتسجل بعقد رمزي بجنيه</label>' +
+      '<input id="dvOwnerKey" class="dv-srch" autocomplete="off" placeholder="جزء من الاسم"></div><div id="dvSum"></div><div class="card">' +
       '<div class="r2">ملف المطور بنفس شكله وشيتاته بالظبط: سطر لكل عقد، والأشهر الملغاة، والتعليمات. والتغييرات وكشف المستحقات في ملف لوحده، وملف المراجعة ليك انت بس.</div>' +
       '<button class="btn primary" id="dvSave" style="width:100%;margin-top:8px">حمّل ملف المطور</button>' +
       '<button class="btn ghost" id="dvSaveExt" style="width:100%;margin-top:8px">حمّل ملف التغييرات وكشف المستحقات</button>' +
@@ -103,6 +108,8 @@
       ['find', 'rev', 'dev'].forEach(function (t) { $('dv-' + t).classList.toggle('hide', t !== D.tab); });
     };
     $('dvRe').onclick = function () { analyze(); };
+    $('dvOwnerKey').value = D.ownerKey;
+    var okt; $('dvOwnerKey').oninput = function () { var v = this.value.trim(); clearTimeout(okt); okt = setTimeout(function () { D.ownerKey = v; try { localStorage.setItem(OWNER_KEY, v); } catch (e) { } if (D.data) analyze(D.data); }, 600); };
     var qt; $('dvQ').oninput = function () { clearTimeout(qt); qt = setTimeout(drawFind, 150); };
     $('dvSave').onclick = function () { save(this, buildFile, 'عقود الملاك للسيستم', 'لو هتكمّل على ملف أصول تاني، افتحه وطلّع ملفه من نفس المكان.'); };
     $('dvSaveExt').onclick = function () { save(this, buildExtras, 'تغييرات وكشف مستحقات الملاك', 'ده جنب ملف المطور، للتوضيح.'); };
@@ -266,7 +273,7 @@
     say('بيقرا ملف أصول…'); $('dvRe').disabled = true;
     return (have && have.owner ? Promise.resolve(have) : readBook(say)).then(function (data) {
       D.data = data; say('بيحلل…');
-      D.res = OsoolPrep.reconcile({ devRows: [], owner: D.data.owner, treasury: D.data.treasury, settings: Object.assign({}, D.settings, { devSkip: D.skip }) });
+      D.res = OsoolPrep.reconcile({ devRows: [], owner: D.data.owner, treasury: D.data.treasury, settings: Object.assign({}, D.settings, { devSkip: D.skip, devOwnerKey: D.ownerKey }) });
       drawKinds();
       $('dvStatus').innerHTML = ''; $('dvRe').disabled = false; draw();
     }).catch(function (e) { $('dvRe').disabled = false; $('dvStatus').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
