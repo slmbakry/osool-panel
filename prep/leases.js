@@ -25,7 +25,12 @@
 
   function str(v) { return v === null || v === undefined ? '' : String(v).trim(); }
   function num(v) { var n = Number(v); return isFinite(n) && v !== '' && v !== null ? n : 0; }
-  function day(v) { return v ? Math.floor(Number(v)) : 0; } // سيريال الإكسيل باليوم
+  // سيريال الإكسيل باليوم. ولو التاريخ متكتب نص في الشيت (زي "31/12/2026") بنقراه برضه
+  function day(v) {
+    if (!v) return 0;
+    if (typeof v === 'string' && /^\s*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}\s*$/.test(v)) { var p = v.trim().split(/[\/\-.]/); return L.dateToSerial(new Date(Date.UTC(+p[2], +p[1] - 1, +p[0]))); }
+    var n = Math.floor(Number(v)); return isFinite(n) ? n : 0;
+  }
   function fmtS(s) { return s ? L.fmt(L.serialToDate(s)) : '—'; }
   function money(n) { return Math.round(n).toLocaleString('en-US'); }
 
@@ -81,7 +86,10 @@
   function gapsFor(u, start, end, today) {
     var out = []; if (!start || !end) return out;
     var d = L.serialToDate(start), last = L.serialToDate(Math.min(end, today));
-    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    // العقد بادئ في نص الشهر والشيت بيحسب من الشهر اللي بعده: الشهر الأول مش ملغي
+    var midStart = d.getUTCDate() > 1;
+    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), midStart && !u.val(L.monthKey(d)) ? 2 : 1));
+    if (d.getUTCDate() === 2) d = L.addMonths(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)), 1);
     var seen = 0;
     var g = CTX.T[u.code];
     while (d <= last) { var k = L.monthKey(d); if (u.has(k)) { seen++; if (!u.val(k) && !(g && g.m[k] > 0)) out.push(L.dateToSerial(d)); } d = L.addMonths(d, 1); }
@@ -529,6 +537,8 @@
     v[C.auto] = 'لا / No';
     // مسدد حتى من الخزينة (مظبوط بنسبة كبيرة حتى لو فيه شهور ناقصة قبله). العقد اللي اتجدد لحد نهايته بالكتير، والعقد اللي لسه مبدأش مبيتحطلوش
     if (u.paid && (!st || u.paid >= st)) v[C.paid] = en && u.paid > en ? en : u.paid;
+    // مسدد لحد آخر شهر في العقد (زي 30/7 والنهاية 31/7) = مسدد لحد النهاية
+    if (v[C.paid] && en && v[C.paid] < en && L.monthKey(L.serialToDate(v[C.paid])) === L.monthKey(L.serialToDate(en)) && L.serialToDate(v[C.paid]).getUTCDate() >= 28) v[C.paid] = en;
     if (u.method) v[C.method] = u.method;
     v[C.notes] = (unsigned ? 'اتفاق سنة جديدة من غير عقد موقّع · ' : '') + 'اتضاف من ملف أصول (MBM)' + (u.settle ? ' · ' + u.settle : '');
     // اتفاق لسه متوقعش والشيت فاضي بعد النهاية: الإيجار = المدفوع في أول شهر، وإلا آخر إيجار في العقد
