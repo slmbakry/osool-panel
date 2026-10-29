@@ -162,7 +162,10 @@
         if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, sg.prev.why, ST.renewed, sg.prev.rs, sg.prev.unsigned)); R.counts.added++; R.counts.renewals++; addGaps(u, '', sg.prev.s, sg.prev.e); }
         R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, sg.cur.why, sg.next.length ? ST.renewed : null, sg.cur.rs, sg.cur.unsigned));
         sg.next.forEach(function (x) { R.newRows.push(newRow(u, null, x.s, x.e, today, x.why, null, x.rs, true)); R.counts.added++; });
-        R.counts.added++; addGaps(u, '', sg.cur.s, sg.cur.e); midReview(null, u, sg); return;
+        R.counts.added++; addGaps(u, '', sg.cur.s, sg.cur.e); midReview(null, u, sg);
+        // العقد خلص قبل 1/7 ومفيش سداد ولا مستحقات بعده، والوحدة مش OUT: يعني لسه معانا والشيت محتاج يتحدّث (اتفاق 29-10)
+        if (sg.E < CUTOFF) R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'review', why: 'العقد خلص ' + fmtS(sg.E) + ' ومفيش سداد ولا مستحقات بعده، والوحدة مش OUT. لو خرجت اكتب OUT في التسويات، ولو لسه معانا حدّث نهاية العقد والشهور' });
+        return;
       }
       R.counts.matched += live.length;
       if (!sg) { // مفيش نهاية أو شهور: الطريقة القديمة
@@ -317,6 +320,10 @@
     var E0 = E;
     CTX.lastRent[u.code] = at(firstOf(E0));
     while (u.paid && u.paid > E) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
+    // والشيت بيحسب شهور بعد النهاية لحد النهارده حتى من غير سداد = برضه اتفاق سنة جديدة لسه متوقعش (اتفاق 29-10)
+    var billed = 0; for (var bd = L.addMonths(firstOf(E0), 1), blim = firstOf(today); bd <= blim; bd = L.addMonths(bd, 1)) if (at(bd) > 0) billed = L.dateToSerial(bd);
+    while (billed && billed > E) E = L.dateToSerial(L.addMonths(L.serialToDate(E + 1), 12)) - 1;
+    var why2 = function () { return u.paid && u.paid > E0 ? 'ومدفوع لحد ' + fmtS(u.paid) : 'والشيت بيحسب بعده لحد ' + L.monthLabel(key(L.serialToDate(billed))); };
     // تغيير في الشهر ده عن اللي قبله (أو أول شهر بعد شهر فاضي)
     var changedAt = function (d) { var p = L.addMonths(d, -1), r1 = at(d), r0 = at(p); return r1 > 0 && (r0 <= 0 ? u.has(key(p)) : Math.abs(r1 - r0) > 0.5); };
     var an = [], floor = L.dateToSerial(new Date(Date.UTC(2015, 0, 1)));
@@ -360,9 +367,9 @@
     var next = [];
     if (E > E0 && cur.s > E0) {
       var ce = L.dateToSerial(L.addMonths(L.serialToDate(cur.s), 12)) - 1;
-      if (ce < cur.e) { for (var ns = ce + 1; ns <= E; ns = L.dateToSerial(L.addMonths(L.serialToDate(ns), 12))) next.push({ s: ns, e: Math.min(E, L.dateToSerial(L.addMonths(L.serialToDate(ns), 12)) - 1), rs: ns + 3, unsigned: true, why: 'اتفاق سنة جديدة لسه متوقعش (مدفوع مقدم لحد ' + fmtS(u.paid) + ')' }); cur.e = ce; }
+      if (ce < cur.e) { for (var ns = ce + 1; ns <= E; ns = L.dateToSerial(L.addMonths(L.serialToDate(ns), 12))) next.push({ s: ns, e: Math.min(E, L.dateToSerial(L.addMonths(L.serialToDate(ns), 12)) - 1), rs: ns + 3, unsigned: true, why: 'اتفاق سنة جديدة لسه متوقعش (' + (u.paid && u.paid > E0 ? 'مدفوع مقدم لحد ' + fmtS(u.paid) : 'الشيت بيحسب لحد ' + L.monthLabel(key(L.serialToDate(billed)))) + ')' }); cur.e = ce; }
     }
-    if (E > E0) { if (cur.s > E0) { cur.unsigned = true; cur.why = 'اتفاق سنة جديدة لسه متوقعش (العقد خلص ' + fmtS(E0) + ' ومدفوع لحد ' + fmtS(u.paid) + ')'; } if (prev && prev.s > E0) { prev.unsigned = true; prev.why = 'اتفاق سنة من غير عقد موقّع'; } }
+    if (E > E0) { if (cur.s > E0) { cur.unsigned = true; cur.why = 'اتفاق سنة جديدة لسه متوقعش (العقد خلص ' + fmtS(E0) + ' ' + why2() + ')'; } if (prev && prev.s > E0) { prev.unsigned = true; prev.why = 'اتفاق سنة من غير عقد موقّع'; } }
     // تغيير الإيجار في نص السنة (مش في أول-سنة) من بداية الفترة لحد النهارده
     var mid = [], ok = {}; ch.forEach(function (c) { ok[key(L.serialToDate(c.rs))] = 1; }); an.forEach(function (a) { ok[key(L.serialToDate(a + 3))] = 1; });
     for (var d = L.addMonths(firstOf((prev || cur).rs), 1), last = firstOf(Math.min(today, E)); d <= last; d = L.addMonths(d, 1)) {
