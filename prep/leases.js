@@ -17,6 +17,8 @@
   };
   var YEARS = ['السنة 2', 'السنة 3', 'السنة 4', 'السنة 5', 'السنة 6', 'السنة 7', 'السنة 8'];
   var CYCLE = { 1: 'شهري / Monthly', 2: 'كل شهرين / Every 2 months', 3: 'ربع سنوي / Quarterly', 6: 'نصف سنوي / Every 6 months', 12: 'سنوي / Annual' };
+  // صاحب الشركة: أي مالك اسمه فيه الكلمة دي بيتسجل بعقد رمزي بجنيه مسدد لحد نهايته
+  var OWNER_KEY = 'فراس';
   var INC = { none: 'بدون زيادة / None', pct: 'نسبة % / Percentage', amt: 'إيجار جديد / New amount' };
   var ST = { active: 'ساري / Active', renewed: 'تم تجديده / Renewed', ended: 'منتهي / Ended' };
   var METHOD = [[/تحويل|بنك|bank|transfer|instapay|انستا/i, 'تحويل بنكي / Bank transfer'], [/شيك|cheque|check/i, 'شيك / Cheque'], [/كاش|نقد|cash/i, 'نقدي / Cash'], [/بطاق|card|فيزا|visa/i, 'بطاقة / Card']];
@@ -149,14 +151,15 @@
       if (!live.length) {
         if (u.out) { R.counts.outSkipped++; return; }
         // وحدة من غير عقد (زي ملك صاحب الشركة): عقد طويل رمزي بجنيه، زي ما المطور مسجلها
-        // وكمان أي وحدة اسم مالكها فيه اسم صاحب الشركة (من إعداد المطور، مش متكتب في الكود)
-        var ok0 = o.settings && o.settings.devOwnerKey ? L.norm(o.settings.devOwnerKey).trim() : '';
+        // وكمان أي وحدة اسم مالكها فيه اسم صاحب الشركة (اتفاق 29-10)
+        var ok0 = L.norm(OWNER_KEY);
         var mine = ok0 && L.norm(u.owner || '').indexOf(ok0) !== -1;
         if (mine || (!sg && !u.end && !u.start && !hasAny(u))) {
           var s0 = L.dateToSerial(new Date(Date.UTC(2019, 0, 1))), e0 = L.dateToSerial(new Date(Date.UTC(2050, 0, 1)));
           var nr0 = newRow(u, null, s0, e0, today, mine ? 'ملك صاحب الشركة: عقد رمزي بجنيه من 2019 لـ 2050' : 'وحدة من غير عقد (غالبًا ملك الشركة): عقد رمزي بجنيه من 2019 لـ 2050');
           for (var q0 = R.changes.length - 1; q0 >= 0; q0--) if (R.changes[q0].code === u.code && (mine || /فاضي في شيت الملاك/.test(R.changes[q0].why))) R.changes.splice(q0, 1);
-          if (mine) { nr0.values[C.incType] = 'بدون زيادة / None'; YEARS.forEach(function (h) { delete nr0.values[h]; }); delete nr0.values[C.paid]; }
+          if (mine) { nr0.values[C.incType] = INC.none; YEARS.forEach(function (h) { delete nr0.values[h]; }); }
+          nr0.values[C.paid] = e0; // العقد الرمزي مسدد لحد نهايته
           nr0.values[C.rent] = 1; nr0.values[C.signed] = ''; nr0.values[C.notes] = 'عقد رمزي، ملك الشركة (MBM)';
           R.newRows.push(nr0); R.counts.added++;
           R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: mine ? 'ملاحظة: ملك صاحب الشركة، اتسجلت بعقد رمزي بجنيه من 1/1/2019 لـ 1/1/2050' : 'ملاحظة: وحدة من غير عقد، اتسجلت بعقد رمزي بجنيه من 1/1/2019 لـ 1/1/2050' });
