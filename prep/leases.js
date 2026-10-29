@@ -274,6 +274,23 @@
     var all = {}; (o.owner.cols['كود'] || []).forEach(function (c) { all[ck(c)] = 1; });
     Object.keys(byU).forEach(function (k) { if (!all[k]) R.devOnly.push(str(byU[k][0][C.code])); });
     R.dues = duesAll(ours, byU, ck, o.treasury, today);
+    // جدولة السداد من الخزينة (اتفاق 29-10): العبرة بفترات السداد، والسداد الجزئي تسوية مش إيجار
+    var idxOf = {}; ours.forEach(function (u) { idxOf[u.code] = u.idx; });
+    var SCH = F.ownerSchedule(o.treasury, o.owner.months || {}, idxOf);
+    var note = function (u, why, kind) { R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: kind || 'note', why: why }); };
+    ours.forEach(function (u) {
+      if (u.out || L.norm(u.owner || '').indexOf(L.norm(OWNER_KEY)) !== -1) return;
+      var list = SCH[u.code] || [], sc = F.scheduleCheck(list), cd = u.end ? L.serialToDate(u.end + 1).getUTCDate() : (u.start ? L.serialToDate(u.start).getUTCDate() : 1);
+      if (cd > 1 && cd < 28 && sc.calendar && sc.last && sc.last.bs >= L.dateToSerial(L.addMonths(L.serialToDate(today), -6)))
+        note(u, 'ملاحظة: العقد من يوم ' + cd + '، بس السداد في الخزينة ماشي بالشهر الميلادي (من أول كل شهر)' + (sc.half ? '، وأول فترة كانت نص شهر عشان يتظبط' : '') + '. المسدد حتى من الخزينة');
+      // السداد على دفعات بيكمّل القسط عادي. الجزئي اللي بيتسجل: الشهر مجموعه أقل من القسط
+      var sum = {}; list.forEach(function (p) { if (p.key) sum[p.key] = (sum[p.key] || 0) + p.amt; });
+      list.forEach(function (p) {
+        if (!p.partial || p.amt <= 0 || !p.key || L.dateToSerial(F.keyToDate(p.key)) < CUTOFF || !p.due || sum[p.key] >= p.due - 1) return;
+        note(u, 'سداد جزئي أو تسوية: ' + money(p.amt) + (p.date ? ' بتاريخ ' + fmtS(p.date) : '') + (p.key ? ' على شهر ' + L.monthLabel(p.key) : '') + ' (القسط ' + money(p.due) + '، والمدفوع عنه ' + money(sum[p.key]) + ')' + '. مش قيمة إيجار: اتخصم من مستحقات الشهر' + (p.oneDay ? ' ومحرّكش المسدد حتى' : ''));
+        if (!p.oneDay) note(u, 'سداد ' + money(p.amt) + ' على شهر ' + L.monthLabel(p.key) + ' متسجل بفترة كاملة وهو أقل من ربع القسط. لو جزئي، سجّل بداية ونهاية الفترة نفس اليوم عشان ميحركش المسدد حتى', 'review');
+      });
+    });
     // المهم: من 1/7/2026 لحد "مسدد حتى" المدفوع عن كل شهر يساوي المستحق. فترة الشهر بتبدأ يوم دورة العقد (زي 10 أو 15)
     R.dues.forEach(function (x) {
       if (!x.trPaid) return;

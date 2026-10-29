@@ -484,6 +484,38 @@
     var out = {}; Object.keys(cnt).forEach(function (k) { out[k] = { side: cnt[k].in > cnt[k].out ? 'in' : 'out', n: cnt[k].n }; });
     return out;
   }
+  // جدولة سداد المالك من الخزينة (اتفاق 29-10): العبرة بفترات السداد وتسلسلها، مش يوم العقد.
+  // سداد جزئي = فترته يوم واحد (بداية = نهاية) أو مبلغه أقل من ربع مستحق الشهر: تسوية، مبيحركش "مسدد حتى" ومش إيجار جديد
+  function ownerSchedule(t, ownerMonths, idxOf) {
+    var c = (t && t.cols) || {}, out = {};
+    if (!c['كود'] || !c['فئة']) return out;
+    for (var i = 0; i < c['فئة'].length; i++) {
+      if (str(c['فئة'][i]) !== 'سداد ايجار') continue;
+      var u = str(c['كود'][i]); if (!u) continue;
+      var bs = Math.floor(num(c['بداية الايجار'] ? c['بداية الايجار'][i] : 0)), es = Math.floor(num(c['نهاية الايجار'] ? c['نهاية الايجار'][i] : 0));
+      var amt = num(c['مصروف'][i]), m = num(c['شهر'] ? c['شهر'][i] : 0) || bs, k = m ? keyOf(m) : '';
+      var ix = idxOf ? idxOf[u] : undefined, due = ownerMonths && k && ownerMonths[k] && ix !== undefined ? num(ownerMonths[k][ix]) : 0;
+      var oneDay = !!(bs && es && bs === es);
+      (out[u] = out[u] || []).push({ bs: bs, es: es, amt: amt, key: k, due: due, date: num(c['تاريخ'] ? c['تاريخ'][i] : 0), partial: oneDay || (due > 1 && amt > 0 && amt < due / 4), oneDay: oneDay });
+    }
+    Object.keys(out).forEach(function (u) { out[u].sort(function (a, b) { return (a.bs || 0) - (b.bs || 0) || a.date - b.date; }); });
+    return out;
+  }
+  // تسلسل الفترات الكاملة من تاريخ معين: كل فترة تبدأ اليوم اللي بعد اللي قبلها. وبيقول لو السداد ماشي بالشهر الميلادي
+  function scheduleCheck(list, from) {
+    var full = (list || []).filter(function (p) { return !p.oneDay && p.bs && p.es && p.es >= p.bs; });
+    var breaks = [], prev = null, cal = 0, other = 0;
+    full.forEach(function (p) {
+      // فرق يوم أو اتنين قبل أول الشهر (زي 28 فبراير في سنة كبيسة) غلط إدخال بسيط، مش فترة ناقصة
+      var smallGap = prev && p.bs - prev.es <= 3 && L.serialToDate(p.bs).getUTCDate() === 1;
+      if (prev && p.bs > prev.es + 1 && !smallGap && (!from || prev.es + 1 >= from)) breaks.push({ after: prev.es, start: p.bs });
+      if (prev && p.bs <= prev.es && p.es > prev.es && (!from || p.bs >= from)) breaks.push({ after: prev.es, start: p.bs, overlap: true });
+      var d = L.serialToDate(p.bs).getUTCDate(); if (d === 1) cal++; else other++;
+      if (!prev || p.es > prev.es) prev = p;
+    });
+    var first = full[0], half = !!(first && L.serialToDate(first.bs).getUTCDate() !== 1 && full.length > 1 && L.serialToDate(full[1].bs).getUTCDate() === 1);
+    return { breaks: breaks, calendar: cal > 0 && other <= (half ? 1 : 0), half: half, last: full.length ? full[full.length - 1] : null };
+  }
   // آخر شهر اتسدد للمالك (سداد ايجار) لكل وحدة
   function ownerPaid(t) {
     var c = t.cols, out = {};
@@ -709,6 +741,7 @@
   // ---------- صحة بيانات عقود الملاك (اتفاق 29-10: المطور لقى المشاكل دي، فبنمسكها من الإدخال) ----------
   // بيرجع [{key, title, why, items:[{u, note}]}] للوحدات اللي جوه النطاق ومش OUT
   var OWNER_KEY = 'فراس';
+  var SCHED_FROM = L.dateToSerial(new Date(Date.UTC(2026, 3, 1))); // قبل كده الخزينة ناقصة فترات (اتفاق 20-10)
   function ownerHealth(units, ownerCols, ownerMonths, treasury, settings, today) {
     var DAYMS = 864e5, t = today, tk = L.monthKey(t);
     var raw = function (h, i) { return ownerCols && ownerCols[h] ? ownerCols[h][i] : ''; };
@@ -728,11 +761,13 @@
       after: { title: 'الشيت بيحسب بعد نهاية العقد', why: 'العقد خلص والشهور لسه محسوبة بعده: حدّث نهاية العقد لو اتجدد.' },
       ended: { title: 'عقد خلص والوحدة مش OUT', why: 'مفيش شهور محسوبة بعد النهاية: لو خرجت اكتب OUT في التسويات، ولو لسه معانا حدّث العقد.' },
       unpaid: { title: 'شهور محسوبة من غير ولا سداد', why: 'من يناير 2025 مفيش ولا "سداد ايجار" للوحدة دي في الخزينة. اتدفع من خزينة تانية ولا فعلًا مدفعش؟' },
-      day: { title: 'يوم العقد مختلف عن فترات السداد', why: 'العقد بيبدأ في نص الشهر، والسداد في الخزينة متسجل بالشهر من أوله.' },
+      day: { title: 'فترات السداد في الخزينة مش متسلسلة', why: 'العبرة بجدولة السداد في الخزينة: كل فترة لازم تبدأ اليوم اللي بعد نهاية اللي قبلها. فيه فترة ناقصة أو داخلة في اللي قبلها.' },
       pay: { title: 'طريقة الدفع فاضية', why: 'المطور محتاجها (تحويل، كاش، شيك).' },
       tel: { title: 'تليفون المالك فاضي', why: 'المطور محتاج تليفون حقيقي لكل مالك.' }
     };
     Object.keys(G).forEach(function (k) { G[k].key = k; G[k].items = []; });
+    var idxOf = {}; units.forEach(function (u) { idxOf[u.code] = u.idx; });
+    var sched = ownerSchedule(treasury, ownerMonths, idxOf);
     var add = function (k, u, note) { G[k].items.push({ u: u, note: note || '' }); };
     units.forEach(function (u) {
       if (!inScope(u, settings) || str(u.settle).toUpperCase() === 'OUT') return;
@@ -749,9 +784,8 @@
           var ek = L.monthKey(E), aft = billed.filter(function (k) { return cmpKey(k, ek) > 0; });
           if (aft.length) add('after', u, 'خلص ' + L.fmt(E) + '، ومحسوب ' + aft.length + ' شهر بعده لحد ' + L.monthLabel(aft[aft.length - 1]));
           else if (E < t) add('ended', u, 'خلص ' + L.fmt(E));
-          var dd = new Date(E.getTime() + DAYMS).getUTCDate();
-          var lt = lastTo[u.code] ? L.serialToDate(lastTo[u.code]) : null;
-          if (dd > 1 && dd < 28 && lt && cmpKey(L.monthKey(lt), L.monthKey(new Date(t.getTime() - 120 * DAYMS))) >= 0) add('day', u, 'العقد من يوم ' + dd + '، والسداد متسجل لحد ' + L.fmt(lt));
+          var sc = scheduleCheck(sched[u.code], SCHED_FROM);
+          if (sc.breaks.length) add('day', u, sc.breaks.slice(0, 2).map(function (b) { return (b.overlap ? 'فترة من ' : 'بعد ' + L.fmt(L.serialToDate(b.after)) + ' الفترة اللي بعدها من ') + L.fmt(L.serialToDate(b.start)) + (b.overlap ? ' داخلة في اللي قبلها' : ''); }).join(' ; '));
         }
         if (billed.length >= 3 && !paidBy[u.code]) add('unpaid', u, billed.length + ' شهر محسوب من ' + L.monthLabel(billed[0]));
       }
@@ -919,7 +953,7 @@
 
   var api = {
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
-    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, unitProfit: unitProfit, PROFIT_SKIP: PROFIT_SKIP, keyRange: keyRange, occupancy: occupancy, occSum: occSum, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
+    ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, unitProfit: unitProfit, PROFIT_SKIP: PROFIT_SKIP, keyRange: keyRange, occupancy: occupancy, occSum: occSum, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSchedule: ownerSchedule, scheduleCheck: scheduleCheck, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
     ownerHealth: ownerHealth, inScope: inScope, isNF: isNF, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
