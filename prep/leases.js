@@ -44,13 +44,16 @@
       var sk = (settings && settings.devSkip) || [], kd = u.settle.toUpperCase().replace(/[_\s]/g, '-');
       if (sk.length && sk.indexOf(kd === 'F' || kd === 'N-F' ? kd : '') !== -1) continue;
       var start = day(c['بداية العقد'] && c['بداية العقد'][i]), end = day(c['نهاية العقد'] && c['نهاية العقد'][i]);
+      // نهاية العقد يوم 30 في شهر 31 يوم = غلط إدخال، النهاية آخر الشهر (اتفاق 29-10)
+      var endFix = 0;
+      if (end) { var ed = L.serialToDate(end), dim = new Date(Date.UTC(ed.getUTCFullYear(), ed.getUTCMonth() + 1, 0)).getUTCDate(); if (ed.getUTCDate() === 30 && dim === 31) { endFix = end; end = end + 1; } }
       var val = (function (ii) { return function (k) { return m[k] ? num(m[k][ii]) : 0; }; })(i);
       var every = num(c['يسدد كل'] && c['يسدد كل'][i]);
       var p = paid[code];
       out.push({
         idx: i, code: code, project: u.project, settle: u.settle, owner: str(c['الاسم'] && c['الاسم'][i]),
         unitTitle: [u.project, str(c['عمارة'] && c['عمارة'][i]) && 'عمارة ' + str(c['عمارة'][i]), str(c['شقة'] && c['شقة'][i]) && 'شقة ' + str(c['شقة'][i])].filter(Boolean).join(' · '),
-        start: start, end: end, val: val, has: function (k) { return !!m[k] && hasKey[k]; }, mk: keys,
+        start: start, end: end, endFix: endFix, val: val, has: function (k) { return !!m[k] && hasKey[k]; }, mk: keys,
         cycle: CYCLE[every] ? every : 1, cycleBad: every && !CYCLE[every] ? str(c['يسدد كل'][i]) : '',
         deposit: c['التأمين'] ? num(c['التأمين'][i]) : null,
         method: methodOf(c['الدفع'] && c['الدفع'][i]),
@@ -146,6 +149,7 @@
       var rows = (byU[ck(u.code)] || []).slice().sort(function (a, b) { return day(a[C.start]) - day(b[C.start]); });
       var live = rows.filter(function (r) { return str(r[C.status]) !== 'مسودة / Draft'; });
       var sg = segments(u, today);
+      if (u.endFix && !u.out) R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: 'ملاحظة: نهاية العقد في الشيت ' + fmtS(u.endFix) + '، واتسجلت ' + fmtS(u.end) + ' (آخر الشهر). صححها في الشيت' });
       if (sg && sg.note && !u.out) R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'note', why: sg.note });
       if (sg && !u.out) R.segs.push({ code: u.code, project: u.project, owner: u.owner, end: u.end, cur: sg.cur, prev: sg.prev, mid: sg.mid, after: sg.after, rentCur: u.val(L.monthKey(L.serialToDate(sg.cur.rs))), rentPrev: sg.prev ? u.val(L.monthKey(L.serialToDate(sg.prev.rs))) : 0, dev: live.length });
       if (!live.length) {
