@@ -172,7 +172,7 @@
         if (!sg) { R.newRows.push(newRow(u, null, u.start, u.end, today, 'وحدة في ملف أصول ومش في ملف المطور (البداية من شيت الملاك، وهي أول عقد)')); R.counts.added++; addGaps(u, '', u.start, u.end); return; }
         if (sg.prev) { R.newRows.push(newRow(u, null, sg.prev.s, sg.prev.e, today, sg.prev.why, ST.renewed, sg.prev.rs, sg.prev.unsigned)); R.counts.added++; R.counts.renewals++; addGaps(u, '', sg.prev.s, sg.prev.e); }
         R.newRows.push(newRow(u, null, sg.cur.s, sg.cur.e, today, sg.cur.why, sg.next.length ? ST.renewed : null, sg.cur.rs, sg.cur.unsigned));
-        sg.next.forEach(function (x) { R.newRows.push(newRow(u, null, x.s, x.e, today, x.why, null, x.rs, true)); R.counts.added++; });
+        sg.next.forEach(function (x) { R.newRows.push(newRow(u, null, x.s, x.e, today, x.why, null, x.rs, x.unsigned !== false)); R.counts.added++; });
         R.counts.added++; addGaps(u, '', sg.cur.s, sg.cur.e); midReview(null, u, sg);
         // العقد خلص قبل 1/7 ومفيش سداد ولا مستحقات بعده، والوحدة مش OUT: يعني لسه معانا والشيت محتاج يتحدّث (اتفاق 29-10)
         if (sg.E < CUTOFF) R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'review', why: 'العقد خلص ' + fmtS(sg.E) + ' ومفيش سداد ولا مستحقات بعده، والوحدة مش OUT. لو خرجت اكتب OUT في التسويات، ولو لسه معانا حدّث نهاية العقد والشهور' });
@@ -345,10 +345,18 @@
     // شهر الإيجار لأول-سنة: شهرها (ولو بتبدأ آخر الشهر، الشهر اللي بعده). ولو بتبدأ في نص الشهر والتغيير ظهر الشهر اللي بعده، ناخده
     var rentMonth = function (a) { var m0 = firstOf(a + 3); if (changedAt(m0)) return m0; var dd = L.serialToDate(a).getUTCDate(); var m1 = L.addMonths(m0, 1); return dd > 1 && dd < 28 && changedAt(m1) ? m1 : null; };
     // كل سنة بعد نهاية العقد الأصلية (اتفاق من غير عقد) بداية عقد لوحدها حتى لو الإيجار زي ما هو
-    var ch = []; an.forEach(function (a) { if (a > today) return; var m = rentMonth(a); if (!m && a > E0) m = firstOf(a + 3); if (m) ch.push({ a: a, rs: L.dateToSerial(m) }); }); // من الأحدث للأقدم
+    // تغيير الإيجار في أول-سنة بنسبة 10% أو 15% أو 20% = زيادة جوه نفس العقد، وأي تغيير غير كده = تجديد عقد (اتفاق 29-10).
+    // ده على اللي فات واللي جاي لحد نهاية الشيت
+    var stdInc = function (m) { var r1 = at(m), r0 = at(L.addMonths(m, -1)); if (!(r0 > 0) || !(r1 > 0)) return false; var p = (r1 / r0 - 1) * 100; return [10, 15, 20].some(function (x) { return Math.abs(p - x) < 0.1; }); };
+    var ch = []; an.forEach(function (a) { var m = rentMonth(a); if (m && a <= E0 && stdInc(m)) m = null; if (!m && a > E0 && a <= today) m = firstOf(a + 3); if (m) ch.push({ a: a, rs: L.dateToSerial(m) }); }); // من الأحدث للأقدم
     var lastYear = function (lim) { for (var i = 0; i < an.length; i++) if (an[i] <= lim) return an[i]; return an[an.length - 1]; };
     var lbl = function (rs) { return L.monthLabel(key(L.serialToDate(rs))); };
-    var cur, prev = null;
+    var cur, prev = null, futs = [];
+    // التجديدات اللي جاية (بعد النهارده): كل واحد سطر "ساري" من بدايته لحد اللي بعده أو نهاية الشيت
+    var fc = ch.filter(function (c) { return c.a > today; }).reverse();
+    ch = ch.filter(function (c) { return c.a <= today; });
+    var billedIn = function (s1, e1) { for (var q1 = firstOf(s1 + 3), q2 = firstOf(e1); q1 <= q2; q1 = L.addMonths(q1, 1)) if (at(q1) > 0) return true; return false; };
+    fc.forEach(function (c, k) { futs.push({ s: c.a, e: k + 1 < fc.length ? fc[k + 1].a - 1 : E, rs: c.rs, unsigned: false, why: 'تجديد بيبدأ ' + fmtS(c.a) + ' (الإيجار اتغير في ' + lbl(c.rs) + ')' }); });
     if (!ch.length) { var ly = lastYear(Math.min(CUTOFF, E)); cur = { s: ly, e: E, rs: ly + 3, why: 'آخر سنة في العقد (الإيجار متغيرش)' }; }
     else {
       cur = { s: ch[0].a, e: E, rs: ch[0].rs, why: 'العقد الحالي: الإيجار اتغير في ' + lbl(ch[0].rs) };
@@ -356,6 +364,11 @@
         if (ch[1]) prev = { s: ch[1].a, e: ch[0].a - 1, rs: ch[1].rs, why: 'العقد اللي مغطي 1/7/2026: الإيجار اتغير في ' + lbl(ch[1].rs) };
         else { var p0 = lastYear(CUTOFF); prev = { s: p0, e: ch[0].a - 1, rs: p0 + 3, why: 'العقد اللي مغطي 1/7/2026 (آخر سنة قبل التجديد)' }; }
       }
+    }
+    if (futs.length) {
+      cur.e = futs[0].s - 1;
+      // العقد الحالي من غير ولا شهر محسوب (الشقة كانت برة): التجديد الجاي هو العقد بس
+      if (!billedIn(Math.max(cur.s, u.start || 0), cur.e)) { cur = futs.shift(); prev = null; }
     }
     // تجديد متسجل في الشيت وبادئ في المستقبل (بداية العقد بعد النهارده) = عقدين (اتفاق 29-10):
     // العقد اللي مغطي 1/7 من أول شهر الإيجار القديم ثابت فيه لحد قبل التجديد، والتجديد من تاريخ البداية بالإيجار الجديد
@@ -369,15 +382,17 @@
         if (fut - ps > 731) { ps = lastYear(Math.min(CUTOFF, fut - 1)); prs = L.dateToSerial(firstOf(ps + 3)); }
         if (ps <= CUTOFF) {
           prev = { s: ps, e: fut - 1, rs: prs, why: 'العقد اللي مغطي 1/7/2026 (قبل التجديد اللي بيبدأ ' + fmtS(fut) + ')' };
-          cur = { s: fut, e: E, rs: L.dateToSerial(fm), why: 'تجديد بيبدأ ' + fmtS(fut) + ' (لسه مبدأش)' };
+          cur = { s: fut, e: E, rs: L.dateToSerial(fm), why: 'تجديد بيبدأ ' + fmtS(fut) + ' (لسه مبدأش)' }; futs = [];
         }
       }
     }
     // العقد اللي قبل التجديد لازم يكون ليه شهور في الشيت، وإلا تبقى الوحدة جديدة من التجديد ده
     if (prev) { var any = false; for (var q = firstOf(prev.rs), qe = firstOf(cur.rs); q < qe; q = L.addMonths(q, 1)) if (at(q) > 0) { any = true; break; } if (!any) prev = null; }
+    // العقد اللي مغطي 1/7 لازم يكون محسوب فيه شهور من يونيو 2026 لحد نهايته، وإلا الشقة كانت برة يوم القطع
+    if (prev && !billedIn(Math.max(prev.s, CUTOFF - 31), prev.e)) prev = null;
     if (u.start && cur.s < u.start) { cur.s = u.start; if (cur.rs < u.start) cur.rs = u.start; }
     // الاتفاق سنة واحدة: لو مدفوع لسنة بعدها، كل سنة سطر لوحدها
-    var next = [];
+    var next = futs;
     if (E > E0 && cur.s > E0) {
       var ce = L.dateToSerial(L.addMonths(L.serialToDate(cur.s), 12)) - 1;
       if (ce < cur.e) { for (var ns = ce + 1; ns <= E; ns = L.dateToSerial(L.addMonths(L.serialToDate(ns), 12))) next.push({ s: ns, e: Math.min(E, L.dateToSerial(L.addMonths(L.serialToDate(ns), 12)) - 1), rs: ns + 3, unsigned: true, why: 'اتفاق سنة جديدة لسه متوقعش (' + (u.paid && u.paid > E0 ? 'مدفوع مقدم لحد ' + fmtS(u.paid) : 'الشيت بيحسب لحد ' + L.monthLabel(key(L.serialToDate(billed)))) + ')' }); cur.e = ce; }
