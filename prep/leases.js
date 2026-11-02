@@ -254,7 +254,8 @@
       if (u.cycleBad) review(r, 'دورة السداد في شيت الملاك مكتوبة "' + u.cycleBad + '"');
       else if (cy !== u.cycle) fix(r, C.cycle, r[C.cycle], CYCLE[u.cycle], 'يسدد كل ' + u.cycle + ' شهر في شيت الملاك');
       if (u.deposit && num(r[C.deposit]) !== u.deposit) fix(r, C.deposit, r[C.deposit], u.deposit, 'التأمين في شيت الملاك');
-      if (u.method && !str(r[C.method])) fix(r, C.method, r[C.method], u.method, 'طريقة الدفع في شيت الملاك');
+      // طريقة الدفع الفاضية = تحويل بنكي (اتفاق 2-11)
+      if (!str(r[C.method])) fix(r, C.method, r[C.method], u.method || METHOD[0][1], u.method ? 'طريقة الدفع في شيت الملاك' : 'طريقة الدفع فاضية: افتراضي تحويل بنكي');
       // مسدد حتى: ممنوع نرجّعه لورا، ولو الخزينة أقل نكتب ملاحظة
       var dp = day(r[C.paid]);
       if (u.paid && u.paid > dp) fix(r, C.paid, r[C.paid], u.paid, 'آخر سداد ايجار في الخزينة لحد ' + fmtS(u.paid));
@@ -556,7 +557,7 @@
     if (u.paid && (!st || u.paid >= st)) v[C.paid] = en && u.paid > en ? en : u.paid;
     // مسدد لحد آخر شهر في العقد (زي 30/7 والنهاية 31/7) = مسدد لحد النهاية
     if (v[C.paid] && en && v[C.paid] < en && L.monthKey(L.serialToDate(v[C.paid])) === L.monthKey(L.serialToDate(en)) && L.serialToDate(v[C.paid]).getUTCDate() >= 28) v[C.paid] = en;
-    if (u.method) v[C.method] = u.method;
+    v[C.method] = u.method || METHOD[0][1]; // الفاضية = تحويل بنكي (اتفاق 2-11)
     v[C.notes] = (unsigned ? 'اتفاق سنة جديدة من غير عقد موقّع · ' : '') + 'اتضاف من ملف أصول (MBM)' + (u.settle ? ' · ' + u.settle : '');
     // اتفاق لسه متوقعش والشيت فاضي بعد النهاية: الإيجار = المدفوع في أول شهر، وإلا آخر إيجار في العقد
     if (!Y[0] && unsigned) { var g0 = CTX.T[u.code], pm = g0 ? Math.round(g0.m[L.monthKey(L.serialToDate(rs || st))] || 0) : 0; Y[0] = pm || CTX.lastRent[u.code] || 0; v[C.rent] = Y[0] || ''; }
