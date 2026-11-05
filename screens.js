@@ -281,7 +281,7 @@
     var depLines = Object.keys(x.ledger.deposits || {}).filter(function (c) { return Math.abs(x.ledger.deposits[c].egp) > 0.5; })
       .map(function (c) { return money(x.ledger.deposits[c].egp) + ' في ' + esc(c); }).join('<br>') || 'مفيش';
     App.openSheet('<h2 style="margin-bottom:2px">' + esc(r.name || '—') + '</h2><div class="r2" dir="ltr" style="text-align:right">' + esc(r.code) + '</div>' +
-      '<dl class="kv"><dt>الوحدة</dt><dd>' + esc(x.unit ? App.unitTitle(x.unit) : r.unit) + '</dd><dt>العقد</dt><dd>' + L.fmt(r.start) + ' ← ' + L.fmt(r.end) + '</dd>' +
+      '<dl class="kv"><dt>الوحدة</dt><dd>' + esc(x.unit ? App.unitTitle(x.unit) : r.unit) + '</dd><dt>العقد</dt><dd>' + 'من ' + L.fmt(r.start) + ' لـ ' + L.fmt(r.end) + '</dd>' +
       (r.phone ? '<dt>التليفون</dt><dd dir="ltr" style="text-align:right">' + esc(r.phone) + '</dd>' : '') +
       '<dt>الرصيد</dt><dd><b>' + money(x.balance) + '</b></dd><dt>الحالة</dt><dd>' + statusLine(x) + '</dd><dt>التأمين</dt><dd>' + depLines + '</dd></dl>' +
       '<div class="card" style="margin-top:10px;padding:10px"><table class="mt"><tr><th>الشهر</th><th class="n">مستحق</th><th class="n">محصل</th><th class="n">متبقي</th></tr>' +
@@ -352,7 +352,7 @@
       list.forEach(function (o) { F.validateEntry(o, today()).forEach(function (m) { if (errs.indexOf(m) < 0) errs.push(m); }); });
       if (errs.length) { $('cMsg').innerHTML = errs.map(function (m) { return '<div class="msg err">' + esc(m) + '</div>'; }).join(''); return; }
       var total = list.reduce(function (a, o) { return a + (Number(o.amount) || 0); }, 0);
-      var what = list.length > 1 ? list.length + ' شهور (' + L.monthLabel(list[0].month) + ' ← ' + L.monthLabel(list[list.length - 1].month) + ')، سطر لكل شهر،' : 'عن ' + L.monthLabel(e.month);
+      var what = list.length > 1 ? list.length + ' شهور (' + 'من ' + L.monthLabel(list[0].month) + ' لـ ' + L.monthLabel(list[list.length - 1].month) + ')، سطر لكل شهر،' : 'عن ' + L.monthLabel(e.month);
       if (!armed) {
         armed = true; this.textContent = 'تأكيد';
         $('cMsg').innerHTML = dupHtml(list.map(F.entryValues)) + '<div class="msg warn">هيتسجل ' + money(total) + ' ج تحصيل إيجار ' + what + ' في ' + esc(e.cash) + '. اضغط تأكيد.</div>';
@@ -396,7 +396,7 @@
     var short = L.daysBetween(r.start, r.end) < 30;
     $('tab-transfer').innerHTML = '<button class="back" id="tBack">→ رجوع للبحث</button>' +
       '<div class="card"><h3>العقد الحالي</h3><div class="r1">' + esc(r.name) + '</div><div class="r2" dir="ltr" style="text-align:right">' + esc(r.code) + '</div>' +
-      '<dl class="kv"><dt>الوحدة</dt><dd>' + esc(u ? App.unitTitle(u) : r.unit) + '</dd><dt>الفترة</dt><dd>' + L.fmt(r.start) + ' ← ' + L.fmt(r.end) + '</dd>' +
+      '<dl class="kv"><dt>الوحدة</dt><dd>' + esc(u ? App.unitTitle(u) : r.unit) + '</dd><dt>الفترة</dt><dd>' + 'من ' + L.fmt(r.start) + ' لـ ' + L.fmt(r.end) + '</dd>' +
       '<dt>التأمين</dt><dd>' + (deps.length ? deps.map(function (d) { return money(d.egp) + ' في ' + esc(d.cash) + (d.fx ? ' (' + money(d.fx) + ' عملة)' : ''); }).join('<br>') : 'مفيش رصيد تأمين') + '</dd></dl></div>' +
       '<div class="card"><h3>النقل</h3><label>تاريخ النقل</label><input type="date" id="tDate" value="' + L.toISO(T.date) + '">' +
       '<label>الوحدة الجديدة</label><div id="tPick"><input id="tUnitQ" placeholder="ابحث بالكود أو العمارة أو الشقة" autocomplete="off"><div id="tUnitRes" class="results hide"></div></div><div id="tUnitCard"></div>' +
@@ -462,7 +462,7 @@
         var v = p.oldChanges[k];
         return '<tr><td>' + L.monthLabel(k) + '</td><td class="n">' + money(T.oldMonths[k]) + '</td><td class="n">' + (v === null ? '<span class="strike">هيتشال</span>' : '<input class="ltr" data-old="' + k + '" value="' + v + '" style="width:96px;padding:4px 6px">') + '</td></tr>';
       }).join('') + '</table>' : '<div class="r2">مفيش شهور هتتغير.</div>') + '</div>' +
-      '<div class="card"><h3>السطر الجديد</h3><dl class="kv"><dt>الفترة</dt><dd>' + L.fmt(T.date) + ' ← ' + L.fmt(r.end) + '</dd><dt>البيانات</dt><dd class="r2">نفس بيانات المستأجر من السطر القديم</dd></dl>' +
+      '<div class="card"><h3>السطر الجديد</h3><dl class="kv"><dt>الفترة</dt><dd>' + 'من ' + L.fmt(T.date) + ' لـ ' + L.fmt(r.end) + '</dd><dt>البيانات</dt><dd class="r2">نفس بيانات المستأجر من السطر القديم</dd></dl>' +
       (p.schedule.length ? '<table class="mt" style="margin-top:8px"><tr><th>الشهر</th><th class="n">المبلغ</th></tr>' + p.schedule.map(function (s, i) {
         return '<tr><td>' + L.monthLabel(s.key) + (s.note ? '<div class="r2">' + esc(s.note) + '</div>' : '') + '</td><td class="n"><input class="ltr" data-new="' + i + '" value="' + s.amount + '" style="width:96px;padding:4px 6px"></td></tr>';
       }).join('') + '</table>' : '') + '</div>' +
@@ -628,7 +628,7 @@
         var u = unitOf(r.unit) || {};
         st = F.tenantStatement(r, duesOfIdx(r.idx), S.treasury, today());
         name = r.name || r.code;
-        info = { title: 'كشف حساب مستأجر', who: name, lines: [['المستأجر', name], ['كود المستأجر', r.code], ['الوحدة', App.unitTitle(u) || r.unit], ['العقد', L.fmt(r.start) + ' ← ' + L.fmt(r.end)], ['الإيجار', r.rent ? money(r.rent) : '—']] };
+        info = { title: 'كشف حساب مستأجر', who: name, lines: [['المستأجر', name], ['كود المستأجر', r.code], ['الوحدة', App.unitTitle(u) || r.unit], ['العقد', 'من ' + L.fmt(r.start) + ' لـ ' + L.fmt(r.end)], ['الإيجار', r.rent ? money(r.rent) : '—']] };
       } else {
         var o = unitOf(key); if (!o) return;
         st = F.ownerStatement(o, S.ownerMonths, S.treasury, today());
@@ -741,7 +741,7 @@
           ' · <button class="link" data-go="entry:' + it + '">روح للسطر</button></div></div>';
       }
       if (x.kind === 'pair') {
-        return '<div class="rcard">' + it.map(function (r) { return '<div class="r2"><b>' + esc(r.name || '—') + '</b> <span dir="ltr">' + esc(r.code) + '</span> · ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end) + ' · <button class="link" data-go="renter:' + r.idx + '">روح للسطر</button></div>'; }).join('') + '</div>';
+        return '<div class="rcard">' + it.map(function (r) { return '<div class="r2"><b>' + esc(r.name || '—') + '</b> <span dir="ltr">' + esc(r.code) + '</span> · ' + 'من ' + L.fmt(r.start) + ' لـ ' + L.fmt(r.end) + ' · <button class="link" data-go="renter:' + r.idx + '">روح للسطر</button></div>'; }).join('') + '</div>';
       }
       var u = unitOf(it.unit);
       return '<div class="rcard"><div class="r2"><b>' + esc(it.name || '—') + '</b> <span dir="ltr">' + esc(it.code) + '</span> · لحد ' + L.fmt(it.end) + ' · المالك لحد ' + L.fmt(u && u.ownerEnd) + ' · <button class="link" data-go="renter:' + it.idx + '">روح للسطر</button></div></div>';
@@ -860,7 +860,7 @@
       var list = S.renters.filter(function (r) { return r.unit === EN.unit.code && r.code; }).sort(function (a, b) { return (b.start || 0) - (a.start || 0); });
       var t = today(), cur = list.filter(function (r) { return r.start <= t && r.end >= t; })[0];
       $('eTenant').innerHTML = list.length ? list.slice(0, 30).map(function (r) {
-        return '<option value="' + esc(r.code) + '"' + ((EN.presetTenant ? r.code === EN.presetTenant : cur && r.code === cur.code) ? ' selected' : '') + '>' + esc((r.name || '—') + ' · ' + r.code + ' · ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end)) + '</option>';
+        return '<option value="' + esc(r.code) + '"' + ((EN.presetTenant ? r.code === EN.presetTenant : cur && r.code === cur.code) ? ' selected' : '') + '>' + esc((r.name || '—') + ' · ' + r.code + ' · ' + 'من ' + L.fmt(r.start) + ' لـ ' + L.fmt(r.end)) + '</option>';
       }).join('') : '<option value="">مفيش عقود على الوحدة دي</option>';
       if (!$('eNote').value && cur) $('eNote').value = cur.name;
       refreshTenant();
@@ -926,7 +926,7 @@
   function fxMissing(rows) { return rows.some(function (x) { return !(Number(x.fx) > 0); }); }
   function tenRowsHtml(rows, n, r, pre, fx) {
     return '<table class="sch">' + fxHead(fx) + rows.map(function (x, i) {
-      return '<tr><td class="m">' + L.monthLabel(x.key) + '<div class="note">' + L.fmt(x.from) + ' ← ' + L.fmt(x.to) + '</div></td><td><input class="ltr" data-' + pre + 'row="' + i + '" value="' + (x.amount || '') + '"></td>' + fxCell(x, i, pre, fx) + '</tr>';
+      return '<tr><td class="m">' + L.monthLabel(x.key) + '<div class="note">' + 'من ' + L.fmt(x.from) + ' لـ ' + L.fmt(x.to) + '</div></td><td><input class="ltr" data-' + pre + 'row="' + i + '" value="' + (x.amount || '') + '"></td>' + fxCell(x, i, pre, fx) + '</tr>';
     }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="' + pre + 'TenTot">' + money(rows.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0)) + '</span></div>' + fxTotal(rows, pre, fx) +
       (rows.length < n ? '<div class="r2">العقد بيخلص ' + L.fmt(r.end) + '، فطلع ' + rows.length + ' شهر بس.</div>' : '');
   }
@@ -951,7 +951,7 @@
     var ofx = F.isForeign($('eCash').value) && sg.rows.length > 1;
     $('eFxBox').classList.toggle('hide', !F.isForeign($('eCash').value) || ofx);
     $('eOwnRows').innerHTML = '<table class="sch">' + fxHead(ofx) + sg.rows.map(function (r, i) {
-      return '<tr><td class="m">' + L.monthLabel(r.key) + '<div class="note" data-onote="' + i + '">' + L.fmt(r.from) + ' ← ' + L.fmt(r.to) + ' · ' + src[r.source] + '</div></td><td><input class="ltr" data-orow="' + i + '" value="' + (r.amount || '') + '"></td>' + fxCell(r, i, 'o', ofx) + '</tr>';
+      return '<tr><td class="m">' + L.monthLabel(r.key) + '<div class="note" data-onote="' + i + '">' + 'من ' + L.fmt(r.from) + ' لـ ' + L.fmt(r.to) + ' · ' + src[r.source] + '</div></td><td><input class="ltr" data-orow="' + i + '" value="' + (r.amount || '') + '"></td>' + fxCell(r, i, 'o', ofx) + '</tr>';
     }).join('') + '</table><div class="total"><span>الإجمالي</span><span id="eOwnTot">' + money(sg.rows.reduce(function (a, r) { return a + (Number(r.amount) || 0); }, 0)) + '</span></div>' + fxTotal(sg.rows, 'o', ofx);
     bindFx(EN.ownerRows, 'o', function () { disarm(); });
     document.querySelectorAll('#eOwnRows input[data-orow]').forEach(function (inp) {
@@ -959,7 +959,7 @@
         var r = EN.ownerRows[+inp.dataset.orow]; r.amount = Number(digits(inp.value)) || 0;
         var p = F.partialPeriod(r.from, r.fullTo, r.amount, r.full); r.to = p.to;
         var nt = document.querySelector('#eOwnRows [data-onote="' + inp.dataset.orow + '"]');
-        if (nt) nt.innerHTML = L.fmt(r.from) + ' ← ' + L.fmt(r.to) + ' · ' + (p.partial ? '<b class="late">دفعة جزئية: يوم واحد، و"مسدد حتى" مش هيتحرك</b>' : src[r.source]);
+        if (nt) nt.innerHTML = 'من ' + L.fmt(r.from) + ' لـ ' + L.fmt(r.to) + ' · ' + (p.partial ? '<b class="late">دفعة جزئية: يوم واحد، و"مسدد حتى" مش هيتحرك</b>' : src[r.source]);
         $('eOwnTot').textContent = money(EN.ownerRows.reduce(function (a, r) { return a + (Number(r.amount) || 0); }, 0)); disarm();
       };
     });
@@ -1361,7 +1361,7 @@
   // الفترة اللي الحركة تخصها: خانة "شهر"، ومعاها "بداية الايجار" و"نهاية الايجار"
   function audPeriod(m) {
     var mo = m.key ? L.monthLabel(m.key) : (m.rent ? 'من غير شهر' : '');
-    var rg = m.ps && m.pe ? L.fmt(m.ps) + ' ← ' + L.fmt(m.pe) : m.pe ? 'لحد ' + L.fmt(m.pe) : '';
+    var rg = m.ps && m.pe ? 'من ' + L.fmt(m.ps) + ' لـ ' + L.fmt(m.pe) : m.pe ? 'لحد ' + L.fmt(m.pe) : '';
     return [mo, rg].filter(Boolean).join(' · ') || '—';
   }
   function audHow(m) { return [m.cash, m.fx ? money(m.fx) + ' عملة' : ''].filter(Boolean).join(' · ') || '—'; }
@@ -1411,7 +1411,7 @@
       var r = y.r, len = y.nightly ? y.nights + ' ليلة' : (y.md ? (y.md.months ? y.md.months + ' شهر' : '') + (y.md.days ? (y.md.months ? ' و' : '') + y.md.days + ' يوم' : '') : '');
       var now = y.moves.filter(function (m) { return m.inRange || !m.rent; }), rest = y.moves.filter(function (m) { return m.rent && !m.inRange; });
       return '<div style="border-top:1px solid #f0e9da;padding:7px 0">' +
-        '<div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b style="font-size:13px">' + esc(r.name || '—') + '</b><div class="r2" style="font-size:11.5px">' + esc(r.code) + ' · ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end) + (len ? ' · ' + len : '') + (num0(r.rent) ? ' · ' + (y.nightly ? 'الليلة ' : 'الشهر ') + money(r.rent) : '') + '</div></div>' +
+        '<div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b style="font-size:13px">' + esc(r.name || '—') + '</b><div class="r2" style="font-size:11.5px">' + esc(r.code) + ' · ' + 'من ' + L.fmt(r.start) + ' لـ ' + L.fmt(r.end) + (len ? ' · ' + len : '') + (num0(r.rent) ? ' · ' + (y.nightly ? 'الليلة ' : 'الشهر ') + money(r.rent) : '') + '</div></div>' +
         '<span class="tagx ' + (AUD_TAG[y.state] || '') + '">' + esc(y.state) + '</span></div>' +
         '<div class="r2" style="font-size:12px;margin-top:3px">المستحق عن الفترة <b>' + money(y.due) + '</b> · المحصّل عنها <b>' + money(y.coll) + '</b>' + (Math.abs(y.diff) > 1 ? ' · الفرق <b class="' + (y.diff > 0 ? 'late' : '') + '">' + money(y.diff) + '</b>' : '') +
         ' · التأمين ' + money(y.dep) + (y.depDue ? ' من ' + money(y.depDue) : '') + (y.depShort ? ' <b class="late">ناقص</b>' : '') + '</div>' +
@@ -1663,7 +1663,7 @@
       return '<div class="rcard"><div class="top2"><div><div class="r1">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2"><span dir="ltr">' + esc(u.code) + '</span>' + (u.bedrooms ? ' · ' + esc(u.bedrooms) + ' غرف' : '') + (u.settle ? ' · ' + esc(u.settle) : '') + '</div></div>' + st + '</div>' +
         ((c && c.end.getUTCFullYear() < 2090) || n || x.pending ? '<dl class="kv">' + (c && c.end.getUTCFullYear() < 2090 ? '<dt>الساكن</dt><dd>' + esc(c.name || '—') + '</dd>' : '') +
         (x.pending ? '<dt>خرج</dt><dd>' + esc(x.pending.name || '—') + ' · ' + L.fmt(x.pending.end) + '</dd>' : '') +
-        (n ? '<dt>حجز جاي</dt><dd>' + esc(n.name || '—') + ' · ' + L.fmt(n.start) + ' ← ' + L.fmt(n.end) + '</dd>' : '') + '</dl>' : '') + '</div>';
+        (n ? '<dt>حجز جاي</dt><dd>' + esc(n.name || '—') + ' · ' + 'من ' + L.fmt(n.start) + ' لـ ' + L.fmt(n.end) + '</dd>' : '') + '</dl>' : '') + '</div>';
     }).join('') + (list.length > 150 ? '<div class="r2" style="padding:6px">ظاهر ١٥٠ من ' + list.length + '. الـ PDF فيه الكل.</div>' : '') : '<div class="empty" style="padding:8px">مفيش وحدات بالفلتر ده.</div>';
   }
 
@@ -1695,7 +1695,7 @@
     var r = CE.r, u = unitOf(r.unit), p = cePlan(), ext = CE.kind === 'extend';
     var head = '<h2>' + (ext ? 'تمديد العقد' : 'تسليم مبكر') + '</h2>' +
       '<div class="card"><div class="r1">' + esc(r.name || '—') + '</div><div class="r2">' + esc(App.unitTitle(u) || r.unit) + ' · <span dir="ltr">' + esc(r.code) + '</span></div>' +
-      '<div class="r2">العقد الحالي: ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end) + '</div></div>';
+      '<div class="r2">العقد الحالي: ' + 'من ' + L.fmt(r.start) + ' لـ ' + L.fmt(r.end) + '</div></div>';
     var form = ext ?
       '<label>النهاية الجديدة</label><div style="display:flex;gap:6px;margin-bottom:6px"><input type="date" id="ceEnd" value="' + isoOf(CE.newEnd) + '" style="flex:1">' +
         '<input id="ceN" class="ltr" inputmode="numeric" placeholder="زوّد" style="width:62px"><select id="ceU" style="width:84px"><option value="m">شهور</option><option value="n">ليالي</option><option value="w">أسابيع</option><option value="y">سنين</option></select></div>' +
@@ -1831,7 +1831,7 @@
       $('tSide').onchange = function () { TR.side = this.value; drawTreas(); };
       var tm; $('tQ').oninput = function () { TR.q = this.value; clearTimeout(tm); tm = setTimeout(drawTreas, 200); };
       TR.flash = ''; TR.check = '';
-      bindExport('trExp', function () { return treasData(S.treasView || [], fileName(scopeName() ? 'حركات خزينة ' + scopeName() : 'حركات الخزينة', 'من ' + fdate(TR.from || today()), 'لـ ' + fdate(TR.to || today())), scopeName() ? 'حركات خزينة ' + scopeName() : 'حركات الخزينة', L.fmt(TR.from) + ' ← ' + L.fmt(TR.to) + (TR.cat ? ' · ' + TR.cat : '') + (TR.cash ? ' · ' + TR.cash : '')); });
+      bindExport('trExp', function () { return treasData(S.treasView || [], fileName(scopeName() ? 'حركات خزينة ' + scopeName() : 'حركات الخزينة', 'من ' + fdate(TR.from || today()), 'لـ ' + fdate(TR.to || today())), scopeName() ? 'حركات خزينة ' + scopeName() : 'حركات الخزينة', 'من ' + L.fmt(TR.from) + ' لـ ' + L.fmt(TR.to) + (TR.cat ? ' · ' + TR.cat : '') + (TR.cash ? ' · ' + TR.cash : '')); });
       $('eNew').onclick = openEntry;
       $('bNew').onclick = openBulk;
       var daily = function () { var dd = L.parseISO($('dDate').value) || today(); TR.day = dd; return { d: dd, html: R.dailyHtml(S.treasury, S.units, S.cash, dd) }; };

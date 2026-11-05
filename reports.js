@@ -183,7 +183,7 @@
       var a = L.serialToDate(g('بداية الايجار', i)), b = L.serialToDate(g('نهاية الايجار', i));
       return '<tr><td class="n g">' + money(g('ايراد', i)) + '</td><td class="n r">' + money(g('مصروف', i)) + '</td><td class="n">' + el(g('رقم المستند', i), 60) + '</td>' +
         '<td>' + (u.project ? '<span class="pj">' + esc(u.project) + '</span> ' : '') + unitTag(u, 110) + '</td><td>' + el(g('فئة', i), 110) + '</td><td>' + el(g('بيان', i), 210) + '</td>' +
-        '<td class="n">' + (g('شهر', i) ? esc(L.monthKey(L.serialToDate(g('شهر', i)))) : '') + '</td><td class="n">' + (a || b ? '<span dir="rtl" style="unicode-bidi:isolate">' + d2(a) + ' ← ' + d2(b) + '</span>' : '') + '</td>' +
+        '<td class="n">' + (g('شهر', i) ? esc(L.monthKey(L.serialToDate(g('شهر', i)))) : '') + '</td><td class="n">' + (a || b ? '<span dir="rtl" style="unicode-bidi:isolate">' + 'من ' + d2(a) + ' لـ ' + d2(b) + '</span>' : '') + '</td>' +
         '<td>' + (rev ? '<span class="chip soon">' + esc(rev) + '</span>' : '') + '</td><td>' + el(g('كاش', i), 95) + '</td></tr>';
     });
     if (!mv.length) mv = ['<tr><td colspan="10" class="muted">مفيش حركات في اليوم ده</td></tr>'];
@@ -212,7 +212,7 @@
     var chip = function (t) { var k = AUD_CHIP[t] || 'out'; return '<span class="chip ' + (k === 'r' ? '" style="background:#fbe9e7;color:#a3261b' : k) + '">' + esc(t) + '</span>'; };
     var per = function (m) { var mo = m.key ? L.monthLabel(m.key) : (m.rent ? 'من غير شهر' : 'تأمين'); return mo; };
     // من ← إلى بيتقري من اليمين: الخلية عربي وكل تاريخ معزول (bdi)، عشان التاريخين ميتعكسوش
-    var span = function (a, b) { return '<bdi>' + d2(a) + '</bdi> ← <bdi>' + d2(b) + '</bdi>'; };
+    var span = function (a, b) { return 'من <bdi>' + d2(a) + '</bdi> لـ <bdi>' + d2(b) + '</bdi>'; };
     var rng = function (m) { return m.ps && m.pe ? span(m.ps, m.pe) : m.pe ? 'لحد <bdi>' + d2(m.pe) + '</bdi>' : ''; };
     var how = function (m) { return [m.cash, m.fx ? money(m.fx) + ' عملة' : ''].filter(Boolean).join(' · '); };
     var N = 14;

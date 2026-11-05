@@ -23,8 +23,8 @@
   }
   function libs() {
     var p = Promise.resolve();
-    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261105f'); });
-    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261105f'); });
+    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261105g'); });
+    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261105g'); });
     return p;
   }
   function loadExcelJS() { return window.ExcelJS ? Promise.resolve() : script('vendor/exceljs.min.js'); }
@@ -177,7 +177,7 @@
       '<div class="r2">' + esc(u.title || '') + (ben && ben !== u.owner ? ' · المستفيد: ' + esc(ben) : '') + '</div>' +
       (rows.length ? '<div class="rows">' + rows.map(function (n) {
         var v = n.values, st = String(v['الحالة'] || '').split(' /')[0];
-        return '<div class="row"><span><span class="p">' + dt(v['بداية العقد']) + ' ← ' + dt(v['نهاية العقد']) + '</span> <span class="r2">' + esc(st) + '</span></span>' +
+        return '<div class="row"><span><span class="p">' + 'من ' + dt(v['بداية العقد']) + ' لـ ' + dt(v['نهاية العقد']) + '</span> <span class="r2">' + esc(st) + '</span></span>' +
           '<span><span class="v">' + esc(shown('', v['الإيجار الشهري (السنة الأولى)'])) + '</span> <span class="r2">· مسدد حتى ' + dt(v['مسدد حتى']) + '</span></span></div>';
       }).join('') + '</div>' : '<div class="r2">مفيش عقد طالع للوحدة دي.</div>') + btns(code) + '</div>';
   }

@@ -420,11 +420,11 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 <datalist id="dlSpecial"><option>ابو ادم</option><option>Airbnb</option><option>ويستن</option><option>شركات</option></datalist>
 <datalist id="dlUtil"><option>شامل</option><option>غير شامل</option><option>على العميل</option></datalist>
 
-<script src="logic.js?v=20261105f"></script>
-<script src="followup.js?v=20261105f"></script>
-<script src="store.js?v=20261105f"></script>
-<script src="excel.js?v=20261105f"></script>
-<script src="big.js?v=20261105f"></script>
+<script src="logic.js?v=20261105g"></script>
+<script src="followup.js?v=20261105g"></script>
+<script src="store.js?v=20261105g"></script>
+<script src="excel.js?v=20261105g"></script>
+<script src="big.js?v=20261105g"></script>
 <script>
 (function(){
 'use strict';
@@ -719,7 +719,7 @@ $('review').addEventListener('click', function(){
   var code = L.nextTenantCode(f.unit.code, codes);
   $('sheet').innerHTML = '<h2>راجع قبل الحفظ</h2>'+
     '<dl class="kv"><dt>الوحدة</dt><dd>'+esc(unitTitle(f.unit)||f.unit.code)+'</dd><dt>كود المستأجر</dt><dd><b class="ltr" style="direction:ltr;display:inline-block">'+esc(code)+'</b></dd><dt>المستأجر</dt><dd>'+esc(f.name)+'</dd>'+
-    '<dt>الفترة</dt><dd>'+L.fmt(f.start)+' ← '+L.fmt(f.end)+'<br><span class="r2">'+L.durationText(f.start,f.end)+'</span></dd>'+
+    '<dt>الفترة</dt><dd>'+'من '+L.fmt(f.start)+' لـ '+L.fmt(f.end)+'<br><span class="r2">'+L.durationText(f.start,f.end)+'</span></dd>'+
     '<dt>الاستحقاق</dt><dd>'+S.schedule.map(function(r){return L.monthLabel(r.key)+': '+money(r.amount);}).join('<br>')+'</dd><dt>الإجمالي</dt><dd><b>'+money(v.total)+'</b></dd></dl>'+
     (v.warnings.length? '<div style="margin-top:10px">'+v.warnings.map(function(w){return '<div class="msg warn">'+esc(w)+'</div>';}).join('')+'</div>':'')+
     '<p class="r2">هيتكتب في أول سطر فاضي بعد آخر عقد في شيت عقود المستأجرين.</p>'+
@@ -779,7 +779,7 @@ $('sQ').addEventListener('input', function(){
     var u = S.units.filter(function(x){ return x.code===r.unit; })[0];
     var b = !r.start||!r.end ? '' : r.start>today ? '<span class="badge book">محجوز</span>' : r.end>=today ? '<span class="badge live">ساري</span>' : '<span class="badge done">انتهى</span>';
     return '<div class="rcard"><div class="top2"><div><div class="r1">'+esc(r.name||'—')+'</div><div class="r2" style="direction:ltr;text-align:right">'+esc(r.code)+'</div></div>'+b+'</div>'+
-      '<dl class="kv"><dt>الوحدة</dt><dd>'+esc(u?unitTitle(u):r.unit)+'</dd><dt>الفترة</dt><dd>'+L.fmt(r.start)+' ← '+L.fmt(r.end)+'</dd>'+
+      '<dl class="kv"><dt>الوحدة</dt><dd>'+esc(u?unitTitle(u):r.unit)+'</dd><dt>الفترة</dt><dd>'+'من '+L.fmt(r.start)+' لـ '+L.fmt(r.end)+'</dd>'+
       (r.phone?'<dt>التليفون</dt><dd class="ltr" style="direction:ltr;text-align:right">'+esc(r.phone)+'</dd>':'')+
       (r.nationality?'<dt>الجنسية</dt><dd>'+esc(r.nationality)+'</dd>':'')+'</dl>'+
       '<div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">'+(r.idx>=0?'<button class="link" data-idx="'+r.idx+'">روح للسطر في الشيت</button>':'')+
@@ -819,10 +819,10 @@ if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); els
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="reports.js?v=20261105f"></script>
-<script src="ownerform.js?v=20261105f"></script>
-<script src="screens.js?v=20261105f"></script>
-<script src="home.js?v=20261105f"></script>
-<script src="dev.js?v=20261105f"></script>
+<script src="reports.js?v=20261105g"></script>
+<script src="ownerform.js?v=20261105g"></script>
+<script src="screens.js?v=20261105g"></script>
+<script src="home.js?v=20261105g"></script>
+<script src="dev.js?v=20261105g"></script>
 </body>
 </html>

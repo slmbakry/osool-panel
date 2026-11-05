@@ -31,7 +31,7 @@
       var d = function (v) { var x = typeof v === 'number' ? L.serialToDate(v) : v instanceof Date ? v : null; return x ? L.toISO(x) : ''; };
       var inc = ocIncOf(row['زيادة سنوية']);
       var html = '<h2>' + (m === 'new' ? 'وحدة جديدة وعقد مالك' : m === 'renew' ? 'تجديد عقد مالك' : 'تعديل عقد مالك') + '</h2>';
-      if (m !== 'new') html += '<div class="unit" style="margin-bottom:8px"><div class="t">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2">كود ' + esc(u.code) + ' · ' + esc(row['الاسم'] || '—') + ' · العقد ' + L.fmt(L.serialToDate(row['بداية العقد'])) + ' ← ' + L.fmt(L.serialToDate(row['نهاية العقد'])) + ' · ' + ocIncText(inc) + '</div></div>';
+      if (m !== 'new') html += '<div class="unit" style="margin-bottom:8px"><div class="t">' + esc(App.unitTitle(u) || u.code) + '</div><div class="r2">كود ' + esc(u.code) + ' · ' + esc(row['الاسم'] || '—') + ' · العقد ' + 'من ' + L.fmt(L.serialToDate(row['بداية العقد'])) + ' لـ ' + L.fmt(L.serialToDate(row['نهاية العقد'])) + ' · ' + ocIncText(inc) + '</div></div>';
       if (m === 'new') {
         html += '<div class="grid2"><div><label>الكمبوند <span class="req">*</span></label>' + sel('ofP', [['', 'اختار…']].concat(Object.keys(projects).sort()).concat([['__new', 'كمبوند جديد…']]), '') + '<input id="ofPN" class="hide" placeholder="اسم الكمبوند" style="margin-top:4px"></div>' + inp('ofBl', 'بلوك', '') + '</div>' +
           '<div class="grid2">' + inp('ofB', 'العمارة <span class="req">*</span>', '') + inp('ofA', 'الشقة <span class="req">*</span>', '') + '</div>' +
@@ -133,7 +133,7 @@
         }
         if (!errs.length) {
           F.planOwnerMonths(s0, e0, rent, inc).forEach(function (x) { months[x.key] = x.amount; monthsRows.push({ key: x.key, amount: x.amount, year: x.year, old: Number(row[x.key]) || 0 }); });
-          var iw = incWhen(inc, monthsRows), span = L.fmt(s0) + ' ← ' + L.fmt(e0) + ' بـ ' + money(rent) + (iw ? '، ' + iw : '');
+          var iw = incWhen(inc, monthsRows), span = 'من ' + L.fmt(s0) + ' لـ ' + L.fmt(e0) + ' بـ ' + money(rent) + (iw ? '، ' + iw : '');
           if (m === 'new') comments.push({ key: 'كود', text: 'وحدة جديدة: ' + span });
           // تعليق على أول شهر الإيجار فيه اتغير، وعلى كل شهر زيادة
           var prevRent = m === 'renew' ? (ocLastRent(row, L.monthKey(L.addMonths(s0, -1))) || {}).amount || 0 : 0;
@@ -216,7 +216,7 @@
     }
     function pendText(pend) {
       return 'مطلوب تسجيله لما نزوّد شهور في جدول الملاك:\n' + pendRanges(pend).map(function (g) {
-        return (g.from === g.to ? L.monthLabel(g.from) : L.monthLabel(g.from) + ' ← ' + L.monthLabel(g.to)) + ': ' + money(g.amount) + ' شهريًا';
+        return (g.from === g.to ? L.monthLabel(g.from) : 'من ' + L.monthLabel(g.from) + ' لـ ' + L.monthLabel(g.to)) + ': ' + money(g.amount) + ' شهريًا';
       }).join('\n');
     }
     function drawOwnerPlan(errs) {
@@ -233,7 +233,7 @@
       } else if (!ch.length && !(p.pend || []).length) html += '<div class="r2">مفيش تغييرات.</div>';
       if ((p.pend || []).length) html += '<div class="card" style="padding:8px 10px"><h3 style="margin:0 0 4px">بعد آخر عمود في الجدول (' + p.pend.length + ' شهر)</h3>' +
         '<div class="r2">مش هتتكتب في الجدول. هتتكتب تعليق على خانة ' + L.monthLabel(p.lastCol) + ' عشان تتسجل لما نزوّد شهور:</div>' +
-        pendRanges(p.pend).map(function (g) { return '<div class="r2"><b>' + (g.from === g.to ? L.monthLabel(g.from) : L.monthLabel(g.from) + ' ← ' + L.monthLabel(g.to)) + '</b>: ' + money(g.amount) + '</div>'; }).join('') + '</div>';
+        pendRanges(p.pend).map(function (g) { return '<div class="r2"><b>' + (g.from === g.to ? L.monthLabel(g.from) : 'من ' + L.monthLabel(g.from) + ' لـ ' + L.monthLabel(g.to)) + '</b>: ' + money(g.amount) + '</div>'; }).join('') + '</div>';
       if (p.before) html += '<div class="r2">' + p.before + ' شهر قبل أول عمود في الجدول مش هيتكتبوا.</div>';
       $('ofRows').innerHTML = html; $('ofMsg').innerHTML = '';
       document.querySelectorAll('#ofRows input[data-ofm]').forEach(function (inp) {
