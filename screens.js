@@ -1358,9 +1358,11 @@
   var AUD = { from: null, to: null, grp: '', proj: '', st: 'bad', q: '' };
   var AUD_ST = [['bad', 'فيها مشكلة'], ['', 'الكل'], ['ok', 'محصّل كامل'], ['vac', 'فاضية']];
   var AUD_TAG = { 'محصّل': 'ok', 'ناقص': 'late', 'مفيش تحصيل': 'late', 'زيادة': 'soon', 'مفيش مستحق': '' };
+  // الفترة اللي الحركة تخصها: خانة "شهر"، ومعاها "بداية الايجار" و"نهاية الايجار"
   function audPeriod(m) {
-    if (m.ps && m.pe) return L.fmt(m.ps) + ' ← ' + L.fmt(m.pe);
-    return m.key ? L.monthLabel(m.key) : (m.rent ? 'من غير شهر' : '—');
+    var mo = m.key ? L.monthLabel(m.key) : (m.rent ? 'من غير شهر' : '');
+    var rg = m.ps && m.pe ? L.fmt(m.ps) + ' ← ' + L.fmt(m.pe) : m.pe ? 'لحد ' + L.fmt(m.pe) : '';
+    return [mo, rg].filter(Boolean).join(' · ') || '—';
   }
   function audHow(m) { return [m.cash, m.fx ? money(m.fx) + ' عملة' : ''].filter(Boolean).join(' · ') || '—'; }
   function renderAud() {
@@ -1435,16 +1437,16 @@
           var len = y.nightly ? y.nights + ' ليلة' : y.md ? y.md.months + ' شهر' + (y.md.days ? ' و' + y.md.days + ' يوم' : '') : '';
           var head = u.concat([y.r.name, y.r.code, y.r.start, y.r.end, len, num0(y.r.rent) || null, y.due, y.coll, y.diff, y.state, y.depDue || null, y.dep]);
           var mv = y.moves.filter(function (m) { return m.inRange || !m.rent; });
-          if (!mv.length) out2.push(head.concat([null, '', null, '', '', '', '']));
-          mv.forEach(function (m) { out2.push(head.concat([m.date, m.cat, m.amt, audHow(m), audPeriod(m), m.note, m.doc])); });
+          if (!mv.length) out2.push(head.concat([null, '', null, '', '', null, null, '', '']));
+          mv.forEach(function (m) { out2.push(head.concat([m.date, m.cat, m.amt, audHow(m), m.key ? L.monthLabel(m.key) : '', m.ps || null, m.pe || null, m.note, m.doc])); });
         });
-        x.loose.forEach(function (m) { out2.push(u.concat(['من غير كود مستأجر', '', null, null, '', null, null, null, null, 'محتاج يتربط', null, null, m.date, m.cat, m.amt, audHow(m), audPeriod(m), m.note, m.doc])); });
+        x.loose.forEach(function (m) { out2.push(u.concat(['من غير كود مستأجر', '', null, null, '', null, null, null, null, 'محتاج يتربط', null, null, m.date, m.cat, m.amt, audHow(m), m.key ? L.monthLabel(m.key) : '', m.ps || null, m.pe || null, m.note, m.doc])); });
       });
       return { name: fileName('مطابقة التحصيل', AUD.grp ? grpName([AUD.grp]) : scopeName(), AUD.proj, 'من ' + fdate(AUD.from), 'لـ ' + fdate(AUD.to)), title: fileName('مطابقة التحصيل', AUD.grp ? grpName([AUD.grp]) : scopeName(), AUD.proj),
         sheet: 'مطابقة التحصيل', sub: 'من ' + L.fmt(AUD.from) + ' لـ ' + L.fmt(AUD.to) + ' · المستحق ' + money(due) + ' · المحصّل ' + money(coll),
-        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'date', 'date', 'text', 'money', 'money', 'money', 'money', 'text', 'money', 'money', 'date', 'text', 'money', 'text', 'text', 'text', 'text'],
-        headers: ['المكان', 'المشروع', 'الوحدة', 'كود', 'المستأجر', 'كود المستأجر', 'من', 'إلى', 'المدة', 'الإيجار', 'المستحق عن الفترة', 'المحصّل عنها', 'الفرق', 'الحالة', 'التأمين في العقد', 'التأمين المحصّل', 'تاريخ التحصيل', 'البند', 'المبلغ', 'الخزينة', 'تخص فترة', 'البيان', 'رقم المستند'],
-        rows: out2.map(function (r) { while (r.length < 23) r.push(''); return r; }) };
+        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'date', 'date', 'text', 'money', 'money', 'money', 'money', 'text', 'money', 'money', 'date', 'text', 'money', 'text', 'text', 'date', 'date', 'text', 'text'],
+        headers: ['المكان', 'المشروع', 'الوحدة', 'كود', 'المستأجر', 'كود المستأجر', 'من', 'إلى', 'المدة', 'الإيجار', 'المستحق عن الفترة', 'المحصّل عنها', 'الفرق', 'الحالة', 'التأمين في العقد', 'التأمين المحصّل', 'تاريخ التحصيل', 'البند', 'المبلغ', 'الخزينة', 'تخص شهر', 'من', 'إلى', 'البيان', 'رقم المستند'],
+        rows: out2.map(function (r) { while (r.length < 25) r.push(''); return r; }) };
     });
   }
   function num0(v) { var n = Number(v); return isFinite(n) ? n : 0; }
