@@ -70,6 +70,7 @@
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
     '.rp .foot{display:flex;justify-content:space-between;color:#8a918d;font-size:10px;margin-top:10px;border-top:1px solid #e4e2db;padding-top:6px}' +
     '.rp .muted{color:#8a918d}' +
+    '.rp tr.vac td{background:repeating-linear-gradient(135deg,#eef0f2 0 6px,#f7f8f9 6px 12px)!important;color:#5f6b73;border-top:1px dashed #b9c1c7;border-bottom:1px dashed #b9c1c7;padding:3px 6px;font-size:10px}.rp .chip.vc{background:#5f6b73;color:#fff}' +
     '.rp td.dr{direction:rtl;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}' +
     '.rp td.mx,.rp th.mx{color:#c3b9a6!important;font-size:.85em;font-weight:400}' +
     '.rp .ut{display:inline-flex;unicode-bidi:isolate;font-variant-numeric:tabular-nums;vertical-align:bottom}.rp .us{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}' +
@@ -219,8 +220,9 @@
     o.list.forEach(function (x) {
       due += x.due; coll += x.coll; if (x.bad) bad++; if (x.vacant) vac++; ten += x.stays.length;
       var g0 = rows.length;
+      if (x.vacant) { rows.push('<tr class="vac"><td colspan="' + N + '"><span class="chip vc">فاضية</span> <b>' + esc(ut(x.unit)) + '</b> · ' + esc(x.unit.code) + ' · مفيش حد ساكن طول الفترة</td></tr>'); return; }
       rows.push('<tr class="grp"><td colspan="' + N + '"><b>' + esc(ut(x.unit)) + '</b> · ' + esc(x.unit.code) +
-        (x.vacant ? ' · <span class="muted">فاضية طول الفترة</span>' : ' · ' + x.stays.length + ' مستأجر · المستحق ' + money(x.due) + ' · المحصّل ' + money(x.coll) + (Math.abs(x.diff) > 1 ? ' · <span class="' + (x.diff > 0 ? 'r' : 'a') + '">الفرق ' + money(x.diff) + '</span>' : '')) + '</td></tr>');
+        (x.vacant ? '' : ' · ' + x.stays.length + ' مستأجر · المستحق ' + money(x.due) + ' · المحصّل ' + money(x.coll) + (Math.abs(x.diff) > 1 ? ' · <span class="' + (x.diff > 0 ? 'r' : 'a') + '">الفرق ' + money(x.diff) + '</span>' : '')) + '</td></tr>');
       x.stays.forEach(function (y) {
         var r = y.r, len = y.nightly ? y.nights + ' ليلة' : y.md ? (y.md.months ? y.md.months + ' شهر' : '') + (y.md.days ? (y.md.months ? ' و' : '') + y.md.days + ' يوم' : '') : '';
         var mv = y.moves.filter(function (m) { return m.inRange || !m.rent; });
