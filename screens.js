@@ -1399,6 +1399,8 @@
     var q = L.norm(AUD.q || '');
     var hit = function (x) { if (!q) return true; var t = [x.unit.code, App.unitTitle(x.unit)].concat(x.stays.map(function (y) { return y.r.code + ' ' + y.r.name; })).join(' '); return L.norm(t).indexOf(q) !== -1; };
     var rows = all.filter(function (x) { return hit(x) && (AUD.st === '' || (AUD.st === 'bad' ? x.bad : AUD.st === 'vac' ? x.vacant : !x.bad && !x.vacant)); });
+    // الفاضي الأول، وبعده الساكن (بنفس ترتيب الوحدات)
+    rows = rows.filter(function (x) { return x.vacant; }).concat(rows.filter(function (x) { return !x.vacant; }));
     S.audView = rows;
     var due = 0, coll = 0; all.forEach(function (x) { due += x.due; coll += x.coll; });
     var nBad = all.filter(function (x) { return x.bad; }).length, nVac = all.filter(function (x) { return x.vacant; }).length;
