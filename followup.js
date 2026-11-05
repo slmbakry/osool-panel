@@ -867,7 +867,7 @@
         mv.forEach(function (m) { m.inRange = m.rent && !!inK[m.key]; if (m.rent) { collAll += m.amt; if (m.inRange) coll += m.amt; } else dep += m.amt; });
         var night = isNightly(r), nights = night ? L.daysBetween(r.start, r.end) : 0;
         var diff = Math.round(due - coll), depDue = num(r.deposit);
-        var state = !due && !coll ? (mv.length ? 'محصّل' : 'مفيش مستحق') : diff <= 1 && diff >= -1 ? 'محصّل' : coll <= 0 ? 'مفيش تحصيل' : diff > 0 ? 'ناقص' : 'زيادة';
+        var state = !due && !coll ? (total ? 'مستحق برة الفترة' : 'مفيش مستحق') : diff <= 1 && diff >= -1 ? 'محصّل' : coll <= 0 ? 'مفيش تحصيل' : diff > 0 ? 'ناقص' : 'زيادة';
         return { r: r, nightly: night, nights: nights, md: night ? null : L.monthsAndDays(r.start, r.end), total: Math.round(total), due: Math.round(due), coll: Math.round(coll), collAll: Math.round(collAll), diff: diff,
           depDue: depDue, dep: Math.round(dep), depShort: depDue > 1 && dep < depDue - 1, state: state, moves: mv };
       });
