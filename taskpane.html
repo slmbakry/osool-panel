@@ -180,6 +180,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 .trial{background:linear-gradient(135deg,#2a2218,#1f1a14);color:#efe6d2;border-radius:14px;padding:11px 13px;margin-bottom:10px;border:1px solid rgba(201,162,74,.45)}.trial .tt{font-weight:700;color:var(--gold);font-size:14px}.trial .tl{font-size:12.5px;line-height:1.7;margin-top:2px}.trial .tl b{color:#e2c47c}.trial .link{color:#e2c47c;margin-top:4px;font-size:12.5px}
 .cmrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #f0e9da}.cmrow:first-child{border-top:0}.cmrow .t{flex:1;min-width:0}.cmrow .t b{display:block;font-weight:600;font-size:13px}.cmrow .t i{display:block;font-style:normal;font-size:11.5px;color:var(--muted)}.cmrow .nums{display:flex;flex-direction:column;align-items:flex-end;direction:ltr;font-size:12px;line-height:1.5;white-space:nowrap}.cmrow .nums b{font-size:13.5px}.cmrow small{font-size:11px;font-weight:500}
 .depbar{display:flex;justify-content:space-between;align-items:center;width:100%;border:1px solid #eadfc4;background:#faf6ec;border-radius:10px;padding:8px 11px;margin-bottom:8px;cursor:pointer;text-align:right}.depbar b{color:var(--brand);font-weight:600}.depbar span{font-size:12px;color:var(--muted)}
+.mt.aud{font-size:11.5px;width:100%;margin-top:4px}.mt.aud td{padding:3px 4px;vertical-align:top}.mt.aud td.n{white-space:nowrap}
 .ocbar{display:block;height:6px;border-radius:3px;background:#efe8d8;overflow:hidden;margin-top:3px}.ocbar i{display:block;height:100%;background:var(--gold);border-radius:3px}
 
 /* النافذة الكبيرة: مفيش تسجيل، وزرار القفل بدل التكبير */
@@ -385,6 +386,7 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
   <section id="tab-cmp" class="hide"></section>
   <section id="tab-ownerc" class="hide"></section>
   <section id="tab-occ" class="hide"></section>
+  <section id="tab-aud" class="hide"></section>
   <section id="tab-prof" class="hide"></section>
   <section id="tab-avail" class="hide"></section>
   <section id="tab-treas" class="hide"></section>
@@ -418,11 +420,11 @@ table.mt td.n,table.mt th.n{text-align:left;direction:ltr}
 <datalist id="dlSpecial"><option>ابو ادم</option><option>Airbnb</option><option>ويستن</option><option>شركات</option></datalist>
 <datalist id="dlUtil"><option>شامل</option><option>غير شامل</option><option>على العميل</option></datalist>
 
-<script src="logic.js?v=20261102a"></script>
-<script src="followup.js?v=20261102a"></script>
-<script src="store.js?v=20261102a"></script>
-<script src="excel.js?v=20261102a"></script>
-<script src="big.js?v=20261102a"></script>
+<script src="logic.js?v=20261105a"></script>
+<script src="followup.js?v=20261105a"></script>
+<script src="store.js?v=20261105a"></script>
+<script src="excel.js?v=20261105a"></script>
+<script src="big.js?v=20261105a"></script>
 <script>
 (function(){
 'use strict';
@@ -469,12 +471,12 @@ var GROUPS = {
   tenants: { title: 'المستأجرين', sub: [['search','العقود'],['new','عقد جديد'],['coll','التحصيل'],['avail','المتاح']] },
   owners: { title: 'الملاك', sub: [['ownerc','العقود'],['ownernew','عقد جديد'],['owners','السداد']] },
   treasury: { title: 'الخزينة', sub: [['treas','الحركات'],['review','المراجعة']] },
-  admin: { title: 'الإدارة', sub: [['prof','الربحية'],['cmp','المقارنة'],['occ','الإشغال'],['dev','المطور']] }
+  admin: { title: 'الإدارة', sub: [['prof','الربحية'],['cmp','المقارنة'],['occ','الإشغال'],['aud','مطابقة التحصيل'],['dev','المطور']] }
 };
-var GROUP_OF = { home:'home', search:'tenants', 'new':'tenants', transfer:'tenants', coll:'tenants', avail:'tenants', owners:'owners', ownerc:'owners', treas:'treasury', review:'treasury', prof:'admin', cmp:'admin', occ:'admin', dev:'admin' };
-var ALL_TABS = ['prof','occ','ownerc','cmp','dev','home','new','search','coll','transfer','avail','treas','owners','review'];
+var GROUP_OF = { home:'home', search:'tenants', 'new':'tenants', transfer:'tenants', coll:'tenants', avail:'tenants', owners:'owners', ownerc:'owners', treas:'treasury', review:'treasury', prof:'admin', cmp:'admin', occ:'admin', aud:'admin', dev:'admin' };
+var ALL_TABS = ['prof','occ','aud','ownerc','cmp','dev','home','new','search','coll','transfer','avail','treas','owners','review'];
 var LAST = { tenants:'search', owners:'ownerc', treasury:'treas', admin:'prof', home:'home' };
-var ADMIN_TABS = ['prof','cmp','occ','dev'];
+var ADMIN_TABS = ['prof','cmp','occ','aud','dev'];
 // ---------- شاشة المقارنة: مخفية ومبتظهرش غير بعد كود على الجهاز ----------
 var CMP_KEY = 'osoolPanel.cmp';
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
@@ -817,10 +819,10 @@ if (window.Office && Office.onReady) Office.onReady(function(){ start(); }); els
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="reports.js?v=20261102a"></script>
-<script src="ownerform.js?v=20261102a"></script>
-<script src="screens.js?v=20261102a"></script>
-<script src="home.js?v=20261102a"></script>
-<script src="dev.js?v=20261102a"></script>
+<script src="reports.js?v=20261105a"></script>
+<script src="ownerform.js?v=20261105a"></script>
+<script src="screens.js?v=20261105a"></script>
+<script src="home.js?v=20261105a"></script>
+<script src="dev.js?v=20261105a"></script>
 </body>
 </html>

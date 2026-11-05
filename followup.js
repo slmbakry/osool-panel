@@ -833,6 +833,53 @@
   }
   function occSum(rows) { var a = 0, o = 0; rows.forEach(function (x) { a += x.avail; o += x.occ; }); return { units: rows.length, avail: a, occ: o, idle: a - o, pct: a ? o / a : 0 }; }
 
+  // ---------- مطابقة التحصيل (طلب صاحب الشركة 5-11) ----------
+  // لكل وحدة في النطاق: كل اللي سكن خلال الفترة (شهري وبالليلة)، ومستحقه عن الفترة، وكل حركات الإيجار والتأمين بتاعته في الخزينة
+  // التحصيل بيتحسب على الفترة بخانة "شهر" (الفترة اللي الحركة تخصها)، وتاريخ الدفع الفعلي جنبه
+  function collectAudit(units, renters, months, treasury, from, to, settings) {
+    var c = (treasury && treasury.cols) || {}, n = c['فئة'] ? c['فئة'].length : 0;
+    var keys = keyRange(L.monthKey(from), L.monthKey(to)), inK = {}; keys.forEach(function (k) { inK[k] = 1; });
+    var F0 = from.getTime(), T0 = to.getTime();
+    var byCode = {}, byUnit = {};
+    for (var i = 0; i < n; i++) {
+      var cat = str(c['فئة'][i]); if (TENANT_CATS.indexOf(cat) === -1) continue;
+      var inc = cat === CAT.rentIn || cat === CAT.depIn, amt = inc ? num(c['ايراد'][i]) : -num(c['مصروف'][i]);
+      var ms = num(c['شهر'] ? c['شهر'][i] : 0), bs = num(c['بداية الايجار'] ? c['بداية الايجار'][i] : 0), es = num(c['نهاية الايجار'] ? c['نهاية الايجار'][i] : 0);
+      var mv = { row: i, date: L.serialToDate(Math.floor(num(c['تاريخ'][i]))), cat: cat, rent: TENANT_MONTH.indexOf(cat) !== -1, amt: amt,
+        cash: str(c['كاش'] ? c['كاش'][i] : ''), fx: num(c['العملة'] ? c['العملة'][i] : 0), key: ms ? keyOf(ms) : '', ps: bs ? L.serialToDate(Math.floor(bs)) : null, pe: es ? L.serialToDate(Math.floor(es)) : null,
+        note: str(c['بيان'] ? c['بيان'][i] : ''), doc: str(c['رقم المستند'] ? c['رقم المستند'][i] : '') };
+      var tc = str(c['كود المستأجر'] ? c['كود المستأجر'][i] : ''), uc = str(c['كود'] ? c['كود'][i] : '');
+      if (tc) (byCode[tc] = byCode[tc] || []).push(mv); else if (uc) (byUnit[uc] = byUnit[uc] || []).push(mv);
+    }
+    var byU = {}; renters.forEach(function (r) {
+      if (!r.unit || !r.start || !r.end || r.idx < 0 || r.end.getUTCFullYear() >= 2090 || /ملغ[يى]/.test(str(r.name))) return;
+      var e = r.end.getTime(); if (isNightly(r)) e -= DAY; // يوم الخروج في الحجز بالليلة مش ليلة
+      if (r.start.getTime() <= T0 && e >= F0) (byU[r.unit] = byU[r.unit] || []).push(r);
+    });
+    var out = [];
+    units.forEach(function (u) {
+      if (!inScope(u, settings) || str(u.settle).toUpperCase() === 'OUT') return;
+      var stays = (byU[u.code] || []).sort(function (a, b) { return a.start - b.start; }).map(function (r) {
+        var dues = duesOf(months, r.idx), total = 0, due = 0;
+        Object.keys(dues).forEach(function (k) { total += dues[k]; if (inK[k]) due += dues[k]; });
+        var mv = (byCode[r.code] || []).slice().sort(function (a, b) { return (a.date || 0) - (b.date || 0); });
+        var coll = 0, collAll = 0, dep = 0;
+        mv.forEach(function (m) { m.inRange = m.rent && !!inK[m.key]; if (m.rent) { collAll += m.amt; if (m.inRange) coll += m.amt; } else dep += m.amt; });
+        var night = isNightly(r), nights = night ? L.daysBetween(r.start, r.end) : 0;
+        var diff = Math.round(due - coll), depDue = num(r.deposit);
+        var state = !due && !coll ? (mv.length ? 'محصّل' : 'مفيش مستحق') : diff <= 1 && diff >= -1 ? 'محصّل' : coll <= 0 ? 'مفيش تحصيل' : diff > 0 ? 'ناقص' : 'زيادة';
+        return { r: r, nightly: night, nights: nights, md: night ? null : L.monthsAndDays(r.start, r.end), total: Math.round(total), due: Math.round(due), coll: Math.round(coll), collAll: Math.round(collAll), diff: diff,
+          depDue: depDue, dep: Math.round(dep), depShort: depDue > 1 && dep < depDue - 1, state: state, moves: mv };
+      });
+      // حركات على كود الوحدة من غير كود مستأجر جوه الفترة: محتاجة تتربط
+      var loose = (byUnit[u.code] || []).filter(function (m) { return m.rent ? !!inK[m.key] : (m.date && m.date.getTime() >= F0 && m.date.getTime() <= T0); });
+      var due = 0, coll = 0; stays.forEach(function (x) { due += x.due; coll += x.coll; });
+      var bad = stays.some(function (x) { return x.state === 'ناقص' || x.state === 'مفيش تحصيل' || x.depShort; }) || loose.length > 0;
+      out.push({ unit: u, group: groupOf(u.project), stays: stays, loose: loose, vacant: !stays.length, due: due, coll: coll, diff: Math.round(due - coll), bad: bad });
+    });
+    return out;
+  }
+
   // ---------- تأمينات لسه مترجعتش ----------
   // عقود خلصت وصافي التأمين (تحصيل - رد) لسه موجب في أي خزينة
   function heldDeposits(units, renters, ledger, settings, today) {
@@ -955,7 +1002,7 @@
     CAT: CAT, TENANT_CATS: TENANT_CATS, TENANT_MONTH: TENANT_MONTH, OWNER_CATS: OWNER_CATS, OWNER_MONTH: OWNER_MONTH,
     ownerFollow: ownerFollow, ownerMessage: ownerMessage, ownerTransfer: ownerTransfer, tenantStatement: tenantStatement, ownerStatement: ownerStatement, findDuplicates: findDuplicates, waLink: waLink, sideDefaults: sideDefaults, parseBulk: parseBulk, unitProfit: unitProfit, PROFIT_SKIP: PROFIT_SKIP, keyRange: keyRange, occupancy: occupancy, occSum: occSum, heldDeposits: heldDeposits, parseIncrease: parseIncrease, cyclesBetween: cyclesBetween, planOwnerMonths: planOwnerMonths, suggestUnitCode: suggestUnitCode, compareMonth: compareMonth, ownerByBeds: ownerByBeds, ownerPaid: ownerPaid, ownerSchedule: ownerSchedule, scheduleCheck: scheduleCheck, ownerSuggest: ownerSuggest, partialPeriod: partialPeriod, monthRemaining: monthRemaining, DEFAULT_SETTINGS: DEFAULT_SETTINGS, FOLLOW_FROM: FOLLOW_FROM,
     keyToDate: keyToDate, keyRange: keyRange, cmpKey: cmpKey, isForeign: isForeign,
-    ownerHealth: ownerHealth, inScope: inScope, isNF: isNF, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
+    ownerHealth: ownerHealth, collectAudit: collectAudit, inScope: inScope, isNF: isNF, projectsOf: projectsOf, buildLedger: buildLedger, followUp: followUp, GROUPS: GROUPS, groupOf: groupOf, groupsIn: groupsIn, expectedIn: expectedIn, keyToDate: keyToDate, isNightly: isNightly, planExtend: planExtend, planEarly: planEarly, installments: installments, opsMessage: opsMessage, opsBulk: opsBulk, exits: exits, isReceived: isReceived, RECEIVED: RECEIVED, PENDING_DAYS: PENDING_DAYS,
     monthsDetail: monthsDetail, suggestCollection: suggestCollection, validateEntry: validateEntry,
     entryValues: entryValues, availability: availability, planTransfer: planTransfer, depositMoves: depositMoves
   };

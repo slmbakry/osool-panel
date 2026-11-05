@@ -23,8 +23,8 @@
   }
   function libs() {
     var p = Promise.resolve();
-    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261102a'); });
-    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261102a'); });
+    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261105a'); });
+    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261105a'); });
     return p;
   }
   function loadExcelJS() { return window.ExcelJS ? Promise.resolve() : script('vendor/exceljs.min.js'); }

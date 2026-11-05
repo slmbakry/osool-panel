@@ -1353,6 +1353,102 @@
     });
   }
 
+  // ======================= مطابقة التحصيل =======================
+  // كشف بكل الوحدات: مين سكن خلال الفترة، ومستحقه، وكل تحصيل الإيجار والتأمين بتاعه من الخزينة (تاريخه وخزينته والفترة اللي يخصها)
+  var AUD = { from: null, to: null, grp: '', proj: '', st: 'bad', q: '' };
+  var AUD_ST = [['bad', 'فيها مشكلة'], ['', 'الكل'], ['ok', 'محصّل كامل'], ['vac', 'فاضية']];
+  var AUD_TAG = { 'محصّل': 'ok', 'ناقص': 'late', 'مفيش تحصيل': 'late', 'زيادة': 'soon', 'مفيش مستحق': '' };
+  function audPeriod(m) {
+    if (m.ps && m.pe) return L.fmt(m.ps) + ' ← ' + L.fmt(m.pe);
+    return m.key ? L.monthLabel(m.key) : (m.rent ? 'من غير شهر' : '—');
+  }
+  function audHow(m) { return [m.cash, m.fx ? money(m.fx) + ' عملة' : ''].filter(Boolean).join(' · ') || '—'; }
+  function renderAud() {
+    var box = $('tab-aud'); if (!box) return;
+    if (!App.cmpOn()) { box.innerHTML = '<div class="empty">الشاشة دي مقفولة على الجهاز ده.</div>'; return; }
+    if (!AUD.from) { var p0 = occPreset('m1'); AUD.from = p0[0]; AUD.to = p0[1]; }
+    if (!S.ledger) box.innerHTML = loadingHtml('بيقرا الخزينة…');
+    Promise.all([ensureSettings(), ensureTreasury()]).then(function () {
+      var st = S.settings || F.DEFAULT_SETTINGS, base = S.units.filter(function (u) { return F.inScope(u, st) && String(u.settle || '').toUpperCase() !== 'OUT'; });
+      var grps = F.groupsIn(base), projs = {};
+      base.forEach(function (u) { if (u.project) projs[u.project] = 1; });
+      var opt = function (v, l, sel) { return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc(l) + '</option>'; };
+      box.innerHTML = '<div class="card" style="padding:10px"><div class="grid2"><div><label>من</label><input type="date" id="auF" value="' + L.toISO(AUD.from) + '"></div><div><label>إلى</label><input type="date" id="auT" value="' + L.toISO(AUD.to) + '"></div></div>' +
+        '<div class="tgs" id="auPre" style="margin-top:6px">' + [['m0', 'الشهر ده'], ['m1', 'الشهر اللي فات'], ['m3', 'آخر ٣ شهور'], ['y0', 'السنة دي'], ['y1', 'السنة اللي فاتت']].map(function (x) { return '<button class="tg" data-p="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>' +
+        '<div class="filters"><select id="auG">' + opt('', 'كل الأماكن', AUD.grp) + grps.map(function (g) { return opt(g, GRP_AR[g] || g, AUD.grp); }).join('') + '</select>' +
+        '<select id="auPj">' + opt('', 'كل المشاريع', AUD.proj) + Object.keys(projs).sort().map(function (p) { return opt(p, p, AUD.proj); }).join('') + '</select></div>' +
+        '<div class="filters"><select id="auS">' + AUD_ST.map(function (x) { return opt(x[0], x[1], AUD.st); }).join('') + '</select>' +
+        '<input id="auQ" placeholder="بحث: كود، عمارة، مستأجر" value="' + esc(AUD.q) + '"></div><div id="auOut"></div>';
+      var go = function () { AUD.from = L.parseISO($('auF').value) || AUD.from; AUD.to = L.parseISO($('auT').value) || AUD.to; drawAud(base); };
+      $('auF').onchange = go; $('auT').onchange = go;
+      document.querySelectorAll('#auPre .tg').forEach(function (b) { b.onclick = function () { var p1 = occPreset(b.dataset.p); $('auF').value = L.toISO(p1[0]); $('auT').value = L.toISO(p1[1]); go(); }; });
+      $('auG').onchange = function () { AUD.grp = this.value; drawAud(base); }; $('auPj').onchange = function () { AUD.proj = this.value; drawAud(base); };
+      $('auS').onchange = function () { AUD.st = this.value; drawAud(base); };
+      var qt = null; $('auQ').oninput = function () { var v = this.value; clearTimeout(qt); qt = setTimeout(function () { AUD.q = v; drawAud(base); }, 250); };
+      drawAud(base);
+    }).catch(function (e) { box.innerHTML = errHtml(e); });
+  }
+  function drawAud(base) {
+    var out = $('auOut'); if (!out) return;
+    if (!AUD.from || !AUD.to || AUD.to < AUD.from) { out.innerHTML = '<div class="msg err">الفترة مش مظبوطة.</div>'; return; }
+    var st = S.settings || F.DEFAULT_SETTINGS;
+    var units = base.filter(function (u) { return (!AUD.grp || F.groupOf(u.project) === AUD.grp) && (!AUD.proj || u.project === AUD.proj); });
+    var all = F.collectAudit(units, S.renters, S.months, S.treasury, AUD.from, AUD.to, st);
+    var q = L.norm(AUD.q || '');
+    var hit = function (x) { if (!q) return true; var t = [x.unit.code, App.unitTitle(x.unit)].concat(x.stays.map(function (y) { return y.r.code + ' ' + y.r.name; })).join(' '); return L.norm(t).indexOf(q) !== -1; };
+    var rows = all.filter(function (x) { return hit(x) && (AUD.st === '' || (AUD.st === 'bad' ? x.bad : AUD.st === 'vac' ? x.vacant : !x.bad && !x.vacant)); });
+    S.audView = rows;
+    var due = 0, coll = 0; all.forEach(function (x) { due += x.due; coll += x.coll; });
+    var nBad = all.filter(function (x) { return x.bad; }).length, nVac = all.filter(function (x) { return x.vacant; }).length;
+    var mvRow = function (m) {
+      return '<tr' + (m.inRange ? ' style="font-weight:600"' : '') + '><td class="n">' + (m.date ? L.fmt(m.date) : '—') + '</td><td>' + esc(m.cat.replace('تحصيل ', '').replace(' للمستأجر', '')) + '</td><td class="n ' + (m.amt < 0 ? 'late' : '') + '">' + money(m.amt) + '</td>' +
+        '<td>' + esc(audHow(m)) + '</td><td>' + esc(audPeriod(m)) + '</td></tr>';
+    };
+    var mvTable = function (l) { return '<table class="mt aud"><tr class="r2"><td>التاريخ</td><td>البند</td><td>المبلغ</td><td>الخزينة</td><td>تخص فترة</td></tr>' + l.map(mvRow).join('') + '</table>'; };
+    var stayHtml = function (y) {
+      var r = y.r, len = y.nightly ? y.nights + ' ليلة' : (y.md ? (y.md.months ? y.md.months + ' شهر' : '') + (y.md.days ? (y.md.months ? ' و' : '') + y.md.days + ' يوم' : '') : '');
+      var now = y.moves.filter(function (m) { return m.inRange || !m.rent; }), rest = y.moves.filter(function (m) { return m.rent && !m.inRange; });
+      return '<div style="border-top:1px solid #f0e9da;padding:7px 0">' +
+        '<div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b style="font-size:13px">' + esc(r.name || '—') + '</b><div class="r2" style="font-size:11.5px">' + esc(r.code) + ' · ' + L.fmt(r.start) + ' ← ' + L.fmt(r.end) + (len ? ' · ' + len : '') + (num0(r.rent) ? ' · ' + (y.nightly ? 'الليلة ' : 'الشهر ') + money(r.rent) : '') + '</div></div>' +
+        '<span class="tagx ' + (AUD_TAG[y.state] || '') + '">' + esc(y.state) + '</span></div>' +
+        '<div class="r2" style="font-size:12px;margin-top:3px">المستحق عن الفترة <b>' + money(y.due) + '</b> · المحصّل عنها <b>' + money(y.coll) + '</b>' + (Math.abs(y.diff) > 1 ? ' · الفرق <b class="' + (y.diff > 0 ? 'late' : '') + '">' + money(y.diff) + '</b>' : '') +
+        ' · التأمين ' + money(y.dep) + (y.depDue ? ' من ' + money(y.depDue) : '') + (y.depShort ? ' <b class="late">ناقص</b>' : '') + '</div>' +
+        (now.length ? mvTable(now) : '<div class="r2" style="font-size:11.5px;margin-top:3px">مفيش حركات إيجار أو تأمين عن الفترة دي.</div>') +
+        (rest.length ? '<details class="more" style="margin-top:4px"><summary>باقي تحصيلات العقد (' + rest.length + ')</summary>' + mvTable(rest) + '</details>' : '') + '</div>';
+    };
+    out.innerHTML = '<div class="sum"><div class="box"><div class="v">' + money(due) + '</div><div class="k">المستحق عن الفترة</div></div><div class="box"><div class="v okc">' + money(coll) + '</div><div class="k">المحصّل عنها</div></div>' +
+      '<div class="box"><div class="v ' + (due - coll > 1 ? 'late' : '') + '">' + money(due - coll) + '</div><div class="k">الفرق</div></div><div class="box"><div class="v ' + (nBad ? 'late' : 'okc') + '">' + nBad + '</div><div class="k">وحدة فيها مشكلة · ' + nVac + ' فاضية</div></div></div>' +
+      '<div class="r2" style="margin:-2px 0 8px">من ' + L.fmt(AUD.from) + ' لـ ' + L.fmt(AUD.to) + ' · التحصيل محسوب على الفترة اللي يخصها (خانة الشهر في الخزينة)، وتاريخ الدفع الفعلي جنبه. الإيجار والتأمين بس.</div>' +
+      exportBar('auExp') +
+      (rows.length ? rows.map(function (x) {
+        return '<div class="card" style="padding:8px 10px"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><b>' + esc(App.unitTitle(x.unit) || x.unit.code) + '</b><div class="r2" style="font-size:11.5px">' + esc(x.unit.code) + ' · ' + esc(GRP_AR[x.group] || x.group || '') + (x.stays.length ? ' · ' + x.stays.length + ' مستأجر' : '') + '</div></div>' +
+          (x.vacant ? '<span class="pill">فاضية</span>' : '<div class="nums" style="direction:ltr;text-align:left;font-size:12px"><b class="' + (x.diff > 1 ? 'late' : 'okc') + '">' + money(x.coll) + '</b><div class="r2">من ' + money(x.due) + '</div></div>') + '</div>' +
+          x.stays.map(stayHtml).join('') +
+          (x.loose.length ? '<div class="msg warn" style="margin-top:6px;font-size:12px">حركات على كود الوحدة من غير كود مستأجر (' + x.loose.length + '): محتاجة تتربط بالمستأجر.</div>' + mvTable(x.loose) : '') + '</div>';
+      }).join('') : '<div class="empty">مفيش وحدات بالفلاتر دي.</div>');
+    bindExport('auExp', function () {
+      var l = S.audView || [], out2 = [];
+      l.forEach(function (x) {
+        var u = [GRP_AR[x.group] || x.group, x.unit.project, App.unitTitle(x.unit), x.unit.code];
+        if (x.vacant) { out2.push(u.concat(['فاضية', '', null, null, '', null, null, null, null, 'فاضية', null, null, null, '', '', '', '', ''])); return; }
+        x.stays.forEach(function (y) {
+          var len = y.nightly ? y.nights + ' ليلة' : y.md ? y.md.months + ' شهر' + (y.md.days ? ' و' + y.md.days + ' يوم' : '') : '';
+          var head = u.concat([y.r.name, y.r.code, y.r.start, y.r.end, len, num0(y.r.rent) || null, y.due, y.coll, y.diff, y.state, y.depDue || null, y.dep]);
+          var mv = y.moves.filter(function (m) { return m.inRange || !m.rent; });
+          if (!mv.length) out2.push(head.concat([null, '', null, '', '', '', '']));
+          mv.forEach(function (m) { out2.push(head.concat([m.date, m.cat, m.amt, audHow(m), audPeriod(m), m.note, m.doc])); });
+        });
+        x.loose.forEach(function (m) { out2.push(u.concat(['من غير كود مستأجر', '', null, null, '', null, null, null, null, 'محتاج يتربط', null, null, m.date, m.cat, m.amt, audHow(m), audPeriod(m), m.note, m.doc])); });
+      });
+      return { name: fileName('مطابقة التحصيل', AUD.grp ? grpName([AUD.grp]) : scopeName(), AUD.proj, 'من ' + fdate(AUD.from), 'لـ ' + fdate(AUD.to)), title: fileName('مطابقة التحصيل', AUD.grp ? grpName([AUD.grp]) : scopeName(), AUD.proj),
+        sheet: 'مطابقة التحصيل', sub: 'من ' + L.fmt(AUD.from) + ' لـ ' + L.fmt(AUD.to) + ' · المستحق ' + money(due) + ' · المحصّل ' + money(coll),
+        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'date', 'date', 'text', 'money', 'money', 'money', 'money', 'text', 'money', 'money', 'date', 'text', 'money', 'text', 'text', 'text', 'text'],
+        headers: ['المكان', 'المشروع', 'الوحدة', 'كود', 'المستأجر', 'كود المستأجر', 'من', 'إلى', 'المدة', 'الإيجار', 'المستحق عن الفترة', 'المحصّل عنها', 'الفرق', 'الحالة', 'التأمين في العقد', 'التأمين المحصّل', 'تاريخ التحصيل', 'البند', 'المبلغ', 'الخزينة', 'تخص فترة', 'البيان', 'رقم المستند'],
+        rows: out2.map(function (r) { while (r.length < 23) r.push(''); return r; }) };
+    });
+  }
+  function num0(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+
   // ======================= تأمينات لسه مترجعتش =======================
   var DP = { b: '' };
   var DP_B = [['', 'الكل'], ['m1', 'أقل من شهر'], ['m3', '١ لـ ٣ شهور'], ['y1', '٣ لـ ١٢ شهر'], ['old', 'أكتر من سنة']];
@@ -1780,7 +1876,7 @@
   }
 
   window.OsoolScreens = {
-    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); else if (t === 'occ') renderOcc(); else if (t === 'prof') renderProf(); },
+    onTab: function (t) { if (t === 'coll') renderColl(); else if (t === 'avail') renderAvail(); else if (t === 'treas') renderTreas(); else if (t === 'owners') renderOwners(); else if (t === 'review') renderReview(); else if (t === 'cmp') renderCmp(); else if (t === 'ownerc') renderOwnerC(); else if (t === 'occ') renderOcc(); else if (t === 'aud') renderAud(); else if (t === 'prof') renderProf(); },
     openOwnerNew: function () { openOwnerForm('new', null); }, startTransfer: startTransfer, openSettings: openSettings, openContractEdit: openContractEdit, openStatement: openStatement,
     ensureTreasury: ensureTreasury, openBulk: openBulk, openDeposits: openDeposits, ensureSettings: ensureSettings, openEntry: openEntry, bankHtml: bankHtml, bindBank: bindBank, openUrl: openUrl,
     setColl: function (v) { C.view = v; }, setOw: function (v) { OW.view = v; }, collDays: function () { return C.days; }, owDays: function () { return OW.days; }
