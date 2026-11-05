@@ -70,6 +70,7 @@
     '.rp .sign{display:flex;gap:16px;margin:4px 0 12px}.rp .sign div{flex:1;border:1px dashed #cfcbbf;border-radius:8px;padding:10px 12px;color:#6b736f;height:52px}' +
     '.rp .foot{display:flex;justify-content:space-between;color:#8a918d;font-size:10px;margin-top:10px;border-top:1px solid #e4e2db;padding-top:6px}' +
     '.rp .muted{color:#8a918d}' +
+    '.rp td.dr{direction:rtl;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}' +
     '.rp td.mx,.rp th.mx{color:#c3b9a6!important;font-size:.85em;font-weight:400}' +
     '.rp .ut{display:inline-flex;unicode-bidi:isolate;font-variant-numeric:tabular-nums;vertical-align:bottom}.rp .us{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}' +
     '.rp .usP{width:11.5ch}.rp .usB{width:6ch}.rp .usU{width:5.5ch}' +
@@ -209,7 +210,9 @@
     var rows = [], due = 0, coll = 0, bad = 0, vac = 0, ten = 0;
     var chip = function (t) { var k = AUD_CHIP[t] || 'out'; return '<span class="chip ' + (k === 'r' ? '" style="background:#fbe9e7;color:#a3261b' : k) + '">' + esc(t) + '</span>'; };
     var per = function (m) { var mo = m.key ? L.monthLabel(m.key) : (m.rent ? 'من غير شهر' : 'تأمين'); return mo; };
-    var rng = function (m) { return m.ps && m.pe ? d2(m.ps) + ' ← ' + d2(m.pe) : m.pe ? 'لحد ' + d2(m.pe) : ''; };
+    // من ← إلى بيتقري من اليمين: الخلية عربي وكل تاريخ معزول (bdi)، عشان التاريخين ميتعكسوش
+    var span = function (a, b) { return '<bdi>' + d2(a) + '</bdi> ← <bdi>' + d2(b) + '</bdi>'; };
+    var rng = function (m) { return m.ps && m.pe ? span(m.ps, m.pe) : m.pe ? 'لحد <bdi>' + d2(m.pe) + '</bdi>' : ''; };
     var how = function (m) { return [m.cash, m.fx ? money(m.fx) + ' عملة' : ''].filter(Boolean).join(' · '); };
     var N = 14;
     var ut = function (u) { var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; }; return [u.project, ok(u.building) && 'عمارة ' + ok(u.building), ok(u.apt) && 'شقة ' + ok(u.apt)].filter(Boolean).join(' · '); };
@@ -223,16 +226,16 @@
         var mv = y.moves.filter(function (m) { return m.inRange || !m.rent; });
         var dep = y.depDue || y.dep ? 'تأمين ' + money(y.dep) + (y.depDue ? ' من ' + money(y.depDue) : '') : '';
         var head = '<td>' + el(r.name || '—', 170) + '<div class="muted" style="font-size:9px">' + esc(r.code) + (dep ? ' · ' + esc(dep) + (y.depShort ? ' <b class="r">ناقص</b>' : '') : '') + '</div></td>' +
-          '<td class="n">' + d2(r.start) + ' ← ' + d2(r.end) + '</td><td>' + esc(len) + '</td>' +
+          '<td class="dr">' + span(r.start, r.end) + '</td><td>' + esc(len) + '</td>' +
           '<td class="n">' + money(y.due) + '</td><td class="n g">' + money(y.coll) + '</td><td class="n ' + (y.diff > 1 ? 'r' : '') + '">' + (Math.abs(y.diff) > 1 ? money(y.diff) : '') + '</td><td>' + chip(y.state) + '</td>';
         var blank = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
-        var mvCells = function (m) { return '<td class="n">' + d2(m.date) + '</td><td>' + esc(m.rent ? (m.amt < 0 ? 'رد إيجار' : 'إيجار') : (m.amt < 0 ? 'رد تأمين' : 'تأمين')) + '</td><td class="n' + (m.amt < 0 ? ' r' : '') + '">' + money(m.amt) + '</td><td>' + el(how(m), 120) + '</td><td>' + esc(per(m)) + '</td><td class="n">' + rng(m) + '</td>'; };
+        var mvCells = function (m) { return '<td class="n">' + d2(m.date) + '</td><td>' + esc(m.rent ? (m.amt < 0 ? 'رد إيجار' : 'إيجار') : (m.amt < 0 ? 'رد تأمين' : 'تأمين')) + '</td><td class="n' + (m.amt < 0 ? ' r' : '') + '">' + money(m.amt) + '</td><td>' + el(how(m), 120) + '</td><td>' + esc(per(m)) + '</td><td class="dr">' + rng(m) + '</td>'; };
         if (!mv.length) rows.push('<tr><td></td>' + head + '<td colspan="6" class="muted">مفيش تحصيل يخص الفترة</td></tr>');
         mv.forEach(function (m, k) { rows.push('<tr><td></td>' + (k ? blank : head) + mvCells(m) + '</tr>'); });
       });
       if (rows.length > g0 + 1) { rows[g0] += rows[g0 + 1]; rows.splice(g0 + 1, 1); } // عنوان الوحدة ميتسابش لوحده آخر الصفحة
       if (x.loose.length) x.loose.forEach(function (m) {
-        rows.push('<tr><td></td><td colspan="7" class="a">حركة على كود الوحدة من غير كود مستأجر، محتاجة تتربط</td><td class="n">' + d2(m.date) + '</td><td>' + esc(m.cat) + '</td><td class="n">' + money(m.amt) + '</td><td>' + el(how(m), 120) + '</td><td>' + esc(per(m)) + '</td><td class="n">' + rng(m) + '</td></tr>');
+        rows.push('<tr><td></td><td colspan="7" class="a">حركة على كود الوحدة من غير كود مستأجر، محتاجة تتربط</td><td class="n">' + d2(m.date) + '</td><td>' + esc(m.cat) + '</td><td class="n">' + money(m.amt) + '</td><td>' + el(how(m), 120) + '</td><td>' + esc(per(m)) + '</td><td class="dr">' + rng(m) + '</td></tr>');
       });
     });
     var diff = Math.round(due - coll);
@@ -241,7 +244,7 @@
       '<div class="kpi"><div class="v ' + (diff > 1 ? 'r' : 'g') + '">' + money(diff) + '</div><div class="k">الفرق</div></div><div class="kpi"><div class="v ' + (bad ? 'r' : 'g') + '">' + bad + '</div><div class="k">وحدة فيها مشكلة</div></div></div>';
     var note = '<div class="muted avoid" style="font-size:9.5px;margin:-3px 0 6px">التحصيل محسوب على الفترة اللي يخصها (خانة الشهر، ومن وإلى في الخزينة)، وتاريخ الدفع الفعلي في عمود التاريخ. الإيجار والتأمين بس.</div>';
     return { title: o.title, sub: o.sub, top: band(o.title, o.sub) + kp + note,
-      thead: '<thead><tr><th></th><th>المستأجر</th><th class="n">السكن</th><th>المدة</th><th class="n">المستحق</th><th class="n">المحصّل</th><th class="n">الفرق</th><th>الحالة</th><th class="n">تاريخ التحصيل</th><th>البند</th><th class="n">المبلغ</th><th>الخزينة</th><th>يخص شهر</th><th class="n">الفترة</th></tr></thead>',
+      thead: '<thead><tr><th></th><th>المستأجر</th><th>السكن</th><th>المدة</th><th class="n">المستحق</th><th class="n">المحصّل</th><th class="n">الفرق</th><th>الحالة</th><th class="n">تاريخ التحصيل</th><th>البند</th><th class="n">المبلغ</th><th>الخزينة</th><th>يخص شهر</th><th>الفترة</th></tr></thead>',
       rows: rows.length ? rows : ['<tr><td colspan="' + N + '" class="muted">مفيش بيانات</td></tr>'], tfoot: '' };
   }
 
