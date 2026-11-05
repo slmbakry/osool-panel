@@ -1421,13 +1421,19 @@
     out.innerHTML = '<div class="sum"><div class="box"><div class="v">' + money(due) + '</div><div class="k">المستحق عن الفترة</div></div><div class="box"><div class="v okc">' + money(coll) + '</div><div class="k">المحصّل عنها</div></div>' +
       '<div class="box"><div class="v ' + (due - coll > 1 ? 'late' : '') + '">' + money(due - coll) + '</div><div class="k">الفرق</div></div><div class="box"><div class="v ' + (nBad ? 'late' : 'okc') + '">' + nBad + '</div><div class="k">وحدة فيها مشكلة · ' + nVac + ' فاضية</div></div></div>' +
       '<div class="r2" style="margin:-2px 0 8px">من ' + L.fmt(AUD.from) + ' لـ ' + L.fmt(AUD.to) + ' · التحصيل محسوب على الفترة اللي يخصها (خانة الشهر في الخزينة)، وتاريخ الدفع الفعلي جنبه. الإيجار والتأمين بس.</div>' +
-      exportBar('auExp') +
+      '<button class="btn" id="auPrint" style="width:100%;margin-bottom:8px">اطبع التقرير (' + rows.length + ' وحدة)</button>' + exportBar('auExp') +
       (rows.length ? rows.map(function (x) {
         return '<div class="card" style="padding:8px 10px"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><b>' + esc(App.unitTitle(x.unit) || x.unit.code) + '</b><div class="r2" style="font-size:11.5px">' + esc(x.unit.code) + ' · ' + esc(GRP_AR[x.group] || x.group || '') + (x.stays.length ? ' · ' + x.stays.length + ' مستأجر' : '') + '</div></div>' +
           (x.vacant ? '<span class="pill">فاضية</span>' : '<div class="nums" style="direction:ltr;text-align:left;font-size:12px"><b class="' + (x.diff > 1 ? 'late' : 'okc') + '">' + money(x.coll) + '</b><div class="r2">من ' + money(x.due) + '</div></div>') + '</div>' +
           x.stays.map(stayHtml).join('') +
           (x.loose.length ? '<div class="msg warn" style="margin-top:6px;font-size:12px">حركات على كود الوحدة من غير كود مستأجر (' + x.loose.length + '): محتاجة تتربط بالمستأجر.</div>' + mvTable(x.loose) : '') + '</div>';
       }).join('') : '<div class="empty">مفيش وحدات بالفلاتر دي.</div>');
+    var audRep = function () {
+      return R.auditReport({ list: S.audView || [], title: fileName('مطابقة التحصيل', AUD.grp ? grpName([AUD.grp]) : scopeName(), AUD.proj),
+        sub: 'من ' + L.fmt(AUD.from) + ' لـ ' + L.fmt(AUD.to) + ' · ' + ((AUD_ST.filter(function (x) { return x[0] === AUD.st; })[0] || ['', 'الكل'])[1]) + (AUD.q ? ' · بحث: ' + AUD.q : '') });
+    };
+    $('auPrint').onclick = function () { var b = this; b.disabled = true; b.textContent = 'بيجهز التقرير…';
+      R.openPrint(audRep(), fileName('مطابقة التحصيل', 'من ' + fdate(AUD.from), 'لـ ' + fdate(AUD.to))).then(function () { b.disabled = false; b.textContent = 'اطبع التقرير (' + rows.length + ' وحدة)'; }, function () { b.disabled = false; }); };
     bindExport('auExp', function () {
       var l = S.audView || [], out2 = [];
       l.forEach(function (x) {
@@ -1443,6 +1449,7 @@
         x.loose.forEach(function (m) { out2.push(u.concat(['من غير كود مستأجر', '', null, null, '', null, null, null, null, 'محتاج يتربط', null, null, m.date, m.cat, m.amt, audHow(m), m.key ? L.monthLabel(m.key) : '', m.ps || null, m.pe || null, m.note, m.doc])); });
       });
       return { name: fileName('مطابقة التحصيل', AUD.grp ? grpName([AUD.grp]) : scopeName(), AUD.proj, 'من ' + fdate(AUD.from), 'لـ ' + fdate(AUD.to)), title: fileName('مطابقة التحصيل', AUD.grp ? grpName([AUD.grp]) : scopeName(), AUD.proj),
+        rep: function () { return audRep(); },
         sheet: 'مطابقة التحصيل', sub: 'من ' + L.fmt(AUD.from) + ' لـ ' + L.fmt(AUD.to) + ' · المستحق ' + money(due) + ' · المحصّل ' + money(coll),
         kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'date', 'date', 'text', 'money', 'money', 'money', 'money', 'text', 'money', 'money', 'date', 'text', 'money', 'text', 'text', 'date', 'date', 'text', 'text'],
         headers: ['المكان', 'المشروع', 'الوحدة', 'كود', 'المستأجر', 'كود المستأجر', 'السكن من', 'السكن إلى', 'المدة', 'الإيجار', 'المستحق عن الفترة', 'المحصّل عنها', 'الفرق', 'الحالة', 'التأمين في العقد', 'التأمين المحصّل', 'تاريخ التحصيل', 'البند', 'المبلغ', 'الخزينة', 'تخص شهر', 'الفترة من', 'الفترة إلى', 'البيان', 'رقم المستند'],
@@ -1541,7 +1548,7 @@
     };
     $(id + 'P').onclick = function () {
       var d = getData(); if (!d.rows.length) { msg('مفيش بيانات.'); return; }
-      R.openPrint(R.tableReport(d), d.name).then(function () { msg('اختار Save as PDF من نافذة الطباعة.'); });
+      R.openPrint(d.rep ? d.rep() : R.tableReport(d), d.name).then(function () { msg('اختار Save as PDF من نافذة الطباعة.'); });
     };
     $(id + 'C').onclick = function () {
       var d = getData();

@@ -201,6 +201,50 @@
       tfoot: '' };
   }
 
+  // ---------- مطابقة التحصيل (لصاحب الشركة) ----------
+  // سطر عنوان لكل وحدة (بإجماليها)، وتحته كل مستأجر سكن في الفترة، وقدامه كل تحصيل إيجار أو تأمين يخص الفترة
+  // o: {list, from, to, title, sub}
+  var AUD_CHIP = { 'محصّل': 'ok', 'ناقص': 'r', 'مفيش تحصيل': 'r', 'زيادة': 'soon', 'مستحق برة الفترة': 'out', 'مفيش مستحق': 'out' };
+  function auditReport(o) {
+    var rows = [], due = 0, coll = 0, bad = 0, vac = 0, ten = 0;
+    var chip = function (t) { var k = AUD_CHIP[t] || 'out'; return '<span class="chip ' + (k === 'r' ? '" style="background:#fbe9e7;color:#a3261b' : k) + '">' + esc(t) + '</span>'; };
+    var per = function (m) { var mo = m.key ? L.monthLabel(m.key) : (m.rent ? 'من غير شهر' : 'تأمين'); return mo; };
+    var rng = function (m) { return m.ps && m.pe ? d2(m.ps) + ' ← ' + d2(m.pe) : m.pe ? 'لحد ' + d2(m.pe) : ''; };
+    var how = function (m) { return [m.cash, m.fx ? money(m.fx) + ' عملة' : ''].filter(Boolean).join(' · '); };
+    var N = 14;
+    var ut = function (u) { var ok = function (v) { v = String(v == null ? '' : v).trim(); return v && v !== '0' ? v : ''; }; return [u.project, ok(u.building) && 'عمارة ' + ok(u.building), ok(u.apt) && 'شقة ' + ok(u.apt)].filter(Boolean).join(' · '); };
+    o.list.forEach(function (x) {
+      due += x.due; coll += x.coll; if (x.bad) bad++; if (x.vacant) vac++; ten += x.stays.length;
+      var g0 = rows.length;
+      rows.push('<tr class="grp"><td colspan="' + N + '"><b>' + esc(ut(x.unit)) + '</b> · ' + esc(x.unit.code) +
+        (x.vacant ? ' · <span class="muted">فاضية طول الفترة</span>' : ' · ' + x.stays.length + ' مستأجر · المستحق ' + money(x.due) + ' · المحصّل ' + money(x.coll) + (Math.abs(x.diff) > 1 ? ' · <span class="' + (x.diff > 0 ? 'r' : 'a') + '">الفرق ' + money(x.diff) + '</span>' : '')) + '</td></tr>');
+      x.stays.forEach(function (y) {
+        var r = y.r, len = y.nightly ? y.nights + ' ليلة' : y.md ? (y.md.months ? y.md.months + ' شهر' : '') + (y.md.days ? (y.md.months ? ' و' : '') + y.md.days + ' يوم' : '') : '';
+        var mv = y.moves.filter(function (m) { return m.inRange || !m.rent; });
+        var dep = y.depDue || y.dep ? 'تأمين ' + money(y.dep) + (y.depDue ? ' من ' + money(y.depDue) : '') : '';
+        var head = '<td>' + el(r.name || '—', 170) + '<div class="muted" style="font-size:9px">' + esc(r.code) + (dep ? ' · ' + esc(dep) + (y.depShort ? ' <b class="r">ناقص</b>' : '') : '') + '</div></td>' +
+          '<td class="n">' + d2(r.start) + ' ← ' + d2(r.end) + '</td><td>' + esc(len) + '</td>' +
+          '<td class="n">' + money(y.due) + '</td><td class="n g">' + money(y.coll) + '</td><td class="n ' + (y.diff > 1 ? 'r' : '') + '">' + (Math.abs(y.diff) > 1 ? money(y.diff) : '') + '</td><td>' + chip(y.state) + '</td>';
+        var blank = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
+        var mvCells = function (m) { return '<td class="n">' + d2(m.date) + '</td><td>' + esc(m.rent ? (m.amt < 0 ? 'رد إيجار' : 'إيجار') : (m.amt < 0 ? 'رد تأمين' : 'تأمين')) + '</td><td class="n' + (m.amt < 0 ? ' r' : '') + '">' + money(m.amt) + '</td><td>' + el(how(m), 120) + '</td><td>' + esc(per(m)) + '</td><td class="n">' + rng(m) + '</td>'; };
+        if (!mv.length) rows.push('<tr><td></td>' + head + '<td colspan="6" class="muted">مفيش تحصيل يخص الفترة</td></tr>');
+        mv.forEach(function (m, k) { rows.push('<tr><td></td>' + (k ? blank : head) + mvCells(m) + '</tr>'); });
+      });
+      if (rows.length > g0 + 1) { rows[g0] += rows[g0 + 1]; rows.splice(g0 + 1, 1); } // عنوان الوحدة ميتسابش لوحده آخر الصفحة
+      if (x.loose.length) x.loose.forEach(function (m) {
+        rows.push('<tr><td></td><td colspan="7" class="a">حركة على كود الوحدة من غير كود مستأجر، محتاجة تتربط</td><td class="n">' + d2(m.date) + '</td><td>' + esc(m.cat) + '</td><td class="n">' + money(m.amt) + '</td><td>' + el(how(m), 120) + '</td><td>' + esc(per(m)) + '</td><td class="n">' + rng(m) + '</td></tr>');
+      });
+    });
+    var diff = Math.round(due - coll);
+    var kp = '<div class="kpis avoid"><div class="kpi"><div class="v">' + o.list.length + '</div><div class="k">وحدة · ' + vac + ' فاضية</div></div><div class="kpi"><div class="v">' + ten + '</div><div class="k">مستأجر سكن في الفترة</div></div>' +
+      '<div class="kpi"><div class="v">' + money(due) + '</div><div class="k">المستحق عن الفترة</div></div><div class="kpi"><div class="v g">' + money(coll) + '</div><div class="k">المحصّل عنها</div></div>' +
+      '<div class="kpi"><div class="v ' + (diff > 1 ? 'r' : 'g') + '">' + money(diff) + '</div><div class="k">الفرق</div></div><div class="kpi"><div class="v ' + (bad ? 'r' : 'g') + '">' + bad + '</div><div class="k">وحدة فيها مشكلة</div></div></div>';
+    var note = '<div class="muted avoid" style="font-size:9.5px;margin:-3px 0 6px">التحصيل محسوب على الفترة اللي يخصها (خانة الشهر، ومن وإلى في الخزينة)، وتاريخ الدفع الفعلي في عمود التاريخ. الإيجار والتأمين بس.</div>';
+    return { title: o.title, sub: o.sub, top: band(o.title, o.sub) + kp + note,
+      thead: '<thead><tr><th></th><th>المستأجر</th><th class="n">السكن</th><th>المدة</th><th class="n">المستحق</th><th class="n">المحصّل</th><th class="n">الفرق</th><th>الحالة</th><th class="n">تاريخ التحصيل</th><th>البند</th><th class="n">المبلغ</th><th>الخزينة</th><th>يخص شهر</th><th class="n">الفترة</th></tr></thead>',
+      rows: rows.length ? rows : ['<tr><td colspan="' + N + '" class="muted">مفيش بيانات</td></tr>'], tfoot: '' };
+  }
+
   // ---------- تقسيم الصفحات ----------
   // كل صفحة A4 بالعرض بعرض 1080 وارتفاع 763، وراس الجدول بيتكرر، ومفيش صف بيتقطع
   function paginate(rep) {
@@ -245,8 +289,10 @@
       var table = fd.getElementById('pgtable'), body = fd.getElementById('pgbody'), used = [];
       var limit = fd.querySelector('.pfoot').getBoundingClientRect().top - 6;
       while (i < rows.length) {
+        // السطر ممكن يبقى أكتر من صف (زي عنوان الوحدة مع أول مستأجر) فبيتنقل كله مع بعض
+        var before = body.children.length;
         body.insertAdjacentHTML('beforeend', rows[i]);
-        if (table.getBoundingClientRect().bottom > limit && used.length) { body.lastElementChild.remove(); break; }
+        if (table.getBoundingClientRect().bottom > limit && used.length) { while (body.children.length > before) body.lastElementChild.remove(); break; }
         used.push(rows[i]); i++;
       }
       pages.push({ top: top, rows: used.join('') });
@@ -457,6 +503,6 @@
       tfoot: '<tfoot><tr><td></td><td>الإجمالي</td><td class="n">' + money(st.due) + '</td><td class="n">' + money(st.paid) + '</td><td class="n">' + money(bal) + '</td></tr></tfoot>' };
   }
 
-  window.OsoolReports = { BRAND: BRAND, unitTag: unitTag, unitClass: unitClass, statementReport: statementReport, availHtml: availHtml, dailyHtml: dailyHtml, paginate: paginate, toPdf: toPdf, printHtml: printHtml,
+  window.OsoolReports = { BRAND: BRAND, auditReport: auditReport, unitTag: unitTag, unitClass: unitClass, statementReport: statementReport, availHtml: availHtml, dailyHtml: dailyHtml, paginate: paginate, toPdf: toPdf, printHtml: printHtml,
     tableReport: tableReport, openPrint: openPrint, printDoc: printDoc, xlsxBlob: xlsxBlob, downloadXlsx: downloadXlsx, waUrl: waUrl };
 })();
