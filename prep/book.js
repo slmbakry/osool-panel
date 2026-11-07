@@ -89,6 +89,27 @@
   // تغييرات MBM وكشف المستحقات في ملف منفصل عن ملف المطور
   function extrasBook(ExcelJS, R, src) { return addExtras(new ExcelJS.Workbook(), R, src); }
 
+  // الوحدات اللي OUT ومفيش سداد بعد 1/7: قايمة إلغاء للمطور، ومعاها ملخص سطور المنتهي (اتفاق 7-11)
+  function cancelBook(ExcelJS, R, src) {
+    var wb = new ExcelJS.Workbook();
+    var mk = function (name, cols, rows) {
+      var ws = wb.addWorksheet(name, { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] });
+      ws.columns = cols.map(function (c) { return { header: c[0], width: c[1] }; });
+      var h = ws.getRow(1); h.font = { bold: true, color: { argb: 'FFFFFFFF' } }; h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F1A14' } }; h.height = 22;
+      rows.forEach(function (r) { var row = ws.addRow(r); row.eachCell(function (c) { if (c.value instanceof Date) c.numFmt = 'dd/mm/yyyy'; else if (typeof c.value === 'number') c.numFmt = '#,##0'; }); });
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+      return ws;
+    };
+    var d = function (v) { return v ? L.serialToDate(v) : null; };
+    mk('وحدات للإلغاء', [['كود الوحدة', 14], ['المشروع', 14], ['الوحدة', 30], ['المالك', 32], ['آخر سداد', 13], ['محسوب بعد 1/7', 15], ['السبب', 60], ['ملف أصول', 16]],
+      R.cancel.map(function (c) { return [c.code, c.project, c.unit, c.owner, d(c.paid), c.billedAfter || null, c.why, src]; }));
+    mk('عقود منتهية', [['كود الوحدة', 14], ['الوحدة', 30], ['المالك', 32], ['بداية العقد', 13], ['نهاية العقد', 13], ['مسدد حتى', 13], ['الحالة', 14], ['ملاحظة', 60]],
+      R.newRows.map(function (n) { var v = n.values; return [n.code, v['اسم الوحدة'] || v['الوحدة'] || '', v['اسم المالك'] || v['المالك'] || '', d(v['بداية العقد']), d(v['نهاية العقد']), d(v['مسدد حتى']), String(v['الحالة'] || '').split(' /')[0], n.why]; }));
+    var rv = R.changes.filter(function (c) { return c.kind === 'review'; });
+    if (rv.length) mk('محتاج قرار', [['كود الوحدة', 14], ['السبب', 90]], rv.map(function (c) { return [c.code, c.why]; }));
+    return wb;
+  }
+
   // runs: [{ src, R }]
   function reviewBook(ExcelJS, runs) {
     var wb = new ExcelJS.Workbook();
@@ -122,6 +143,6 @@
     return wb;
   }
 
-  var api = { applyDev: applyDev, extrasBook: extrasBook, reviewBook: reviewBook, cellVal: cellVal, shown: shown, SHEET: SHEET, SKIP: SKIP, DATE_COLS: DATE_COLS };
+  var api = { applyDev: applyDev, extrasBook: extrasBook, cancelBook: cancelBook, reviewBook: reviewBook, cellVal: cellVal, shown: shown, SHEET: SHEET, SKIP: SKIP, DATE_COLS: DATE_COLS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.OsoolBook = api;
 })(this);

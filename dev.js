@@ -23,8 +23,8 @@
   }
   function libs() {
     var p = Promise.resolve();
-    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261105i'); });
-    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261105i'); });
+    if (!window.OsoolPrep) p = p.then(function () { return script('prep/leases.js?v=20261107a'); });
+    if (!window.OsoolBook) p = p.then(function () { return script('prep/book.js?v=20261107a'); });
     return p;
   }
   function loadExcelJS() { return window.ExcelJS ? Promise.resolve() : script('vendor/exceljs.min.js'); }
@@ -74,6 +74,8 @@
   function shown(col, v) { if (v === null || v === undefined || v === '') return '—'; if (DATE_COLS.indexOf(col) !== -1 && typeof v === 'number' && v > 20000) return L.fmt(L.serialToDate(v)); return typeof v === 'number' ? v.toLocaleString('en-US') : String(v); }
   function template() { return fetch('prep/template.xlsx', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error('شكل ملف المطور متحملش.'); return r.arrayBuffer(); }); }
   function buildFile() { return template().then(readDev).then(function (d) { OsoolBook.applyDev(d.wb, D.res, D.scopeName, { fresh: true, pure: true }); return d.wb.xlsx.writeBuffer(); }); }
+  function buildFileOut() { return template().then(readDev).then(function (d) { OsoolBook.applyDev(d.wb, D.resOut, D.scopeName, { fresh: true, pure: true }); return d.wb.xlsx.writeBuffer(); }); }
+  function buildCancel() { return loadExcelJS().then(function () { return OsoolBook.cancelBook(ExcelJS, D.resOut, D.scopeName).xlsx.writeBuffer(); }); }
   function buildExtras() { return loadExcelJS().then(function () { return OsoolBook.extrasBook(ExcelJS, D.res, D.scopeName).xlsx.writeBuffer(); }); }
   function buildReview() { return loadExcelJS().then(function () { return OsoolBook.reviewBook(ExcelJS, [{ src: D.scopeName, R: D.res }]).xlsx.writeBuffer(); }); }
   function download(buf, name) {
@@ -94,9 +96,12 @@
       '<section id="dv-rev" class="hide"><div id="dvOut"></div></section>' +
       '<section id="dv-dev" class="hide"><div class="card"><h3 style="margin:0 0 6px">التصدير</h3><div class="r2" style="margin-bottom:6px">الوحدات اللي تدخل الملفات (حسب خانة التسويات):</div><div class="tgs" id="dvKinds"></div></div><div id="dvSum"></div><div class="card">' +
       '<div class="r2">ملف المطور بنفس شكله وشيتاته بالظبط: سطر لكل عقد، والأشهر الملغاة، والتعليمات. والتغييرات وكشف المستحقات في ملف لوحده، وملف المراجعة ليك انت بس.</div>' +
-      '<button class="btn primary" id="dvSave" style="width:100%;margin-top:8px">حمّل ملف المطور</button>' +
+      '<button class="btn primary" id="dvSave" style="width:100%;margin-top:8px">حمّل ملف المطور: الساري</button>' +
       '<button class="btn ghost" id="dvSaveExt" style="width:100%;margin-top:8px">حمّل ملف التغييرات وكشف المستحقات</button>' +
-      '<button class="btn ghost" id="dvSaveRev" style="width:100%;margin-top:8px">حمّل ملف مراجعة العقود والمستحقات</button><div id="dvMsg"></div></div></section>';
+      '<button class="btn ghost" id="dvSaveRev" style="width:100%;margin-top:8px">حمّل ملف مراجعة العقود والمستحقات</button><div id="dvMsg"></div></div>' +
+      '<div class="card"><h3 style="margin:0 0 6px">الوحدات اللي خرجت (OUT)</h3><div class="r2" id="dvOutSum"></div>' +
+      '<button class="btn primary" id="dvSaveOut" style="width:100%;margin-top:8px">حمّل ملف المطور: المنتهي</button>' +
+      '<button class="btn ghost" id="dvSaveCan" style="width:100%;margin-top:8px">حمّل قايمة الإلغاء والعقود المنتهية</button><div id="dvMsgOut"></div></div></section>';
     $('dvTabs').onclick = function (e) {
       var b = e.target.closest('button[data-t]'); if (!b) return; D.tab = b.dataset.t;
       $('dvTabs').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
@@ -104,17 +109,20 @@
     };
     $('dvRe').onclick = function () { analyze(); };
     var qt; $('dvQ').oninput = function () { clearTimeout(qt); qt = setTimeout(drawFind, 150); };
-    $('dvSave').onclick = function () { save(this, buildFile, 'عقود الملاك للسيستم', 'لو هتكمّل على ملف أصول تاني، افتحه وطلّع ملفه من نفس المكان.'); };
+    $('dvSaveOut').onclick = function () { save(this, buildFileOut, 'عقود الملاك للسيستم - المنتهي', 'نفس شكل ملف المطور، للوحدات اللي OUT بس. كل عقد خلص في آخر يوم مدفوع.', 'dvMsgOut'); };
+    $('dvSaveCan').onclick = function () { save(this, buildCancel, 'وحدات للإلغاء', 'الوحدات اللي OUT ومفيش سداد بعد 1/7: تتلغي من السيستم.', 'dvMsgOut'); };
+    $('dvSave').onclick = function () { save(this, buildFile, 'عقود الملاك للسيستم - الساري', 'لو هتكمّل على ملف أصول تاني، افتحه وطلّع ملفه من نفس المكان.'); };
     $('dvSaveExt').onclick = function () { save(this, buildExtras, 'تغييرات وكشف مستحقات الملاك', 'ده جنب ملف المطور، للتوضيح.'); };
     $('dvSaveRev').onclick = function () { save(this, buildReview, 'مراجعة العقود والمستحقات', 'ده ليك انت بس، مش للمطور.'); };
   }
-  function save(btn, build, title, tip) {
-    btn.disabled = true; $('dvMsg').innerHTML = '<div class="msg"><span class="spin"></span>بيجهز الملف…</div>';
+  function save(btn, build, title, tip, box) {
+    var mb = $(box || 'dvMsg');
+    btn.disabled = true; mb.innerHTML = '<div class="msg"><span class="spin"></span>بيجهز الملف…</div>';
     build().then(function (buf) {
       var name = title + ' - ' + D.scopeName + (D.skip.length ? ' - من غير ' + D.skip.join(' و') : '') + ' - ' + stamp() + '.xlsx';
       download(buf, name); btn.disabled = false;
-      $('dvMsg').innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. ' + tip + '</div>';
-    }).catch(function (e) { btn.disabled = false; $('dvMsg').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
+      mb.innerHTML = '<div class="msg ok">اتحمّل: ' + esc(name) + '. ' + tip + '</div>';
+    }).catch(function (e) { btn.disabled = false; mb.innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });
   }
   // كل بند زي الشات: الكود والمالك والوحدة، وزراير روح للسطر وجدّد وعدّل
   function card(code, badge, cls, body, mkey) {
@@ -152,7 +160,10 @@
     var nRev = R.changes.filter(function (x) { return x.kind === 'review'; }).length, nNote = R.changes.filter(function (x) { return x.kind === 'note' || x.kind === 'fix'; }).length;
     var box = function (v, k, red) { return '<div class="box"><div class="v"' + (red ? ' style="color:var(--err)"' : '') + '>' + v + '</div><div class="k">' + k + '</div></div>'; };
     $('dvSum').innerHTML = '<div class="sum">' + box(R.scope, 'وحدة في نطاق الملف') + box(R.newRows.length, 'عقد (منهم ' + c.renewals + ' تجديد بعد 1/7)') +
-      box(nRev, 'محتاج قرار', 1) + box(bad.length, 'وحدة عليها ناقص', 1) + box(nNote, 'ملاحظة') + box(c.outSkipped, 'وحدة خارج التشغيل اتعدّت') + '</div>';
+      box(nRev, 'محتاج قرار', 1) + box(bad.length, 'وحدة عليها ناقص', 1) + box(nNote, 'ملاحظة') + box(c.outSkipped, 'وحدة OUT (في ملف المنتهي)') + '</div>';
+    var O = D.resOut, oc = {}; if (O) O.newRows.forEach(function (n) { oc[n.code] = 1; });
+    var oRev = O ? O.changes.filter(function (x) { return x.kind === 'review'; }).length : 0;
+    if ($('dvOutSum')) $('dvOutSum').innerHTML = O ? '<b>' + Object.keys(oc).length + '</b> وحدة ليها سداد بعد 1/7: عقد منتهي في آخر يوم مدفوع (' + O.newRows.length + ' سطر). و<b>' + O.cancel.length + '</b> وحدة مفيش سداد بعد 1/7: للإلغاء.' + (oRev ? ' <b style="color:var(--err)">' + oRev + ' محتاج قرار</b> (محسوب عليها شهور بعد 1/7 ومفيش سداد).' : '') : '';
   }
   // العقود: بحث ← العقد الحالي ومدته وقيمته ومسدد حتى
   function drawFind() {
@@ -267,6 +278,8 @@
     return (have && have.owner ? Promise.resolve(have) : readBook(say)).then(function (data) {
       D.data = data; say('بيحلل…');
       D.res = OsoolPrep.reconcile({ devRows: [], owner: D.data.owner, treasury: D.data.treasury, settings: Object.assign({}, D.settings, { devSkip: D.skip }) });
+      // ملف المنتهي: الوحدات اللي OUT بس (اتفاق 7-11)
+      D.resOut = OsoolPrep.reconcile({ devRows: [], owner: D.data.owner, treasury: D.data.treasury, settings: Object.assign({}, D.settings, { devSkip: D.skip }), outOnly: true });
       drawKinds();
       $('dvStatus').innerHTML = ''; $('dvRe').disabled = false; draw();
     }).catch(function (e) { $('dvRe').disabled = false; $('dvStatus').innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; });

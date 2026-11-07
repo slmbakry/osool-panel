@@ -143,17 +143,20 @@
     CTX.T = treasuryByUnit(o.treasury || { cols: {} }); CTX.OV = {}; CTX.today = today;
     var paid = F.ownerPaid(o.treasury);
     var ours = ourContracts(o.owner, o.settings, paid);
+    // ملف المنتهي (اتفاق 7-11): الوحدات اللي OUT بس
+    if (o.outOnly) ours = ours.filter(function (u) { return u.out; });
     var dev = o.devRows, byU = {};
     // الكود بيتقارن من غير شَرطة أو مسافة: 60005-318 هي نفسها 60005318
     var ck = function (x) { return str(x).replace(/[\s\-_\/]/g, '').toUpperCase(); };
     dev.forEach(function (r) { var k = ck(r[C.code]); (byU[k] = byU[k] || []).push(r); });
-    var R = R0.R = { changes: [], newRows: [], skipped: [], devOnly: [], segs: [], counts: { matched: 0, fixed: 0, flagged: 0, review: 0, renewals: 0, added: 0, outSkipped: 0 } };
+    var R = R0.R = { outOnly: !!o.outOnly, cancel: [], changes: [], newRows: [], skipped: [], devOnly: [], segs: [], counts: { matched: 0, fixed: 0, flagged: 0, review: 0, renewals: 0, added: 0, outSkipped: 0 } };
     var fix = function (r, col, oldV, newV, why, kind) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: col, old: oldV, val: newV, why: why, kind: kind || 'fix' }); };
     // الإيجار والزيادات: منغيرش القيمة، بنعلّم الخانة ونكتب اقتراح الشيت جنبها للمراجعة
     var flag = function (r, col, oldV, newV, why) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: col, old: oldV, val: newV, why: why, kind: 'flag' }); };
     var review = function (r, why) { R.changes.push({ row: r._row, code: str(r[C.code]), no: str(r[C.no]), col: '', old: '', val: '', why: why, kind: 'review' }); };
 
     ours.forEach(function (u) {
+      if (o.outOnly) { outUnit(u); return; }
       var rows = (byU[ck(u.code)] || []).slice().sort(function (a, b) { return day(a[C.start]) - day(b[C.start]); });
       var live = rows.filter(function (r) { return str(r[C.status]) !== 'مسودة / Draft'; });
       var sg = segments(u, today);
@@ -263,6 +266,36 @@
         var note = 'حسب الخزينة: مسدد حتى ' + fmtS(u.paid) + ' (MBM)';
         if (str(r[C.notes]).indexOf('حسب الخزينة') === -1) fix(r, C.notes, r[C.notes], (str(r[C.notes]) ? str(r[C.notes]) + ' | ' : '') + note, 'مسدد حتى عند المطور ' + fmtS(dp) + ' أبعد من الخزينة، ومينفعش نرجّعه', 'note');
       } else if (!u.paid && !dp) review(r, 'مفيش سداد ايجار للوحدة في الخزينة، ومسدد حتى فاضي');
+    }
+    // وحدة OUT (اتفاق 7-11):
+    //  - مفيش سداد بعد 1/7/2026: إلغاء من السيستم (مش بتطلع في ملف المطور، بتطلع في قايمة الإلغاء)
+    //  - غير كده: نفس منطق العقود، بس آخر عقد بيخلص في آخر يوم مدفوع فعلًا، فالمسدد حتى = النهاية دايمًا، والحالة منتهي
+    function outUnit(u) {
+      var pe = u.paid ? day(u.paid) : 0;
+      var billedAfter = 0; (u.mk || []).forEach(function (k) { if (u.has(k) && L.dateToSerial(F.keyToDate(k)) >= CUTOFF && u.val(k)) billedAfter += u.val(k); });
+      if (!pe || pe < CUTOFF) {
+        R.cancel.push({ code: u.code, project: u.project, unit: u.unitTitle, owner: u.owner, paid: pe || null, billedAfter: Math.round(billedAfter),
+          why: (pe ? 'آخر سداد لحد ' + fmtS(pe) + '، قبل 1/7/2026' : 'مفيش أي سداد في الخزينة') + (billedAfter ? '. بس الشيت حاسب عليها ' + money(billedAfter) + ' بعد 1/7، راجعها' : '') });
+        if (billedAfter) R.changes.push({ row: null, code: u.code, no: '', col: '', old: '', val: '', kind: 'review', why: 'وحدة OUT طالعة إلغاء (آخر سداد ' + (pe ? fmtS(pe) : 'مفيش') + ')، بس الشيت حاسب عليها ' + money(billedAfter) + ' بعد 1/7. لو اتدفعت سجّل السداد، ولو لأ امسح الشهور' });
+        return;
+      }
+      var sg = segments(u, today), list = sg ? [sg.prev, sg.cur].concat(sg.next || []).filter(Boolean) : [];
+      list = list.filter(function (x) { return x.s <= pe; });
+      if (!list.length) {
+        // من أول سنة العقد اللي فيها آخر يوم مدفوع
+        var a = u.end ? u.end + 1 : u.start, ad = a ? L.serialToDate(a) : null;
+        if (ad) { while (L.dateToSerial(ad) > pe) ad = L.addMonths(ad, -12); }
+        var s0 = ad ? L.dateToSerial(ad) : u.start; if (u.start && s0 < u.start) s0 = u.start;
+        list = [{ s: s0, e: pe, why: 'آخر سنة في العقد لحد آخر سداد' }];
+      }
+      list.forEach(function (x, i) {
+        var lastOne = i === list.length - 1, en = lastOne ? pe : Math.min(x.e, pe);
+        var nr = newRow(u, null, x.s, en, today, 'وحدة OUT: ' + (lastOne ? 'العقد خلص في آخر يوم مدفوع (' + fmtS(pe) + ')، والمسدد حتى = النهاية' : (x.why || 'عقد قبل التجديد')), lastOne ? ST.ended : ST.renewed, x.rs, x.unsigned);
+        nr.values[C.paid] = en; if (lastOne) nr.values[C.endedOn] = en;
+        nr.values[C.notes] = 'وحدة خرجت من الإدارة (OUT)، العقد خلص في آخر يوم مدفوع · MBM';
+        R.newRows.push(nr); R.counts.added++;
+        addGaps(u, '', x.s, en);
+      });
     }
     function addGaps(u, no, st, en) {
       var g = gapsFor(u, st, en, today);
